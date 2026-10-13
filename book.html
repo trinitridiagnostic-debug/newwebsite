@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Book a Test · Trinetri Diagnostics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div class="util"><div class="wrap">
+  <span>Mon–Sat 7:00 am – 10:00 pm · Sun 7:00 am – 2:00 pm</span>
+  <span>Call / WhatsApp: +91 91873 15972</span>
+</div></div>
+
+<header class="top"><div class="wrap"><div class="bar">
+  <a class="brand" href="index.html" aria-label="Trinetri Diagnostics home">
+    <img src="icon.png" alt="" width="46" height="44">
+    <span class="wm"><b>Trinetri</b><small>Diagnostics</small></span>
+  </a>
+  <button id="mb" class="round" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <nav class="main" id="nav" aria-label="Main">
+    <a class="l home-l" href="index.html">Home</a>
+    <a class="l" href="tests.html">Tests</a>
+    <a class="l" href="packages.html">Packages</a>
+    <a class="l" href="about.html">About</a>
+    <a class="l" href="faq.html">FAQ</a>
+    <a class="l" href="contact.html">Contact</a>
+    <a class="btn" href="book.html">Book a test <span class="badge cnt">0</span></a>
+  </nav>
+</div></div></header>
+<main>
+<div class="phead"><div class="wrap">
+  <p class="crumbs"><a href="index.html">Home</a> / Book</p>
+  <h1>Book a test</h1>
+  <p>Add tests, choose a time slot, then pay online or send your request to the lab on WhatsApp.</p>
+</div></div>
+<!-- Booking -->
+<section id="book" class="bk" aria-labelledby="h-book">
+  <div class="wrap"><div class="book">
+    <div>
+      <p class="eyebrow">Home sample collection</p>
+      <h2 id="h-book" style="margin-top:14px">How it works</h2>
+      <p class="muted" style="margin-top:14px">Fill in the details and tap Send request on WhatsApp. Your request opens in WhatsApp, ready to send to the lab. We will call to confirm the time.</p>
+      <div class="steps">
+        <div><b>1</b><p>Add tests from the Tests page or pick a package, then choose a day and time.</p></div>
+        <div><b>2</b><p>Our phlebotomist arrives at your door with sterile, single-use kits.</p></div>
+        <div><b>3</b><p>Your report arrives on WhatsApp or email, signed by the pathologist.</p></div>
+      </div>
+    </div>
+
+    <form class="card" id="bk" novalidate>
+      <div class="f"><label for="nm">Patient name</label><input id="nm" autocomplete="name" placeholder="Full name"></div>
+      <div class="f"><label for="ph">Mobile number</label><input id="ph" type="tel" inputmode="tel" autocomplete="tel" placeholder="10-digit number"></div>
+      <div class="f full"><label for="ts">Package</label>
+        <select id="ts"><option value="">No package (individual tests)</option><option>Advance Health Package</option><option>Lipid Profile</option><option>Wellness Check</option><option>Full Body Check</option><option>Diabetes Care</option></select></div>
+      <div class="f full"><label>Selected tests</label><div class="chips" id="chips" aria-live="polite"></div><div class="tot" id="tot"></div><a class="more-l" href="tests.html">Browse and add more tests</a></div>
+      <div class="f"><label for="dt">Preferred date</label><input id="dt" type="date"></div>
+      <div class="f"><label for="sl">Time slot</label>
+        <select id="sl"><option>7:00 – 9:00 am</option><option>9:00 – 11:00 am</option><option>11:00 am – 1:00 pm</option><option>4:00 – 6:00 pm</option></select></div>
+      <div class="f full"><label for="ad">Address and notes</label><textarea id="ad" placeholder="House number, street, landmark, and any test not listed above."></textarea></div>
+      <button class="btn pay" id="pay" type="button" style="grid-column:1/-1">Pay online</button>
+      <div class="paynote" id="paynote" style="grid-column:1/-1"></div>
+      <a class="btn ghost" id="wa" href="https://wa.me/919187315972" target="_blank" rel="noopener" style="grid-column:1/-1">Send request on WhatsApp (pay at collection)</a>
+      <div class="status" id="st" role="status"></div>
+      <label id="ol" hidden style="grid-column:1/-1;margin-bottom:-8px">Message that will open in WhatsApp</label>
+      <div class="out" id="out" hidden></div>
+      <button class="btn ghost" id="cp" type="button" hidden style="grid-column:1/-1">Copy message</button>
+    </form>
+  </div></div>
+</section>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="fg">
+      <div>
+        <img class="flogo" src="logo.png" alt="Trinetri Diagnostics. Accurate results, brisk dispatch." width="82" height="112">
+      </div>
+      <div><h3>Patients</h3><a href="book.html">Book home collection</a><a href="packages.html">Health packages</a><a href="faq.html">How to prepare</a><a href="faq.html">FAQs</a></div>
+      <div><h3>The lab</h3><a href="tests.html">Popular tests</a><a href="about.html">Why Trinetri</a><a href="contact.html">Contact</a></div>
+      <div><h3>Reach us</h3><p>+91 91873 15972</p><p>K C Rani Road, 3rd Cross Rd, Betageri, Karnataka 582101</p><p>Mon – Sat 7:00 am – 10:00 pm</p><p>Sun 7:00 am – 2:00 pm</p></div>
+    </div>
+    <nav class="pol" aria-label="Policies"><a href="terms.html">Terms and Conditions</a><a href="privacy.html">Privacy Policy</a><a href="shipping.html">Shipping Policy</a><a href="refunds.html">Cancellation and Refunds</a><a href="contact.html">Contact Us</a></nav>
+    <div class="legal"><span>© 2026 Trinetri Diagnostics · Accurate Results, Brisk Dispatch</span><span>Test results support a doctor's assessment and are not a diagnosis on their own.</span></div>
+  </div>
+</footer>
+<script src="data.js"></script>
+<script src="pay-config.js"></script>
+<script src="app.js"></script>
+</body></html>
