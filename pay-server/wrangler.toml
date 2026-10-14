@@ -1,0 +1,8 @@
+name = "trinetri-pay"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+# The website address allowed to call this server (origin only: no path, no trailing slash).
+# Add your own domain later, comma separated, e.g. "https://trinitridiagnostic-debug.github.io,https://www.trinetridiagnostics.com"
+ALLOWED_ORIGIN = "https://trinitridiagnostic-debug.github.io"

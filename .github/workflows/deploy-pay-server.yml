@@ -1,0 +1,48 @@
+name: Deploy payment server
+
+# Deploys pay-server/ to Cloudflare Workers. Runs when the server files change, or by hand
+# from the Actions tab ("Run workflow"). Needs 4 repository secrets (see pay-server/SETUP.md).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['pay-server/**', '.github/workflows/deploy-pay-server.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets are set
+        env:
+          A: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          B: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          C: ${{ secrets.RAZORPAY_KEY_ID }}
+          D: ${{ secrets.RAZORPAY_KEY_SECRET }}
+        run: |
+          missing=""
+          [ -z "$A" ] && missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -z "$B" ] && missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -z "$C" ] && missing="$missing RAZORPAY_KEY_ID"
+          [ -z "$D" ] && missing="$missing RAZORPAY_KEY_SECRET"
+          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing (Settings > Secrets and variables > Actions)"; exit 1; fi
+
+      - name: Run server checks
+        run: node pay-server/test.mjs
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: pay-server
+          secrets: |
+            RAZORPAY_KEY_ID
+            RAZORPAY_KEY_SECRET
+        env:
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
