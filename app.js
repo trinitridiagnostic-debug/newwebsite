@@ -47,10 +47,26 @@
   }
 
   /* ---------- catalogue data (data.js: name, code, MRP from the price list) ---------- */
-  var RAW=window.RAW||[];
+  var CATL=window.CATALOG||{};
+  var HID={};(CATL.hiddenTests||[]).forEach(function(h){HID[h]=1;});
+  var RAW=(window.RAW||[]).filter(function(r){return !HID[r[0]+':'+r[1]];}).concat((CATL.extraTests||[]).map(function(t){return ['T',t.k,t.n,t.m];}));
   var CATN={P:'Package',F:'Profile',T:'Test',O:'Out-lab test'};
   var CAT=RAW.map(function(r){return {id:r[0]+':'+r[1],c:r[0],k:r[1],n:r[2],m:r[3],l:r[2].toLowerCase(),s:(r[2]+' '+r[1]).toLowerCase()};});
   var BY={};CAT.forEach(function(it){BY[it.id]=it;});
+  /* ---------- packages come from catalog.js (edited in admin.html) ---------- */
+  var PKS=CATL.packages||[];
+  function pkCard(p){
+    var z=p.img?'<button type="button" class="zoom" data-full="'+esc(p.imgFull||p.img)+'" aria-label="View the '+esc(p.name)+' poster full size"><img src="'+esc(p.img)+'" alt="'+esc(p.name)+' poster: '+esc(inr(p.price))+(p.mrp?' instead of '+esc(inr(p.mrp)):'')+'" width="720" height="720" loading="lazy"></button>':'';
+    return '<article class="card pkc pkc-feat" aria-label="'+esc(p.name)+'"><div class="pkc-body"><span class="tag" style="color:var(--teal)">'+esc(p.tag||'Offer package')+'</span><h3>'+esc(p.name)+'</h3>'+
+      '<div class="price">'+(p.mrp?'<s>'+inr(p.mrp)+'</s>':'')+'<b>'+inr(p.price)+'</b><span>'+esc(p.label||'Offer price')+'</span></div>'+
+      '<p class="free">'+esc(p.note||'Free home collection')+'</p><a class="btn" href="book.html" data-pick="'+esc(p.name)+'">Book this</a></div>'+z+'</article>';
+  }
+  $$('#pkrail,.pkfg').forEach(function(box){box.innerHTML=PKS.map(pkCard).join('');});
+  ['#ts','#hq-pk'].forEach(function(q){
+    var s0=$(q);if(!s0)return;
+    $$('option',s0).slice(1).forEach(function(o){o.remove();});
+    PKS.forEach(function(p){var o=document.createElement('option');o.textContent=p.name;s0.appendChild(o);});
+  });
   function esc(s){return String(s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
   function inr(n){try{return '\u20B9'+Number(n).toLocaleString('en-IN');}catch(e){return '\u20B9'+n;}}
   function jump(id){var t=$(id);if(t&&t.scrollIntoView)t.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});}
@@ -234,7 +250,7 @@
 
   /* ---------- booking via WhatsApp ---------- */
   var WA='919187315972';
-  var PKGP={'Advance Health Package':'offer price Rs 1,199, free home collection','Lipid Profile':'offer price Rs 250, free home collection','Double Marker Test':'Rs 2,300, free home collection','NT-proBNP':'Rs 1,800, free home collection','Trinetri Care Package':'offer price Rs 799, free home collection','Advance+ Health Package':'offer price Rs 1,499, free home collection','Basic Health Package':'offer price Rs 499, free home collection','HbA1c Test':'offer price Rs 280 (1 month offer), free home collection','Comprehensive Health Package':'offer price Rs 3,199, free home collection','Cancer Screening Male':'special price Rs 657, free home collection','Diabetic Health Package':'offer price Rs 1,199, free home collection'};
+  var PKGP={};PKS.forEach(function(p){PKGP[p.name]='offer price Rs '+Number(p.price).toLocaleString('en-IN')+', free home collection';});
   var bk=$('#bk'),d=$('#dt'),out=$('#out'),st=$('#st'),wa=$('#wa'),cp=$('#cp'),ol=$('#ol'),lastMsg='';
   function say(m,c){st.style.color=c;st.textContent=m;}
   function build(){

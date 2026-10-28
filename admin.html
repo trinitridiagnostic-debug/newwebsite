@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin | Trinetri Diagnostics</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  body{background:var(--bg,#f4faf8)}
+  .ad{max-width:1040px;margin:0 auto;padding:20px 16px 120px}
+  .ad h1{font-size:1.6rem;margin:6px 0 4px}
+  .ad h2{font-size:1.2rem;margin:0 0 10px}
+  .ad .card{padding:20px;margin:16px 0}
+  .ad form{padding:0;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ad .full{grid-column:1/-1}
+  .ad input,.ad select,.ad textarea{width:100%}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .help{font-size:.9rem;color:var(--muted,#5a6b6b)}
+  .help ol{margin:8px 0 0 18px;padding:0}
+  .list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .it{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line,#dde6e4);border-radius:12px;padding:10px 12px;background:#fff}
+  .it img{width:44px;height:44px;object-fit:cover;border-radius:8px;flex:none}
+  .it .m{flex:1;min-width:0}
+  .it .m b{display:block;overflow-wrap:anywhere}
+  .it .m small{color:var(--muted,#5a6b6b)}
+  .btn.sm{padding:8px 14px;font-size:.9rem}
+  .btn.del{background:#fff;color:#b3261e;border:1.5px solid #b3261e}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line,#dde6e4);padding:12px 16px;z-index:50;box-shadow:0 -6px 20px rgba(0,0,0,.06)}
+  .bar .in{max-width:1040px;margin:0 auto;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .msg{font-weight:600}
+  .msg.ok{color:#1b7a46}.msg.err{color:#b3261e}.msg.info{color:var(--teal,#3f7b82)}
+  .pill{display:inline-block;background:#fff3cd;color:#5c4a00;border-radius:99px;padding:3px 10px;font-size:.8rem;font-weight:600}
+  #pv{max-width:160px;border-radius:10px;border:1px solid var(--line,#dde6e4);display:none}
+  @media(max-width:640px){.ad form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="ad">
+  <div class="row" style="justify-content:space-between">
+    <div><h1>Admin panel</h1><p class="help" style="margin:0">Add and delete packages and tests. Changes go live a minute after you publish.</p></div>
+    <a class="btn ghost sm" href="index.html">View website</a>
+  </div>
+
+  <section class="card" id="conn">
+    <h2>1. Connect to GitHub</h2>
+    <div id="connForm">
+      <div class="f"><label for="tok">GitHub access token</label><input id="tok" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
+      <label class="row help" style="margin-top:8px"><input type="checkbox" id="rem" style="width:auto"> Remember on this device (do not tick on a shared computer)</label>
+      <div class="row" style="margin-top:10px"><button class="btn" id="go" type="button">Connect</button><span class="msg" id="cmsg" role="status"></span></div>
+      <details class="help" style="margin-top:12px"><summary>How do I get a token?</summary>
+        <ol>
+          <li>On GitHub open <b>Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token</b>.</li>
+          <li>Name it "Trinetri admin". Set an expiry (for example 90 days).</li>
+          <li>Under <b>Repository access</b> choose <b>Only select repositories</b> and pick <b>newwebsite</b>.</li>
+          <li>Under <b>Permissions, Repository permissions</b> set <b>Contents</b> to <b>Read and write</b>.</li>
+          <li>Generate, copy the token and paste it above. Never share it with anyone, and never paste it in a chat.</li>
+        </ol>
+        <p>The token stays in this browser and is only sent to GitHub. Anyone who has it can change your website, so keep it private. If it leaks, delete it on GitHub.</p>
+      </details>
+    </div>
+    <div id="connOk" hidden class="row"><span class="msg ok">Connected to GitHub.</span><button class="btn ghost sm" id="out" type="button">Disconnect</button></div>
+  </section>
+
+  <div id="main" hidden>
+    <section class="card">
+      <h2>2. Packages <span class="pill" id="pkn"></span></h2>
+      <div class="list" id="pkl"></div>
+      <h3 style="margin:18px 0 8px;font-size:1.05rem">Add a package</h3>
+      <form id="pf" novalidate>
+        <div class="f full"><label for="pn">Package name</label><input id="pn" placeholder="e.g. Thyroid Care Package"></div>
+        <div class="f"><label for="pp">Offer price (Rs)</label><input id="pp" type="number" inputmode="numeric" min="1" placeholder="799"></div>
+        <div class="f"><label for="pm">Crossed-out price (Rs, optional)</label><input id="pm" type="number" inputmode="numeric" min="0" placeholder="1500"></div>
+        <div class="f"><label for="pt">Tag</label><input id="pt" value="Offer package" placeholder="Offer package"></div>
+        <div class="f"><label for="pl">Price label</label><input id="pl" value="Offer price" placeholder="Offer price"></div>
+        <div class="f full"><label for="pno">Short note</label><input id="pno" value="Free home collection" placeholder="Free home collection"></div>
+        <div class="f full"><label for="pi">Poster image (optional, JPG or PNG)</label><input id="pi" type="file" accept="image/*"><img id="pv" alt="Poster preview"></div>
+        <div class="full"><button class="btn" id="padd" type="submit">Add package</button> <span class="msg" id="pmsg" role="status"></span></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>3. Tests <span class="pill" id="tn"></span></h2>
+      <div class="f"><label for="tq">Search tests to delete</label><input id="tq" placeholder="Type a test name or code" autocomplete="off"></div>
+      <div class="list" id="tl"></div>
+      <h3 style="margin:18px 0 8px;font-size:1.05rem">Add a test</h3>
+      <form id="tf" novalidate>
+        <div class="f full"><label for="tnm">Test name</label><input id="tnm" placeholder="e.g. THYROID PEROXIDASE ANTIBODY"></div>
+        <div class="f"><label for="tpr">Price / MRP (Rs)</label><input id="tpr" type="number" inputmode="numeric" min="1" placeholder="650"></div>
+        <div class="full"><button class="btn" type="submit">Add test</button> <span class="msg" id="tmsg" role="status"></span></div>
+      </form>
+      <div id="extra" hidden>
+        <h3 style="margin:18px 0 8px;font-size:1.05rem">Tests you added</h3><div class="list" id="el"></div>
+      </div>
+      <div id="hid" hidden>
+        <h3 style="margin:18px 0 8px;font-size:1.05rem">Deleted tests (can be restored)</h3><div class="list" id="hl"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="bar" id="bar" hidden><div class="in">
+  <span class="msg info" id="smsg" role="status">No unpublished changes.</span>
+  <button class="btn" id="pub" type="button" disabled>Publish changes</button>
+</div></div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  'use strict';
+  var OWNER='trinitridiagnostic-debug',REPO='newwebsite',BRANCH='main',FILE='catalog.js';
+  var API='https://api.github.com/repos/'+OWNER+'/'+REPO+'/contents/';
+  var $=function(s){return document.querySelector(s);};
+  var RAW=window.RAW||[];
+  var token='',cat=null,sha='',pend={},dirty=false;   // pend: path -> base64 image to upload
+  var removedImgs=[];
+
+  /* ---------- helpers ---------- */
+  function say(el,t,c){el.textContent=t;el.className='msg '+(c||'');}
+  function inr(n){return 'Rs '+Number(n).toLocaleString('en-IN');}
+  function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'pkg';}
+  function b64utf8(str){var b=new TextEncoder().encode(str),s='';b.forEach(function(x){s+=String.fromCharCode(x);});return btoa(s);}
+  function utf8b64(b64){var s=atob(b64.replace(/\s/g,'')),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return new TextDecoder().decode(a);}
+  function gh(path,opt){
+    opt=opt||{};opt.headers=Object.assign({'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},opt.headers||{});
+    return fetch(API+path,opt).then(function(r){
+      return r.json().catch(function(){return {};}).then(function(j){
+        if(!r.ok){var e=new Error(j.message||('GitHub error '+r.status));e.status=r.status;throw e;}
+        return j;
+      });
+    });
+  }
+  function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e;}
+  function setDirty(v){
+    dirty=v;$('#pub').disabled=!v;
+    say($('#smsg'),v?'You have unpublished changes.':'No unpublished changes.',v?'err':'info');
+  }
+  window.addEventListener('beforeunload',function(e){if(dirty){e.preventDefault();e.returnValue='';}});
+
+  /* ---------- connect ---------- */
+  function fail(e){return e&&e.status===401?'GitHub rejected the token. Check it and its expiry.':e&&e.status===404?'Cannot find the repository or catalog.js. Check that the token has access to "newwebsite" with Contents permission.':e&&e.status===403?'The token does not have permission. Set Contents to Read and write.':(e&&e.message)||'Could not reach GitHub.';}
+  function loadCatalog(){
+    return gh(FILE+'?ref='+BRANCH+'&t='+Date.now()).then(function(j){
+      var txt=utf8b64(j.content).replace(/^\s*window\.CATALOG\s*=\s*/,'').replace(/;\s*$/,'');
+      cat=JSON.parse(txt);sha=j.sha;
+      cat.packages=cat.packages||[];cat.hiddenTests=cat.hiddenTests||[];cat.extraTests=cat.extraTests||[];
+    });
+  }
+  function connect(){
+    token=$('#tok').value.trim();
+    if(!token){say($('#cmsg'),'Paste your token first.','err');return;}
+    say($('#cmsg'),'Connecting...','info');
+    loadCatalog().then(function(){
+      try{if($('#rem').checked)localStorage.setItem('trin.admin.token',token);}catch(e){}
+      $('#connForm').hidden=true;$('#connOk').hidden=false;$('#main').hidden=false;$('#bar').hidden=false;
+      pend={};removedImgs=[];setDirty(false);render();
+    }).catch(function(e){token='';say($('#cmsg'),fail(e),'err');});
+  }
+  $('#go').addEventListener('click',connect);
+  $('#tok').addEventListener('keydown',function(e){if(e.key==='Enter')connect();});
+  $('#out').addEventListener('click',function(){
+    if(dirty&&!confirm('You have unpublished changes. Disconnect anyway?'))return;
+    token='';cat=null;try{localStorage.removeItem('trin.admin.token');}catch(e){}
+    $('#tok').value='';$('#connForm').hidden=false;$('#connOk').hidden=true;$('#main').hidden=true;$('#bar').hidden=true;say($('#cmsg'),'','');setDirty(false);
+  });
+  try{var saved=localStorage.getItem('trin.admin.token');if(saved){$('#tok').value=saved;$('#rem').checked=true;}}catch(e){}
+
+  /* ---------- render ---------- */
+  function render(){renderPk();renderTests();}
+  function renderPk(){
+    var box=$('#pkl');box.textContent='';
+    $('#pkn').textContent=cat.packages.length+' on the website';
+    cat.packages.forEach(function(p,i){
+      var row=el('div','it');
+      if(p.img){var im=el('img');im.alt='';im.src=pend[p.img]?('data:image/jpeg;base64,'+pend[p.img]):p.img;row.appendChild(im);}
+      var m=el('div','m');m.appendChild(el('b','',p.name));
+      m.appendChild(el('small','',inr(p.price)+(p.mrp?' (was '+inr(p.mrp)+')':'')+(p.img?'':' | no poster')));row.appendChild(m);
+      var d=el('button','btn del sm','Delete');d.type='button';
+      d.addEventListener('click',function(){
+        if(!confirm('Delete "'+p.name+'" from the website?'))return;
+        [p.img,p.imgFull].forEach(function(f){if(!f)return;if(pend[f])delete pend[f];else removedImgs.push(f);});
+        cat.packages.splice(i,1);setDirty(true);renderPk();
+      });
+      row.appendChild(d);box.appendChild(row);
+    });
+    if(!cat.packages.length)box.appendChild(el('p','help','No packages yet.'));
+  }
+  function allTests(){
+    var hid={};cat.hiddenTests.forEach(function(h){hid[h]=1;});
+    var out=[];
+    RAW.forEach(function(r){var id=r[0]+':'+r[1];out.push({id:id,k:r[1],n:r[2],m:r[3],hidden:!!hid[id],extra:false});});
+    cat.extraTests.forEach(function(t){out.push({id:'T:'+t.k,k:t.k,n:t.n,m:t.m,hidden:false,extra:true});});
+    return out;
+  }
+  function renderTests(){
+    var all=allTests(),live=all.filter(function(t){return !t.hidden;});
+    $('#tn').textContent=live.length+' on the website';
+    var q=$('#tq').value.trim().toLowerCase(),box=$('#tl');box.textContent='';
+    if(q.length<2){box.appendChild(el('p','help','Type at least 2 letters to search.'));}
+    else{
+      var hits=live.filter(function(t){return (t.n+' '+t.k).toLowerCase().indexOf(q)>-1;});
+      hits.slice(0,30).forEach(function(t){box.appendChild(testRow(t,'Delete'));});
+      if(!hits.length)box.appendChild(el('p','help','No matching tests.'));
+      else if(hits.length>30)box.appendChild(el('p','help','Showing 30 of '+hits.length+'. Type more to narrow down.'));
+    }
+    var ex=all.filter(function(t){return t.extra;}),hi=all.filter(function(t){return t.hidden;});
+    $('#extra').hidden=!ex.length;$('#hid').hidden=!hi.length;
+    var el1=$('#el');el1.textContent='';ex.forEach(function(t){el1.appendChild(testRow(t,'Delete'));});
+    var hl=$('#hl');hl.textContent='';hi.forEach(function(t){hl.appendChild(testRow(t,'Restore'));});
+  }
+  function testRow(t,label){
+    var row=el('div','it'),m=el('div','m');m.appendChild(el('b','',t.n));m.appendChild(el('small','',t.k+' | '+inr(t.m)+(t.extra?' | added by you':'')));
+    row.appendChild(m);
+    var b=el('button','btn sm '+(label==='Delete'?'del':'ghost'),label);b.type='button';
+    b.addEventListener('click',function(){
+      if(label==='Restore'){cat.hiddenTests=cat.hiddenTests.filter(function(x){return x!==t.id;});}
+      else{
+        if(!confirm('Delete "'+t.n+'" from the website?'))return;
+        if(t.extra)cat.extraTests=cat.extraTests.filter(function(x){return x.k!==t.k;});
+        else if(cat.hiddenTests.indexOf(t.id)<0)cat.hiddenTests.push(t.id);
+      }
+      setDirty(true);renderTests();
+    });
+    row.appendChild(b);return row;
+  }
+  $('#tq').addEventListener('input',function(){if(cat)renderTests();});
+
+  /* ---------- add test ---------- */
+  $('#tf').addEventListener('submit',function(e){
+    e.preventDefault();var m=$('#tmsg'),n=$('#tnm').value.trim().replace(/\s+/g,' '),pr=Math.round(Number($('#tpr').value));
+    if(!n){say(m,'Enter the test name.','err');return;}
+    if(!(pr>0)){say(m,'Enter a price above 0.','err');return;}
+    var dup=allTests().some(function(t){return !t.hidden&&t.n.toLowerCase()===n.toLowerCase();});
+    if(dup){say(m,'A test with this name already exists.','err');return;}
+    cat.extraTests.push({k:'X'+Date.now().toString(36).toUpperCase(),n:n,m:pr});
+    $('#tnm').value='';$('#tpr').value='';say(m,'Added. Remember to publish.','ok');setDirty(true);renderTests();
+  });
+
+  /* ---------- add package ---------- */
+  var img={thumb:null,full:null};
+  function resize(src,w){
+    var c=document.createElement('canvas'),r=w/src.naturalWidth;c.width=w;c.height=Math.round(src.naturalHeight*r);
+    var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(src,0,0,c.width,c.height);
+    return c.toDataURL('image/jpeg',w>800?.84:.82).split(',')[1];
+  }
+  $('#pi').addEventListener('change',function(){
+    img={thumb:null,full:null};$('#pv').style.display='none';
+    var f=this.files[0];if(!f)return;
+    if(!/^image\//.test(f.type)){say($('#pmsg'),'Please choose an image file.','err');this.value='';return;}
+    var u=URL.createObjectURL(f),im=new Image();
+    im.onload=function(){
+      img.thumb=resize(im,Math.min(720,im.naturalWidth));img.full=resize(im,Math.min(1024,im.naturalWidth));
+      $('#pv').src='data:image/jpeg;base64,'+img.thumb;$('#pv').style.display='block';URL.revokeObjectURL(u);say($('#pmsg'),'','');
+    };
+    im.onerror=function(){say($('#pmsg'),'Could not read that image.','err');};
+    im.src=u;
+  });
+  $('#pf').addEventListener('submit',function(e){
+    e.preventDefault();var m=$('#pmsg');
+    var name=$('#pn').value.trim().replace(/\s+/g,' '),price=Math.round(Number($('#pp').value)),mrp=Math.round(Number($('#pm').value))||0;
+    if(!name){say(m,'Enter the package name.','err');return;}
+    if(cat.packages.some(function(p){return p.name.toLowerCase()===name.toLowerCase();})){say(m,'A package with this name already exists.','err');return;}
+    if(!(price>0)){say(m,'Enter the offer price.','err');return;}
+    if(mrp&&mrp<=price){say(m,'The crossed-out price must be higher than the offer price (or leave it empty).','err');return;}
+    var p={id:slug(name),name:name,tag:$('#pt').value.trim()||'Offer package',price:price,mrp:mrp,label:$('#pl').value.trim()||'Offer price',note:$('#pno').value.trim()||'Free home collection',img:'',imgFull:''};
+    if(img.thumb){
+      var base='posters/'+p.id+'-'+Date.now().toString(36);
+      p.img=base+'.jpg';p.imgFull=base+'-full.jpg';pend[p.img]=img.thumb;pend[p.imgFull]=img.full;
+    }
+    cat.packages.push(p);
+    $('#pf').reset();$('#pt').value='Offer package';$('#pl').value='Offer price';$('#pno').value='Free home collection';
+    img={thumb:null,full:null};$('#pv').style.display='none';
+    say(m,'Added. Remember to publish.','ok');setDirty(true);renderPk();
+  });
+
+  /* ---------- publish ---------- */
+  function putFile(path,b64,msg,shaOld){
+    var body={message:msg,content:b64,branch:BRANCH};if(shaOld)body.sha=shaOld;
+    return gh(path,{method:'PUT',body:JSON.stringify(body),headers:{'Content-Type':'application/json'}});
+  }
+  function delFile(path){
+    return gh(path+'?ref='+BRANCH).then(function(j){
+      return gh(path,{method:'DELETE',body:JSON.stringify({message:'Admin: remove '+path,sha:j.sha,branch:BRANCH}),headers:{'Content-Type':'application/json'}});
+    }).catch(function(){});   // clean-up only; a missing file is fine
+  }
+  $('#pub').addEventListener('click',function(){
+    var btn=this,s=$('#smsg');btn.disabled=true;say(s,'Publishing...','info');
+    var paths=Object.keys(pend),chain=Promise.resolve();
+    paths.forEach(function(p){chain=chain.then(function(){say(s,'Uploading '+p+'...','info');return putFile(p,pend[p],'Admin: add '+p).catch(function(e){if(e.status!==422)throw e;return gh(p+'?ref='+BRANCH).then(function(j){return putFile(p,pend[p],'Admin: add '+p,j.sha);});});});});
+    chain.then(function(){
+      var txt='window.CATALOG = '+JSON.stringify(cat,null,1)+';\n';
+      return putFile(FILE,b64utf8(txt),'Admin: update packages and tests',sha);
+    }).then(function(j){
+      sha=j.content.sha;pend={};
+      var rm=removedImgs.filter(function(f){return !cat.packages.some(function(p){return p.img===f||p.imgFull===f;});});removedImgs=[];
+      return Promise.all(rm.map(delFile));
+    }).then(function(){
+      setDirty(false);say(s,'Published to GitHub. The live website updates in about a minute.','ok');renderPk();
+    }).catch(function(e){
+      btn.disabled=false;
+      if(e&&e.status===409||e&&e.status===422){say(s,'The catalogue changed on GitHub since you opened this page. Reload the page, then repeat your changes.','err');}
+      else say(s,'Not published: '+fail(e),'err');
+    });
+  });
+})();
+</script>
+</body>
+</html>
