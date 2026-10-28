@@ -31,7 +31,7 @@
 <div class="phead"><div class="wrap">
   <p class="crumbs"><a href="index.html">Home</a> / Book</p>
   <h1>Book a test</h1>
-  <p>Add tests, choose a time slot, then pay online or send your request to the lab on WhatsApp.</p>
+  <p>Add tests, choose a time slot, then send your request to the lab on WhatsApp.</p>
 </div></div>
 <!-- Booking -->
 <section id="book" class="bk" aria-labelledby="h-book">
@@ -57,9 +57,7 @@
       <div class="f"><label for="sl">Time slot</label>
         <select id="sl"><option>7:00 – 9:00 am</option><option>9:00 – 11:00 am</option><option>11:00 am – 1:00 pm</option><option>4:00 – 6:00 pm</option></select></div>
       <div class="f full"><label for="ad">Address and notes</label><textarea id="ad" placeholder="House number, street, landmark, and any test not listed above."></textarea></div>
-      <button class="btn pay" id="pay" type="button" style="grid-column:1/-1">Pay online</button>
-      <div class="paynote" id="paynote" style="grid-column:1/-1"></div>
-      <a class="btn ghost" id="wa" href="https://wa.me/919187315972" target="_blank" rel="noopener" style="grid-column:1/-1">Send request on WhatsApp (pay at collection)</a>
+      <a class="btn" id="wa" href="https://wa.me/919187315972" target="_blank" rel="noopener" style="grid-column:1/-1">Send request on WhatsApp</a>
       <div class="status" id="st" role="status"></div>
       <label id="ol" hidden style="grid-column:1/-1;margin-bottom:-8px">Message that will open in WhatsApp</label>
       <div class="out" id="out" hidden></div>
@@ -84,6 +82,5 @@
   </div>
 </footer>
 <script src="data.js"></script>
-<script src="pay-config.js"></script>
 <script src="app.js"></script>
 </body></html>
