@@ -34,17 +34,71 @@
   .pill{display:inline-block;background:#fff3cd;color:#5c4a00;border-radius:99px;padding:3px 10px;font-size:.8rem;font-weight:600}
   #pv{max-width:160px;border-radius:10px;border:1px solid var(--line,#dde6e4);display:none}
   @media(max-width:640px){.ad form{grid-template-columns:1fr}}
+
+  /* ---------- dashboard shell: left drawer ---------- */
+  :root{--sw:260px}
+  body{margin:0;background:var(--bg,#f4faf8)}
+  .shell{min-height:100vh}
+  .side{position:fixed;top:0;bottom:0;left:0;width:var(--sw);background:#14383d;color:#e8f3f2;display:flex;flex-direction:column;padding:18px 12px;z-index:60;overflow-y:auto;transition:transform .25s ease}
+  .brand{display:flex;gap:10px;align-items:center;padding:4px 8px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px}
+  .brand img{border-radius:9px;background:#fff;padding:3px}
+  .brand b{display:block;font-size:1.05rem;letter-spacing:.04em}
+  .brand small{opacity:.7;font-size:.8rem}
+  .menu{display:flex;flex-direction:column;gap:4px}
+  .nv{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:0;border-radius:10px;background:transparent;color:inherit;font:inherit;font-weight:500;text-align:left;text-decoration:none;cursor:pointer}
+  .nv[hidden]{display:none}
+  .nv:hover{background:rgba(255,255,255,.08)}
+  .nv.on{background:#fff;color:#14383d;font-weight:700}
+  .nv:focus-visible,.burger:focus-visible,.ovc:focus-visible{outline:2px solid #ffd24a;outline-offset:2px}
+  .sfoot{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:4px}
+  .conn{margin:0 0 6px;padding:0 12px;font-size:.82rem;opacity:.85}
+  .conn.ok::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:8px}
+  .content{margin-left:var(--sw);min-width:0}
+  .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:14px 20px;background:#fff;border-bottom:1px solid var(--line,#dde6e4)}
+  .top h1{margin:0;font-size:1.25rem}
+  .burger{display:none;border:0;background:transparent;color:inherit;padding:6px;border-radius:8px;cursor:pointer}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55}
+  .scrim[hidden]{display:none}
+  .view[hidden]{display:none}
+  .ad{max-width:1040px;margin:0 auto;padding:12px 20px 120px}
+  .ovs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+  .ovc{display:flex;flex-direction:column;gap:6px;text-align:left;padding:18px;border:1px solid var(--line,#dde6e4);border-radius:14px;background:#fff;cursor:pointer;font:inherit}
+  .ovc b{font-size:1.9rem;color:var(--teal,#3f7b82)}
+  .ovc:hover{border-color:var(--teal,#3f7b82)}
+  .bar{left:var(--sw)}
+  @media(max-width:900px){
+    .side{transform:translateX(-100%);box-shadow:0 0 30px rgba(0,0,0,.35)}
+    .side.open{transform:none}
+    .content{margin-left:0}
+    .burger{display:inline-flex}
+    .bar{left:0}
+    .ad{padding:8px 14px 120px}
+  }
 </style>
 </head>
 <body>
-<div class="ad">
-  <div class="row" style="justify-content:space-between">
-    <div><h1>Admin panel</h1><p class="help" style="margin:0">Add and delete packages and tests. Changes go live a minute after you publish.</p></div>
-    <a class="btn ghost sm" href="index.html">View website</a>
-  </div>
-
+<div class="shell">
+  <aside class="side" id="side" aria-label="Admin menu">
+    <div class="brand"><img src="icon.png" alt="" width="36" height="36"><div><b>Trinetri</b><small>Admin panel</small></div></div>
+    <nav class="menu" id="menu">
+      <button type="button" class="nv" data-view="home" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span>Overview</span></button>
+      <button type="button" class="nv" data-view="pk" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg><span>Packages</span></button>
+      <button type="button" class="nv" data-view="ts" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg><span>Tests</span></button>
+      <button type="button" class="nv" data-view="bulk" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg><span>Bulk upload</span></button>
+    </nav>
+    <div class="sfoot">
+      <p class="conn" id="connst">Not connected</p>
+      <a class="nv" href="index.html" id="vw"><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5H5V6h5"/></svg><span>View website</span></a>
+      <button type="button" class="nv" id="out" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg><span>Disconnect</span></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="content">
+    <header class="top"><button type="button" class="burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="vt">Connect</h1></header>
+    <main class="ad">
+      <div class="view" id="v-conn">
   <section class="card" id="conn">
-    <h2>1. Connect to GitHub</h2>
+    <h2>Connect to GitHub</h2>
     <div id="connForm">
       <div class="f"><label for="tok">GitHub access token</label><input id="tok" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
       <label class="row help" style="margin-top:8px"><input type="checkbox" id="rem" style="width:auto"> Remember on this device (do not tick on a shared computer)</label>
@@ -60,12 +114,22 @@
         <p>The token stays in this browser and is only sent to GitHub. Anyone who has it can change your website, so keep it private. If it leaks, delete it on GitHub.</p>
       </details>
     </div>
-    <div id="connOk" hidden class="row"><span class="msg ok">Connected to GitHub.</span><button class="btn ghost sm" id="out" type="button">Disconnect</button></div>
   </section>
-
-  <div id="main" hidden>
+      </div>
+      <div class="view" id="v-home" hidden>
+        <section class="card">
+          <h2>Welcome</h2>
+          <p class="help">Add, edit and delete packages and tests here. Nothing changes on the website until you press <b>Publish changes</b>. Then it goes live about a minute later.</p>
+          <div class="ovs">
+            <button type="button" class="ovc" data-view="pk"><b id="ovp">0</b><span>Packages on the website</span></button>
+            <button type="button" class="ovc" data-view="ts"><b id="ovt">0</b><span>Tests on the website</span></button>
+            <button type="button" class="ovc" data-view="bulk"><b>+</b><span>Bulk upload tests from Excel</span></button>
+          </div>
+        </section>
+      </div>
+      <div class="view" id="v-pk" hidden>
     <section class="card">
-      <h2>2. Packages <span class="pill" id="pkn"></span></h2>
+      <h2>Packages <span class="pill" id="pkn"></span></h2>
       <div class="list" id="pkl"></div>
       <h3 style="margin:18px 0 8px;font-size:1.05rem">Add a package</h3>
       <form id="pf" novalidate>
@@ -79,9 +143,10 @@
         <div class="full"><button class="btn" id="padd" type="submit">Add package</button> <span class="msg" id="pmsg" role="status"></span></div>
       </form>
     </section>
-
+      </div>
+      <div class="view" id="v-ts" hidden>
     <section class="card">
-      <h2>3. Tests <span class="pill" id="tn"></span></h2>
+      <h2>Tests <span class="pill" id="tn"></span></h2>
       <div class="f"><label for="tq">Find a test (optional)</label><input id="tq" placeholder="Type a test name or code, or browse the list below" autocomplete="off"></div>
       <div class="list" id="tl"></div>
       <div class="row" id="tnav" style="justify-content:space-between;margin-top:10px"></div>
@@ -91,8 +156,18 @@
         <div class="f"><label for="tpr">Price / MRP (Rs)</label><input id="tpr" type="number" inputmode="numeric" min="1" placeholder="650"></div>
         <div class="full"><button class="btn" type="submit">Add test</button> <span class="msg" id="tmsg" role="status"></span></div>
       </form>
-      <h3 style="margin:22px 0 8px;font-size:1.05rem">Bulk upload from Excel</h3>
-      <p class="help" style="margin:0 0 10px">Download the template, fill in one test per row, then upload it. New names are added. A name or code that already exists gets its price updated. You see a preview before anything changes.</p>
+      <div id="extra" hidden>
+        <h3 style="margin:18px 0 8px;font-size:1.05rem">Tests you added</h3><div class="list" id="el"></div>
+      </div>
+      <div id="hid" hidden>
+        <h3 style="margin:18px 0 8px;font-size:1.05rem">Deleted tests (can be restored)</h3><div class="list" id="hl"></div>
+      </div>
+    </section>
+      </div>
+      <div class="view" id="v-bulk" hidden>
+        <section class="card">
+          <h2>Bulk upload tests</h2>
+            <p class="help" style="margin:0 0 10px">Download the template, fill in one test per row, then upload it. New names are added. A name or code that already exists gets its price updated. You see a preview before anything changes.</p>
       <div class="row">
         <button class="btn ghost sm" id="bt" type="button">Download Excel template</button>
         <button class="btn ghost sm" id="bx" type="button">Download all current tests</button>
@@ -104,13 +179,9 @@
         <div class="list" id="bl"></div>
         <div class="row" style="margin-top:10px"><button class="btn" id="ba" type="button">Apply these changes</button><button class="btn ghost sm" id="bc" type="button">Cancel</button></div>
       </div>
-      <div id="extra" hidden>
-        <h3 style="margin:18px 0 8px;font-size:1.05rem">Tests you added</h3><div class="list" id="el"></div>
+        </section>
       </div>
-      <div id="hid" hidden>
-        <h3 style="margin:18px 0 8px;font-size:1.05rem">Deleted tests (can be restored)</h3><div class="list" id="hl"></div>
-      </div>
-    </section>
+    </main>
   </div>
 </div>
 
@@ -153,7 +224,40 @@
   }
   window.addEventListener('beforeunload',function(e){if(dirty){e.preventDefault();e.returnValue='';}});
 
+
+  /* ---------- left drawer navigation ---------- */
+  var TITLES={conn:'Connect',home:'Overview',pk:'Packages',ts:'Tests',bulk:'Bulk upload'};
+  var curView='conn';
+  function showView(v){
+    if(v!=='conn'&&!cat)v='conn';
+    if(!TITLES[v])v=cat?'home':'conn';
+    curView=v;
+    Array.prototype.forEach.call(document.querySelectorAll('.view'),function(e){e.hidden=e.id!=='v-'+v;});
+    Array.prototype.forEach.call(document.querySelectorAll('.menu .nv'),function(b){var on=b.getAttribute('data-view')===v;b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+    $('#vt').textContent=TITLES[v];closeDrawer();
+    try{if(cat)history.replaceState(null,'','#'+v);}catch(e){}
+    window.scrollTo(0,0);
+  }
+  function openDrawer(){$('#side').classList.add('open');$('#scrim').hidden=false;$('#burger').setAttribute('aria-expanded','true');}
+  function closeDrawer(){$('#side').classList.remove('open');$('#scrim').hidden=true;$('#burger').setAttribute('aria-expanded','false');}
+  function enter(){
+    Array.prototype.forEach.call(document.querySelectorAll('.menu .nv'),function(b){b.hidden=false;});
+    $('#out').hidden=false;$('#bar').hidden=false;$('#connst').textContent='Connected to GitHub';$('#connst').className='conn ok';
+    var h=(location.hash||'').replace('#','');showView(TITLES[h]&&h!=='conn'?h:'home');
+  }
+  function leave(){
+    Array.prototype.forEach.call(document.querySelectorAll('.menu .nv'),function(b){b.hidden=true;});
+    $('#out').hidden=true;$('#bar').hidden=true;$('#connst').textContent='Not connected';$('#connst').className='conn';showView('conn');
+  }
+  function ov(){if(!cat)return;$('#ovp').textContent=cat.packages.length;$('#ovt').textContent=allTests().filter(function(t){return !t.hidden;}).length;}
+  document.addEventListener('click',function(e){var b=e.target.closest('[data-view]');if(b&&cat){showView(b.getAttribute('data-view'));}});
+  $('#burger').addEventListener('click',function(){$('#side').classList.contains('open')?closeDrawer():openDrawer();});
+  $('#scrim').addEventListener('click',closeDrawer);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
+  var _rp=renderPk,_rt=renderTests;renderPk=function(){_rp();ov();};renderTests=function(){_rt();ov();};
+
   /* ---------- connect ---------- */
+
   function fail(e){return e&&e.status===401?'GitHub rejected the token. Check it and its expiry.':e&&e.status===404?'Cannot find the repository or catalog.js. Check that the token has access to "newwebsite" with Contents permission.':e&&e.status===403?'The token does not have permission. Set Contents to Read and write.':(e&&e.message)||'Could not reach GitHub.';}
   function loadCatalog(){
     return gh(FILE+'?ref='+BRANCH+'&t='+Date.now()).then(function(j){
@@ -168,7 +272,7 @@
     say($('#cmsg'),'Connecting...','info');
     loadCatalog().then(function(){
       try{if($('#rem').checked)localStorage.setItem('trin.admin.token',token);}catch(e){}
-      $('#connForm').hidden=true;$('#connOk').hidden=false;$('#main').hidden=false;$('#bar').hidden=false;
+      enter();
       pend={};removedImgs=[];setDirty(false);render();
     }).catch(function(e){token='';say($('#cmsg'),fail(e),'err');});
   }
@@ -177,7 +281,7 @@
   $('#out').addEventListener('click',function(){
     if(dirty&&!confirm('You have unpublished changes. Disconnect anyway?'))return;
     token='';cat=null;try{localStorage.removeItem('trin.admin.token');}catch(e){}
-    $('#tok').value='';$('#connForm').hidden=false;$('#connOk').hidden=true;$('#main').hidden=true;$('#bar').hidden=true;say($('#cmsg'),'','');setDirty(false);
+    $('#tok').value='';say($('#cmsg'),'','');setDirty(false);leave();
   });
   try{var saved=localStorage.getItem('trin.admin.token');if(saved){$('#tok').value=saved;$('#rem').checked=true;}}catch(e){}
 
