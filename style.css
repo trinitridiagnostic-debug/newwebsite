@@ -413,8 +413,8 @@ nav.main a.l[aria-current="page"]::after{transform:scaleX(1)}
 .incl li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
 .incl em{font:400 .78rem/1.6 var(--font-mono);font-style:normal;color:var(--muted)}
 .pkc-feat .btn{align-self:flex-start;margin-top:4px}
-.pkfg{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:22px}
-.pkfg .pkc-feat{flex:0 0 min(320px,100%)}
+.pkfg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px;margin-bottom:22px}
+.pkfg .pkc-feat{flex:none;min-width:0}
 .pkdots{display:flex;justify-content:center;gap:6px;margin-top:2px}
 .pkdots button{width:26px;height:26px;border:0;background:transparent;cursor:pointer;display:grid;place-items:center;padding:0}
 .pkdots i{display:block;width:8px;height:8px;border-radius:99px;background:var(--line);transition:width .25s,background .25s}
