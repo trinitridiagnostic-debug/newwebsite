@@ -234,7 +234,7 @@
 
   /* ---------- booking via WhatsApp ---------- */
   var WA='919187315972';
-  var PKGP={'Advance Health Package':'offer price Rs 1,199, free home collection','Lipid Profile':'offer price Rs 250, free home collection','Double Marker Test':'Rs 2,300, free home collection','NT-proBNP':'Rs 1,800, free home collection','Trinetri Care Package':'offer price Rs 799, free home collection','Advance+ Health Package':'offer price Rs 1,499, free home collection','Basic Health Package':'offer price Rs 499, free home collection','HbA1c Test':'offer price Rs 280 (1 month offer), free home collection','Comprehensive Health Package':'offer price Rs 3,199, free home collection'};
+  var PKGP={'Advance Health Package':'offer price Rs 1,199, free home collection','Lipid Profile':'offer price Rs 250, free home collection','Double Marker Test':'Rs 2,300, free home collection','NT-proBNP':'Rs 1,800, free home collection','Trinetri Care Package':'offer price Rs 799, free home collection','Advance+ Health Package':'offer price Rs 1,499, free home collection','Basic Health Package':'offer price Rs 499, free home collection','HbA1c Test':'offer price Rs 280 (1 month offer), free home collection','Comprehensive Health Package':'offer price Rs 3,199, free home collection','Cancer Screening Male':'special price Rs 657, free home collection'};
   var bk=$('#bk'),d=$('#dt'),out=$('#out'),st=$('#st'),wa=$('#wa'),cp=$('#cp'),ol=$('#ol'),lastMsg='';
   function say(m,c){st.style.color=c;st.textContent=m;}
   function build(){
@@ -249,7 +249,7 @@
       '\nDate: '+d.value+'\nSlot: '+$('#sl').value+'\nAddress: '+($('#ad').value.trim()||'-')};
   }
   /* ---------- online payment (Razorpay Checkout; prices are re-checked on the server) ---------- */
-  var PAYCFG=window.TRIN_PAY||{},PKGRS={'Advance Health Package':1199,'Lipid Profile':250,'Double Marker Test':2300,'NT-proBNP':1800,'Trinetri Care Package':799,'Advance+ Health Package':1499,'Basic Health Package':499,'HbA1c Test':280,'Comprehensive Health Package':3199};
+  var PAYCFG=window.TRIN_PAY||{},PKGRS={'Advance Health Package':1199,'Lipid Profile':250,'Double Marker Test':2300,'NT-proBNP':1800,'Trinetri Care Package':799,'Advance+ Health Package':1499,'Basic Health Package':499,'HbA1c Test':280,'Comprehensive Health Package':3199,'Cancer Screening Male':657};
   var DEMO=!PAYCFG.key||!PAYCFG.api;
   var payb=$('#pay'),paynote=$('#paynote'),paying=false,payRS=0,paidDone=false;
   function payInfo(){
