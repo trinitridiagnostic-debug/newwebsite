@@ -386,6 +386,31 @@
   }
 
 
+
+  /* ---------- homepage banner: quick booking form (sends to WhatsApp) ---------- */
+  var hq=$('#hq');
+  if(hq){
+    var hw=$('#hq-wa'),hs=$('#hq-st'),hd=$('#hq-dt');
+    try{var t1=new Date();t1.setDate(t1.getDate()+1);hd.min=new Date().toISOString().slice(0,10);hd.value=t1.toISOString().slice(0,10);}catch(e){}
+    var hsay=function(m,c){hs.style.color=c;hs.textContent=m;};
+    var hbuild=function(){
+      var nm=$('#hq-nm').value.trim(),ph=$('#hq-ph').value.replace(/\D/g,''),pk=$('#hq-pk').value;
+      if(!nm)return {err:'Enter the patient name.'};
+      if(ph.length<10)return {err:'Enter a 10-digit mobile number.'};
+      if(!hd.value)return {err:'Choose a date.'};
+      return {msg:'Home collection request - Trinetri Diagnostics\nName: '+nm+'\nMobile: '+ph+
+        '\nPackage: '+(pk?pk+(PKGP[pk]?' ('+PKGP[pk]+')':''):'Not chosen - please advise')+
+        '\nDate: '+hd.value+'\nSlot: '+$('#hq-sl').value};
+    };
+    hw.addEventListener('click',function(e){
+      var r=hbuild();
+      if(r.err){e.preventDefault();hsay(r.err,'var(--flag)');return;}
+      hw.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
+      hsay('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab.','var(--teal)');
+    });
+    hq.addEventListener('submit',function(e){e.preventDefault();});
+  }
+
   /* ---------- contact page: message to WhatsApp ---------- */
   var cf=$('#cf');
   if(cf){

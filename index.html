@@ -31,6 +31,7 @@
 <main>
 <!-- Banner carousel -->
 <div class="stage"><div class="wrap">
+  <div class="hero-g">
   <div class="car" id="car" role="region" aria-roledescription="carousel" aria-label="Featured services">
     <div class="ctrl">
       <div class="dots" role="group" aria-label="Choose slide">
@@ -85,6 +86,21 @@
         </svg>
       </div>
     </div>
+  </div>
+  <aside class="card hq" aria-labelledby="hq-h">
+    <h2 id="hq-h">Book home collection</h2>
+    <p class="muted">Free home collection. Your request opens in WhatsApp for you to send.</p>
+    <form id="hq" novalidate>
+      <div class="f"><label for="hq-nm">Patient name</label><input id="hq-nm" autocomplete="name" placeholder="Full name"></div>
+      <div class="f"><label for="hq-ph">Mobile number</label><input id="hq-ph" type="tel" inputmode="tel" autocomplete="tel" placeholder="10-digit number"></div>
+      <div class="f"><label for="hq-pk">Package</label><select id="hq-pk"><option value="">Choose a package or test</option><option>Advance Health Package</option><option>Lipid Profile</option><option>Double Marker Test</option><option>NT-proBNP</option><option>Trinetri Care Package</option><option>Advance+ Health Package</option><option>Basic Health Package</option><option>HbA1c Test</option><option>Comprehensive Health Package</option><option>Cancer Screening Male</option><option>Diabetic Health Package</option></select></div>
+      <div class="hq-2"><div class="f"><label for="hq-dt">Date</label><input id="hq-dt" type="date"></div>
+      <div class="f"><label for="hq-sl">Time slot</label><select id="hq-sl"><option>7:00 – 9:00 am</option><option>9:00 – 11:00 am</option><option>11:00 am – 1:00 pm</option><option>4:00 – 6:00 pm</option></select></div></div>
+      <a class="btn" id="hq-wa" href="https://wa.me/919187315972" target="_blank" rel="noopener">Send request on WhatsApp</a>
+      <div class="status" id="hq-st" role="status"></div>
+      <a class="more-l" href="book.html">Need to add tests or an address? Use the full form</a>
+    </form>
+  </aside>
   </div>
 
   <!-- Dock -->
