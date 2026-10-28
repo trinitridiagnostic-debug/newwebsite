@@ -91,6 +91,19 @@
         <div class="f"><label for="tpr">Price / MRP (Rs)</label><input id="tpr" type="number" inputmode="numeric" min="1" placeholder="650"></div>
         <div class="full"><button class="btn" type="submit">Add test</button> <span class="msg" id="tmsg" role="status"></span></div>
       </form>
+      <h3 style="margin:22px 0 8px;font-size:1.05rem">Bulk upload from Excel</h3>
+      <p class="help" style="margin:0 0 10px">Download the template, fill in one test per row, then upload it. New names are added. A name or code that already exists gets its price updated. You see a preview before anything changes.</p>
+      <div class="row">
+        <button class="btn ghost sm" id="bt" type="button">Download Excel template</button>
+        <button class="btn ghost sm" id="bx" type="button">Download all current tests</button>
+      </div>
+      <div class="f" style="margin-top:12px"><label for="bf">Upload filled Excel file (.xlsx, .xls or .csv)</label><input id="bf" type="file" accept=".xlsx,.xls,.csv"></div>
+      <p class="msg" id="bm" role="status" style="margin:8px 0 0"></p>
+      <div id="bp" hidden>
+        <p class="msg info" id="bs" role="status"></p>
+        <div class="list" id="bl"></div>
+        <div class="row" style="margin-top:10px"><button class="btn" id="ba" type="button">Apply these changes</button><button class="btn ghost sm" id="bc" type="button">Cancel</button></div>
+      </div>
       <div id="extra" hidden>
         <h3 style="margin:18px 0 8px;font-size:1.05rem">Tests you added</h3><div class="list" id="el"></div>
       </div>
@@ -106,6 +119,7 @@
   <button class="btn" id="pub" type="button" disabled>Publish changes</button>
 </div></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
 <script>
 (function(){
@@ -273,6 +287,124 @@
     cat.extraTests.push({k:'X'+Date.now().toString(36).toUpperCase(),n:n,m:pr});
     $('#tnm').value='';$('#tpr').value='';say(m,'Added. Remember to publish.','ok');setDirty(true);renderTests();
   });
+
+
+  /* ---------- bulk upload (Excel) ---------- */
+  var plan=null;
+  function needX(m){if(window.XLSX)return true;say(m,'The Excel library could not load. Check your internet connection and reload the page.','err');return false;}
+  function toCSV(rows){return '\ufeff'+rows.map(function(r){return r.map(function(c){c=String(c==null?'':c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\r\n');}
+  function dlCSV(name,rows){var a=document.createElement('a'),u=URL.createObjectURL(new Blob([toCSV(rows)],{type:'text/csv;charset=utf-8'}));a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},1500);}
+  function parseCSV(t){
+    t=t.replace(/^\ufeff/,'');var rows=[],row=[],c='',q=false;
+    for(var i=0;i<t.length;i++){var ch=t[i];
+      if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++;}else q=false;}else c+=ch;}
+      else if(ch==='"')q=true;else if(ch===','||ch===';'||ch==='\t'){row.push(c);c='';}
+      else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[i+1]==='\n')i++;row.push(c);rows.push(row);row=[];c='';}
+      else c+=ch;}
+    if(c!==''||row.length){row.push(c);rows.push(row);}
+    return rows;
+  }
+  function colw(ws,w){ws['!cols']=w.map(function(x){return {wch:x};});}
+  $('#bt').addEventListener('click',function(){
+    var H=['Test code (optional)','Test name','Price (Rs)'],S=[['','THYROID PEROXIDASE ANTIBODY',650],['','SAMPLE NEW TEST',300]];
+    if(!window.XLSX){dlCSV('trinetri-tests-template.csv',[H].concat(S));say($('#bm'),'Excel library not available, so a CSV template was downloaded (opens in Excel). Upload it back the same way.','info');return;}
+    var ws=XLSX.utils.aoa_to_sheet([H].concat(S));colw(ws,[22,48,14]);
+    var ins=XLSX.utils.aoa_to_sheet([['How to use this file'],['1. Fill one test per row on the "Tests" sheet. Delete the two sample rows.'],['2. Test name and Price are required. Test code is optional.'],['3. A test whose name (or code) already exists on the website gets its price updated. Any other name is added as a new test.'],['4. Prices are plain numbers in rupees, for example 650.'],['5. Upload the file in the admin panel, check the preview, then click Apply and Publish changes.']]);colw(ins,[110]);
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Tests');XLSX.utils.book_append_sheet(wb,ins,'Instructions');
+    XLSX.writeFile(wb,'trinetri-tests-template.xlsx');
+  });
+  $('#bx').addEventListener('click',function(){
+    if(!cat)return;
+    var rows=[['Test code (optional)','Test name','Price (Rs)']];
+    allTests().filter(function(t){return !t.hidden;}).sort(function(a,b){return a.n<b.n?-1:a.n>b.n?1:0;}).forEach(function(t){rows.push([t.k,t.n,t.m]);});
+    if(!window.XLSX){dlCSV('trinetri-current-tests.csv',rows);return;}
+    var ws=XLSX.utils.aoa_to_sheet(rows);colw(ws,[22,48,14]);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Tests');
+    XLSX.writeFile(wb,'trinetri-current-tests.xlsx');
+  });
+  function num(v){if(typeof v==='number')return Math.round(v);var m=String(v==null?'':v).replace(/,/g,'').match(/\d+(\.\d+)?/);return m?Math.round(Number(m[0])):NaN;}
+  function buildPlan(rows){
+    var hdr=-1,ci={code:-1,name:-1,price:-1};
+    for(var i=0;i<Math.min(rows.length,10)&&hdr<0;i++){
+      var r=rows[i]||[],f={code:-1,name:-1,price:-1};
+      r.forEach(function(c,j){var t=String(c==null?'':c).toLowerCase();
+        if(/code/.test(t))f.code=j;else if(/name|test/.test(t)&&f.name<0)f.name=j;else if(/price|mrp|rate|amount/.test(t))f.price=j;});
+      if(f.name>-1&&f.price>-1){hdr=i;ci=f;}
+    }
+    if(hdr<0)return {error:'Could not find the "Test name" and "Price" columns. Use the template from the button above.'};
+    var all=allTests().filter(function(t){return !t.hidden;}),byCode={},byName={};
+    all.forEach(function(t){byCode[t.k.toLowerCase()]=t;byName[t.n.toLowerCase()]=t;});
+    var seen={},items=[],skip=0;
+    rows.slice(hdr+1).forEach(function(r,ix){
+      r=r||[];var line=hdr+ix+2,name=String(r[ci.name]==null?'':r[ci.name]).trim().replace(/\s+/g,' '),code=ci.code>-1?String(r[ci.code]==null?'':r[ci.code]).trim():'',pr=num(r[ci.price]);
+      if(!name&&!code&&(r[ci.price]===undefined||r[ci.price]===''))return;   // blank row
+      if(items.length>=2000){return;}
+      var it={line:line,name:name,code:code,price:pr};
+      if(!name){it.st='skip';it.why='no test name';}
+      else if(!(pr>0)){it.st='skip';it.why='price missing or not a number';}
+      else if(seen[name.toLowerCase()]){it.st='skip';it.why='duplicate of line '+seen[name.toLowerCase()];}
+      else{
+        seen[name.toLowerCase()]=line;
+        var ex=(code&&byCode[code.toLowerCase()])||byName[name.toLowerCase()];
+        if(ex){it.ex=ex;it.st=ex.m===pr&&(ex.n===name||!code)?'same':'update';it.why=it.st==='same'?'already up to date':'price '+inr(ex.m)+' to '+inr(pr);}
+        else{it.st='new';it.why=inr(pr);}
+      }
+      items.push(it);
+    });
+    return {items:items};
+  }
+  function showPlan(p){
+    var bl=$('#bl');bl.textContent='';
+    var c={new:0,update:0,same:0,skip:0};p.items.forEach(function(i){c[i.st]++;});
+    say($('#bs'),c.new+' new, '+c.update+' price updates, '+c.same+' unchanged, '+c.skip+' skipped (of '+p.items.length+' rows)','info');
+    var order={skip:0,new:1,update:2,same:3};
+    p.items.slice().sort(function(a,b){return order[a.st]-order[b.st];}).slice(0,60).forEach(function(i){
+      var row=el('div','it'),m=el('div','m');m.appendChild(el('b','',i.name||'(no name)'));
+      m.appendChild(el('small','','Line '+i.line+' | '+({new:'NEW',update:'UPDATE',same:'NO CHANGE',skip:'SKIPPED'})[i.st]+' | '+i.why));row.appendChild(m);bl.appendChild(row);
+    });
+    if(p.items.length>60)bl.appendChild(el('p','help','Showing 60 of '+p.items.length+' rows. Skipped rows are listed first.'));
+    $('#ba').disabled=(c.new+c.update)===0;
+    $('#bp').hidden=false;
+  }
+  function clearPlan(){plan=null;$('#bp').hidden=true;$('#bf').value='';}
+  $('#bc').addEventListener('click',clearPlan);
+  $('#bf').addEventListener('change',function(){
+    var m=$('#bm'),f=this.files[0];plan=null;$('#bp').hidden=true;say(m,'','');if(!f)return;
+    if(!cat)return;
+    var isCsv=/\.csv$/i.test(f.name);
+    if(!isCsv&&!needX(m))return;
+    if(f.size>5*1024*1024){say(m,'That file is too large. Keep it under 5 MB.','err');return;}
+    var rd=new FileReader();
+    rd.onerror=function(){say(m,'Could not read the file.','err');};
+    rd.onload=function(){
+      try{
+        var rows;
+        if(isCsv){rows=parseCSV(new TextDecoder('utf-8').decode(rd.result));}
+        else{var wb=XLSX.read(rd.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});}
+        var p=buildPlan(rows);
+        if(p.error){say(m,p.error,'err');return;}
+        if(!p.items.length){say(m,'The file has no test rows.','err');return;}
+        plan=p;showPlan(p);
+      }catch(e){say(m,'Could not read this file. Please use the template (.xlsx).','err');}
+    };
+    rd.readAsArrayBuffer(f);
+  });
+  $('#ba').addEventListener('click',function(){
+    if(!plan||!cat)return;var n1=0,n2=0;
+    plan.items.forEach(function(i){
+      if(i.st==='new'){
+        var k=i.code&&/^[A-Za-z0-9_-]{1,20}$/.test(i.code)&&!allTests().some(function(t){return t.k.toLowerCase()===i.code.toLowerCase();})?i.code.toUpperCase():'X'+Date.now().toString(36).toUpperCase()+String(n1);
+        cat.extraTests.push({k:k,n:i.name,m:i.price});n1++;
+      }else if(i.st==='update'){
+        var t=i.ex;
+        if(t.extra){cat.extraTests.forEach(function(x){if('T:'+x.k===t.id){x.m=i.price;if(i.code&&i.name)x.n=i.name;}});}
+        else{var nn=(i.code&&i.name)?i.name:t.n;
+          if(nn===t.on&&i.price===t.om)delete cat.editedTests[t.id];else cat.editedTests[t.id]={n:nn,m:i.price};}
+        n2++;
+      }
+    });
+    var msg=n1+' tests added, '+n2+' prices updated. Remember to publish.';
+    clearPlan();say($('#bm'),msg,'ok');setDirty(true);tpage=0;renderTests();
+      });
 
   /* ---------- add package ---------- */
   var img={thumb:null,full:null};
