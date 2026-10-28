@@ -49,7 +49,8 @@
   /* ---------- catalogue data (data.js: name, code, MRP from the price list) ---------- */
   var CATL=window.CATALOG||{};
   var HID={};(CATL.hiddenTests||[]).forEach(function(h){HID[h]=1;});
-  var RAW=(window.RAW||[]).filter(function(r){return !HID[r[0]+':'+r[1]];}).concat((CATL.extraTests||[]).map(function(t){return ['T',t.k,t.n,t.m];}));
+  var ED=CATL.editedTests||{};
+  var RAW=(window.RAW||[]).filter(function(r){return !HID[r[0]+':'+r[1]];}).map(function(r){var e=ED[r[0]+':'+r[1]];return e?[r[0],r[1],e.n||r[2],e.m>0?e.m:r[3]]:r;}).concat((CATL.extraTests||[]).map(function(t){return ['T',t.k,t.n,t.m];}));
   var CATN={P:'Package',F:'Profile',T:'Test',O:'Out-lab test'};
   var CAT=RAW.map(function(r){return {id:r[0]+':'+r[1],c:r[0],k:r[1],n:r[2],m:r[3],l:r[2].toLowerCase(),s:(r[2]+' '+r[1]).toLowerCase()};});
   var BY={};CAT.forEach(function(it){BY[it.id]=it;});
