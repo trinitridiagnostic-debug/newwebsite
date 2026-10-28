@@ -82,8 +82,9 @@
 
     <section class="card">
       <h2>3. Tests <span class="pill" id="tn"></span></h2>
-      <div class="f"><label for="tq">Search tests to delete</label><input id="tq" placeholder="Type a test name or code" autocomplete="off"></div>
+      <div class="f"><label for="tq">Find a test (optional)</label><input id="tq" placeholder="Type a test name or code, or browse the list below" autocomplete="off"></div>
       <div class="list" id="tl"></div>
+      <div class="row" id="tnav" style="justify-content:space-between;margin-top:10px"></div>
       <h3 style="margin:18px 0 8px;font-size:1.05rem">Add a test</h3>
       <form id="tf" novalidate>
         <div class="f full"><label for="tnm">Test name</label><input id="tnm" placeholder="e.g. THYROID PEROXIDASE ANTIBODY"></div>
@@ -113,7 +114,7 @@
   var API='https://api.github.com/repos/'+OWNER+'/'+REPO+'/contents/';
   var $=function(s){return document.querySelector(s);};
   var RAW=window.RAW||[];
-  var token='',cat=null,sha='',pend={},dirty=false;   // pend: path -> base64 image to upload
+  var tpage=0,token='',cat=null,sha='',pend={},dirty=false;   // pend: path -> base64 image to upload
   var removedImgs=[];
 
   /* ---------- helpers ---------- */
@@ -197,12 +198,19 @@
     var all=allTests(),live=all.filter(function(t){return !t.hidden;});
     $('#tn').textContent=live.length+' on the website';
     var q=$('#tq').value.trim().toLowerCase(),box=$('#tl');box.textContent='';
-    if(q.length<2){box.appendChild(el('p','help','Type at least 2 letters to search.'));}
-    else{
-      var hits=live.filter(function(t){return (t.n+' '+t.k).toLowerCase().indexOf(q)>-1;});
-      hits.slice(0,30).forEach(function(t){box.appendChild(testRow(t,'Delete'));});
-      if(!hits.length)box.appendChild(el('p','help','No matching tests.'));
-      else if(hits.length>30)box.appendChild(el('p','help','Showing 30 of '+hits.length+'. Type more to narrow down.'));
+    var hits=q?live.filter(function(t){return (t.n+' '+t.k).toLowerCase().indexOf(q)>-1;}):live;
+    hits=hits.slice().sort(function(a,b){return a.n<b.n?-1:a.n>b.n?1:0;});
+    var PS=25,pages=Math.max(1,Math.ceil(hits.length/PS));
+    if(tpage>=pages)tpage=pages-1;if(tpage<0)tpage=0;
+    hits.slice(tpage*PS,tpage*PS+PS).forEach(function(t){box.appendChild(testRow(t,'Delete'));});
+    if(!hits.length)box.appendChild(el('p','help','No matching tests.'));
+    var nav=$('#tnav');nav.textContent='';
+    if(hits.length>PS){
+      var pv=el('button','btn ghost sm','Previous');pv.type='button';pv.disabled=tpage===0;
+      pv.addEventListener('click',function(){tpage--;renderTests();});
+      var nx=el('button','btn ghost sm','Next');nx.type='button';nx.disabled=tpage>=pages-1;
+      nx.addEventListener('click',function(){tpage++;renderTests();});
+      nav.appendChild(pv);nav.appendChild(el('span','help','Page '+(tpage+1)+' of '+pages+' ('+hits.length+' tests)'));nav.appendChild(nx);
     }
     var ex=all.filter(function(t){return t.extra;}),hi=all.filter(function(t){return t.hidden;});
     $('#extra').hidden=!ex.length;$('#hid').hidden=!hi.length;
@@ -224,7 +232,7 @@
     });
     row.appendChild(b);return row;
   }
-  $('#tq').addEventListener('input',function(){if(cat)renderTests();});
+  $('#tq').addEventListener('input',function(){tpage=0;if(cat)renderTests();});
 
   /* ---------- add test ---------- */
   $('#tf').addEventListener('submit',function(e){
