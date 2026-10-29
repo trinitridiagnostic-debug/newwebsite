@@ -85,24 +85,34 @@
       <button type="button" class="nv" data-view="pk" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg><span>Packages</span></button>
       <button type="button" class="nv" data-view="ts" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg><span>Tests</span></button>
       <button type="button" class="nv" data-view="bulk" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg><span>Bulk upload</span></button>
+      <button type="button" class="nv" data-view="acct" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Account</span></button>
     </nav>
     <div class="sfoot">
-      <p class="conn" id="connst">Not connected</p>
+      <p class="conn" id="connst">Logged out</p>
       <a class="nv" href="index.html" id="vw"><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5H5V6h5"/></svg><span>View website</span></a>
-      <button type="button" class="nv" id="out" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg><span>Disconnect</span></button>
+      <button type="button" class="nv" id="out" hidden><svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg><span>Log out</span></button>
     </div>
   </aside>
   <div class="scrim" id="scrim" hidden></div>
   <div class="content">
-    <header class="top"><button type="button" class="burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="vt">Connect</h1></header>
+    <header class="top"><button type="button" class="burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="vt">Admin login</h1></header>
     <main class="ad">
       <div class="view" id="v-conn">
   <section class="card" id="conn">
-    <h2>Connect to GitHub</h2>
-    <div id="connForm">
-      <div class="f"><label for="tok">GitHub access token</label><input id="tok" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
-      <label class="row help" style="margin-top:8px"><input type="checkbox" id="rem" style="width:auto"> Remember on this device (do not tick on a shared computer)</label>
-      <div class="row" style="margin-top:10px"><button class="btn" id="go" type="button">Connect</button><span class="msg" id="cmsg" role="status"></span></div>
+    <h2 id="lh">Admin login</h2>
+    <form id="lgin" novalidate autocomplete="on" style="display:block;padding:0">
+      <div class="f"><label for="lu">Username</label><input id="lu" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+      <div class="f" style="margin-top:10px"><label for="lp">Password</label><input id="lp" name="password" type="password" autocomplete="current-password"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="ll" type="submit">Log in</button><span class="msg" id="lm" role="status"></span></div>
+      <p class="help" style="margin-top:12px">Forgot your password? On GitHub, open the <b>newwebsite</b> repository, delete the file <b>admin-vault.json</b>, and come back here to set up a new login.</p>
+    </form>
+    <form id="lset" novalidate hidden autocomplete="off" style="display:block;padding:0">
+      <p class="help" style="margin:0 0 12px">First-time setup. Choose the username and password you will use from now on. Your GitHub token is locked with that password, so you only paste the token once.</p>
+      <div class="f"><label for="stok">GitHub access token</label><input id="stok" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
+      <div class="f" style="margin-top:10px"><label for="su">Choose a username</label><input id="su" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+      <div class="f" style="margin-top:10px"><label for="sp">Choose a password (12 or more characters)</label><input id="sp" type="password" autocomplete="new-password"></div>
+      <div class="f" style="margin-top:10px"><label for="sp2">Repeat the password</label><input id="sp2" type="password" autocomplete="new-password"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="sgo" type="submit">Create admin login</button><span class="msg" id="sm" role="status"></span></div>
       <details class="help" style="margin-top:12px"><summary>How do I get a token?</summary>
         <ol>
           <li>On GitHub open <b>Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token</b>.</li>
@@ -111,9 +121,9 @@
           <li>Under <b>Permissions, Repository permissions</b> set <b>Contents</b> to <b>Read and write</b>.</li>
           <li>Generate, copy the token and paste it above. Never share it with anyone, and never paste it in a chat.</li>
         </ol>
-        <p>The token stays in this browser and is only sent to GitHub. Anyone who has it can change your website, so keep it private. If it leaks, delete it on GitHub.</p>
+        <p>The token is locked with your password and saved as <b>admin-vault.json</b> in the repository. Use a long, unique password: anyone can download that file, and only the password protects the token inside.</p>
       </details>
-    </div>
+    </form>
   </section>
       </div>
       <div class="view" id="v-home" hidden>
@@ -163,6 +173,19 @@
         <h3 style="margin:18px 0 8px;font-size:1.05rem">Deleted tests (can be restored)</h3><div class="list" id="hl"></div>
       </div>
     </section>
+      </div>
+      <div class="view" id="v-acct" hidden>
+        <section class="card">
+          <h2>Account</h2>
+          <p class="help">Change your login username and password, or replace your GitHub token when it expires. The new details work from the next login.</p>
+          <form id="af" novalidate autocomplete="off" style="display:block;padding:0">
+            <div class="f"><label for="au">Username</label><input id="au" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+            <div class="f" style="margin-top:10px"><label for="ap">New password (12 or more characters)</label><input id="ap" type="password" autocomplete="new-password"></div>
+            <div class="f" style="margin-top:10px"><label for="ap2">Repeat the password</label><input id="ap2" type="password" autocomplete="new-password"></div>
+            <div class="f" style="margin-top:10px"><label for="at">New GitHub token (leave empty to keep the current one)</label><input id="at" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
+            <div class="row" style="margin-top:12px"><button class="btn" id="asv" type="submit">Save account</button><span class="msg" id="am" role="status"></span></div>
+          </form>
+        </section>
       </div>
       <div class="view" id="v-bulk" hidden>
         <section class="card">
@@ -226,7 +249,7 @@
 
 
   /* ---------- left drawer navigation ---------- */
-  var TITLES={conn:'Connect',home:'Overview',pk:'Packages',ts:'Tests',bulk:'Bulk upload'};
+  var TITLES={conn:'Admin login',home:'Overview',pk:'Packages',ts:'Tests',bulk:'Bulk upload',acct:'Account'};
   var curView='conn';
   function showView(v){
     if(v!=='conn'&&!cat)v='conn';
@@ -242,12 +265,12 @@
   function closeDrawer(){$('#side').classList.remove('open');$('#scrim').hidden=true;$('#burger').setAttribute('aria-expanded','false');}
   function enter(){
     Array.prototype.forEach.call(document.querySelectorAll('.menu .nv'),function(b){b.hidden=false;});
-    $('#out').hidden=false;$('#bar').hidden=false;$('#connst').textContent='Connected to GitHub';$('#connst').className='conn ok';
+    $('#out').hidden=false;$('#bar').hidden=false;$('#connst').textContent='Logged in';$('#connst').className='conn ok';
     var h=(location.hash||'').replace('#','');showView(TITLES[h]&&h!=='conn'?h:'home');
   }
   function leave(){
     Array.prototype.forEach.call(document.querySelectorAll('.menu .nv'),function(b){b.hidden=true;});
-    $('#out').hidden=true;$('#bar').hidden=true;$('#connst').textContent='Not connected';$('#connst').className='conn';showView('conn');
+    $('#out').hidden=true;$('#bar').hidden=true;$('#connst').textContent='Logged out';$('#connst').className='conn';showView('conn');
   }
   function ov(){if(!cat)return;$('#ovp').textContent=cat.packages.length;$('#ovt').textContent=allTests().filter(function(t){return !t.hidden;}).length;}
   document.addEventListener('click',function(e){var b=e.target.closest('[data-view]');if(b&&cat){showView(b.getAttribute('data-view'));}});
@@ -266,24 +289,113 @@
       cat.packages=cat.packages||[];cat.hiddenTests=cat.hiddenTests||[];cat.extraTests=cat.extraTests||[];cat.editedTests=cat.editedTests||{};
     });
   }
-  function connect(){
-    token=$('#tok').value.trim();
-    if(!token){say($('#cmsg'),'Paste your token first.','err');return;}
-    say($('#cmsg'),'Connecting...','info');
-    loadCatalog().then(function(){
-      try{if($('#rem').checked)localStorage.setItem('trin.admin.token',token);}catch(e){}
-      enter();
-      pend={};removedImgs=[];setDirty(false);render();
-    }).catch(function(e){token='';say($('#cmsg'),fail(e),'err');});
+  /* ---------- login: username + password unlock the GitHub token (stored encrypted in admin-vault.json) ---------- */
+  var VAULT='admin-vault.json',ITER=600000,vaultSha='',vaultData=null,vaultState='checking',fails=0;
+  var TE=new TextEncoder(),TD=new TextDecoder();
+  function bEnc(buf){var a=new Uint8Array(buf),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s);}
+  function bDec(str){var s=atob(str),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
+  function cryptoOk(){return !!(window.crypto&&crypto.subtle);}
+  function derive(pw,user,salt,iter){
+    return crypto.subtle.importKey('raw',TE.encode(pw),'PBKDF2',false,['deriveKey']).then(function(km){
+      var extra=TE.encode('|'+user.trim().toLowerCase()),sl=new Uint8Array(salt.length+extra.length);sl.set(salt);sl.set(extra,salt.length);
+      return crypto.subtle.deriveKey({name:'PBKDF2',salt:sl,iterations:iter,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    });
   }
-  $('#go').addEventListener('click',connect);
-  $('#tok').addEventListener('keydown',function(e){if(e.key==='Enter')connect();});
-  $('#out').addEventListener('click',function(){
-    if(dirty&&!confirm('You have unpublished changes. Disconnect anyway?'))return;
-    token='';cat=null;try{localStorage.removeItem('trin.admin.token');}catch(e){}
-    $('#tok').value='';say($('#cmsg'),'','');setDirty(false);leave();
+  function seal(tok,user,pw){
+    var salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    return derive(pw,user,salt,ITER).then(function(k){return crypto.subtle.encrypt({name:'AES-GCM',iv:iv},k,TE.encode(JSON.stringify({t:tok})));})
+      .then(function(ct){return {v:1,kdf:'PBKDF2-SHA256',iter:ITER,salt:bEnc(salt),iv:bEnc(iv),ct:bEnc(ct)};});
+  }
+  function unseal(v,user,pw){
+    return derive(pw,user,bDec(v.salt),v.iter||ITER).then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:bDec(v.iv)},k,bDec(v.ct));})
+      .then(function(pt){return JSON.parse(TD.decode(pt)).t;});
+  }
+  var COMMON=['password','123456','qwerty','admin','letmein','trinetri','welcome','iloveyou','000000','111111'];
+  function pwProblem(pw,user){
+    if(pw.length<12)return 'Use at least 12 characters.';
+    var cls=(/[a-z]/.test(pw)?1:0)+(/[A-Z]/.test(pw)?1:0)+(/[0-9]/.test(pw)?1:0)+(/[^A-Za-z0-9]/.test(pw)?1:0);
+    if(cls<3&&pw.length<16)return 'Mix upper and lower case letters, numbers and symbols, or use 16 or more characters.';
+    var l=pw.toLowerCase();
+    if(COMMON.some(function(c){return l.indexOf(c)>-1;}))return 'That password is too easy to guess. Avoid common words.';
+    if(user&&user.length>2&&l.indexOf(user.trim().toLowerCase())>-1)return 'The password must not contain the username.';
+    if(/^(.)\1+$/.test(pw))return 'That password is too easy to guess.';
+    return '';
+  }
+  function showLogin(){
+    var setup=vaultState==='none';
+    $('#lgin').hidden=setup;$('#lset').hidden=!setup;
+    $('#lh').textContent=setup?'Set up admin login':'Admin login';
+  }
+  function checkVault(){
+    if(!cryptoOk()){vaultState='nocrypto';showLogin();say($('#lm'),'This browser cannot do secure login. Open the page over https in an up-to-date browser.','err');return Promise.resolve();}
+    return fetch(VAULT+'?t='+Date.now(),{cache:'no-store'}).then(function(r){
+      if(r.status===404){vaultState='none';return;}
+      if(!r.ok)throw new Error('status '+r.status);
+      return r.json().then(function(j){vaultData=j;vaultState='ready';});
+    }).catch(function(){vaultState='ready';vaultData=null;say($('#lm'),'Could not load the login file. Check your connection and try again.','err');}).then(showLogin);
+  }
+  function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+  function afterToken(tk){
+    token=tk;
+    return loadCatalog().then(function(){
+      try{sessionStorage.setItem('trin.admin.tok',tk);}catch(e){}
+      pend={};removedImgs=[];setDirty(false);render();enter();
+    });
+  }
+  $('#lgin').addEventListener('submit',function(e){
+    e.preventDefault();var m=$('#lm'),u=$('#lu').value.trim(),p=$('#lp').value,btn=$('#ll');
+    if(!u||!p){say(m,'Enter your username and password.','err');return;}
+    if(!vaultData){say(m,'Login file not loaded yet. Reload the page.','err');return;}
+    btn.disabled=true;say(m,'Checking...','info');
+    var delay=fails>=3?Math.min(30,Math.pow(2,fails-2)):0;
+    wait(delay*1000).then(function(){return unseal(vaultData,u,p);}).then(function(tk){
+      fails=0;return afterToken(tk).then(function(){$('#lp').value='';say(m,'','');});
+    }).catch(function(err){
+      token='';
+      if(err&&err.status){say(m,'Logged in, but GitHub says: '+fail(err)+' Ask for a new token under Account after fixing it, or reset the login.','err');}
+      else{fails++;say(m,'Wrong username or password.','err');}
+    }).then(function(){btn.disabled=false;});
   });
-  try{var saved=localStorage.getItem('trin.admin.token');if(saved){$('#tok').value=saved;$('#rem').checked=true;}}catch(e){}
+  $('#lset').addEventListener('submit',function(e){
+    e.preventDefault();var m=$('#sm'),tk=$('#stok').value.trim(),u=$('#su').value.trim(),p=$('#sp').value;
+    if(!tk){say(m,'Paste your GitHub token.','err');return;}
+    if(u.length<3){say(m,'Choose a username of at least 3 characters.','err');return;}
+    var pr=pwProblem(p,u);if(pr){say(m,pr,'err');return;}
+    if(p!==$('#sp2').value){say(m,'The two passwords do not match.','err');return;}
+    var btn=$('#sgo');btn.disabled=true;say(m,'Checking the token...','info');
+    token=tk;
+    loadCatalog().then(function(){say(m,'Creating your login...','info');return seal(tk,u,p);}).then(function(v){
+      return putFile(VAULT,b64utf8(JSON.stringify(v)+'\n'),'Admin: create login').then(function(j){vaultSha=j.content.sha;vaultData=v;});
+    }).then(function(){return afterToken(tk);}).then(function(){$('#stok').value='';$('#sp').value='';$('#sp2').value='';say(m,'','');vaultState='ready';showLogin();})
+    .catch(function(err){
+      token='';
+      if(err&&err.status===422)say(m,'A login already exists. Wait a minute, reload this page and log in. If you forgot the password, delete admin-vault.json on GitHub.','err');
+      else say(m,fail(err),'err');
+    }).then(function(){btn.disabled=false;});
+  });
+  $('#af').addEventListener('submit',function(e){
+    e.preventDefault();var m=$('#am'),u=$('#au').value.trim(),p=$('#ap').value,nt=$('#at').value.trim();
+    if(u.length<3){say(m,'Choose a username of at least 3 characters.','err');return;}
+    var pr=pwProblem(p,u);if(pr){say(m,pr,'err');return;}
+    if(p!==$('#ap2').value){say(m,'The two passwords do not match.','err');return;}
+    var btn=$('#asv'),use=nt||token;btn.disabled=true;say(m,'Saving...','info');
+    var old=token,chk=nt?(token=nt,loadCatalog()):Promise.resolve();
+    chk.then(function(){return seal(use,u,p);}).then(function(v){
+      return gh(VAULT+'?ref='+BRANCH+'&t='+Date.now()).then(function(j){return j.sha;}).catch(function(){return '';}).then(function(sh){
+        return putFile(VAULT,b64utf8(JSON.stringify(v)+'\n'),'Admin: update login',sh).then(function(){vaultData=v;});
+      });
+    }).then(function(){
+      token=use;try{sessionStorage.setItem('trin.admin.tok',use);}catch(e){}
+      $('#ap').value='';$('#ap2').value='';$('#at').value='';say(m,'Saved. Use the new details next time you log in.','ok');
+    }).catch(function(err){token=old;say(m,fail(err),'err');}).then(function(){btn.disabled=false;});
+  });
+  $('#out').addEventListener('click',function(){
+    if(dirty&&!confirm('You have unpublished changes. Log out anyway?'))return;
+    token='';cat=null;try{sessionStorage.removeItem('trin.admin.tok');}catch(e){}
+    $('#lp').value='';say($('#lm'),'','');setDirty(false);leave();
+  });
+  var sv=null;try{sv=sessionStorage.getItem('trin.admin.tok');}catch(e){}
+  checkVault().then(function(){if(sv){afterToken(sv).catch(function(){token='';try{sessionStorage.removeItem('trin.admin.tok');}catch(e){}});}});
 
   /* ---------- render ---------- */
   function render(){renderPk();renderTests();}
