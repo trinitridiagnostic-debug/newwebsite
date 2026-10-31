@@ -510,3 +510,11 @@
 
   renderCat(true);sync();
 })();
+
+/* navbar: show "My Account" when a customer is already signed in */
+(function () {
+  try {
+    var a = document.getElementById('lgn');
+    if (a && (sessionStorage.getItem('trin.portal.tok') || localStorage.getItem('trin.portal.tok'))) a.textContent = 'My Account';
+  } catch (e) { }
+})();
