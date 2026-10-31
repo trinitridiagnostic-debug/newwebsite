@@ -166,7 +166,7 @@ function buildReportPdf($o, $sections, $meta) {
     $y = $tableHead($y);
     foreach ($rows as $r) {
       $flag = (string)($r['flag'] ?? ''); $abn = $flag !== '';
-      $nl = $pdf->wrap($r['name'], 190, 9.5, false); $rl = $pdf->wrap((string)$r['ref'], 142, 8.5, false); $vl = $pdf->wrap((string)$r['value'], 68, 9.5, true);
+      $nl = $pdf->wrap($r['name'], 190, 9.5, false); $rl = $pdf->wrap(rowRange($r), 142, 8.5, false); $vl = $pdf->wrap((string)$r['value'], 68, 9.5, true);
       $h = max(count($nl) * 12, count($rl) * 11, count($vl) * 12) + 6;
       if ($y + $h > $bottom) { $pdf->addPage(); $y = $head(false); $y = $secHead($y, $sec['title'] . ' (continued)'); $y = $tableHead($y); }
       foreach ($nl as $i => $s) $pdf->text($cols['name'], $y + $i * 12, $s, 9.5, false, $ink);
@@ -199,4 +199,17 @@ function buildReportPdf($o, $sections, $meta) {
     $p->textCenter(MiniPdf::W / 2, MiniPdf::H - 31, LAB_NAME . '  |  ' . LAB_ADDR . '  |  ' . LAB_PHONE, 7.5, false, $gray);
     $p->textRight($R, MiniPdf::H - 19, 'Page ' . $n . ' of ' . $t, 8, false, $gray);
   });
+}
+
+/* Reference range shown on the report: the typed text if there is one, otherwise built from the low / high limits. */
+function rowRange($r) {
+  $txt = trim((string)(isset($r['ref']) ? $r['ref'] : ''));
+  if ($txt !== '') return $txt;
+  $f = function ($v) { $s = rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0'), '.'); return $s === '' ? '0' : $s; };
+  $lo = isset($r['low']) && $r['low'] !== null && $r['low'] !== '' ? $f($r['low']) : null;
+  $hi = isset($r['high']) && $r['high'] !== null && $r['high'] !== '' ? $f($r['high']) : null;
+  if ($lo !== null && $hi !== null) return $lo . ' - ' . $hi;
+  if ($hi !== null) return '< ' . $hi;
+  if ($lo !== null) return '> ' . $lo;
+  return '';
 }
