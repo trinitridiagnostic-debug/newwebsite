@@ -1,0 +1,15 @@
+name = "trinetri-portal"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+# Website addresses allowed to call this server (origins only, comma separated).
+ALLOWED_ORIGIN = "https://trinitridiagnostic-debug.github.io"
+
+[[durable_objects.bindings]]
+name = "PORTAL"
+class_name = "Portal"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Portal"]

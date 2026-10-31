@@ -1,0 +1,30 @@
+name: Deploy customer portal server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['portal-server/**', '.github/workflows/deploy-portal.yml']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Run tests
+        run: node portal-server/test.mjs
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: portal-server
+          command: deploy
+          secrets: |
+            LAB_API_KEY
+        env:
+          LAB_API_KEY: ${{ secrets.LAB_API_KEY }}
+      - name: Show Worker address
+        run: echo "::notice title=Portal server deployed::Check Cloudflare dashboard > Workers > trinetri-portal for the https://trinetri-portal.<your-subdomain>.workers.dev address, then put it in portal-config.js"

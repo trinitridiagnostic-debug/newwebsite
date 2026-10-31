@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>My Account | Trinetri Diagnostics</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="portal.css">
+</head>
+<body class="pt">
+
+<section class="auth" id="auth">
+  <div class="box">
+    <div class="brand2"><img src="icon.png" alt="" width="44" height="44"><div><h1>Trinetri Diagnostics</h1><span class="note">Customer portal</span></div></div>
+    <div class="demo" id="livenote" hidden style="border-radius:10px;margin-bottom:12px">Online accounts are not switched on yet. You can try the demo with sample data.</div>
+    <div class="tabs" role="tablist" id="atabs">
+      <button type="button" role="tab" aria-selected="true" data-t="login">Log in</button>
+      <button type="button" role="tab" aria-selected="false" data-t="reg">Create account</button>
+    </div>
+    <form id="fl" novalidate autocomplete="on">
+      <div class="f"><label for="lm">Mobile number</label><input id="lm" type="tel" inputmode="tel" autocomplete="username" placeholder="10-digit mobile number"></div>
+      <div class="f"><label for="lpw">Password</label><input id="lpw" type="password" autocomplete="current-password"></div>
+      <label class="row note"><input type="checkbox" id="keep" style="width:auto"> Keep me logged in on this device</label>
+      <button class="btn" type="submit" id="lgo">Log in</button>
+      <span class="msg" id="lmsg" role="status"></span>
+    </form>
+    <form id="fr" novalidate hidden autocomplete="on">
+      <div class="f"><label for="rn">Full name</label><input id="rn" autocomplete="name"></div>
+      <div class="f"><label for="rm">Mobile number</label><input id="rm" type="tel" inputmode="tel" autocomplete="username" placeholder="10-digit mobile number"></div>
+      <div class="f"><label for="rp">Password (8 or more characters)</label><input id="rp" type="password" autocomplete="new-password"></div>
+      <div class="f"><label for="rp2">Repeat the password</label><input id="rp2" type="password" autocomplete="new-password"></div>
+      <button class="btn" type="submit" id="rgo">Create account</button>
+      <span class="msg" id="rmsg" role="status"></span>
+      <p class="note" style="margin:0">Your reports stay hidden until you add an order with the Order ID and report PIN from your receipt.</p>
+    </form>
+    <p class="note" style="margin:16px 0 0;text-align:center"><button type="button" class="linkbtn" id="demobtn">Try the demo with sample data</button> &middot; <a href="index.html">Back to website</a></p>
+  </div>
+</section>
+
+<div class="shell" id="app" hidden>
+  <aside class="side" id="side" aria-label="Menu">
+    <div class="brand"><img src="icon.png" alt="" width="36" height="36"><div><b>Trinetri</b><small>My account</small></div></div>
+    <nav class="menu" id="menu"></nav>
+    <div class="sfoot">
+      <div class="who"><b id="wn"></b><span id="wm"></span></div>
+      <a class="nv" href="index.html"><span>Back to website</span></a>
+      <button type="button" class="nv" id="out"><span>Log out</span></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="content">
+    <div class="demo" id="demobar" hidden>Demo mode: sample data only. Nothing here is real or saved on a server.</div>
+    <header class="top"><button type="button" class="burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="vt">Overview</h1></header>
+    <main class="page" id="page" tabindex="-1"></main>
+  </div>
+</div>
+
+<script src="portal-config.js"></script>
+<script src="portal.js"></script>
+</body>
+</html>
