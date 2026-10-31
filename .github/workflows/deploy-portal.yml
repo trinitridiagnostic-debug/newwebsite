@@ -1,10 +1,7 @@
-name: Deploy customer portal server
+name: Deploy customer portal server (Cloudflare option, manual)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['portal-server/**', '.github/workflows/deploy-portal.yml']
 
 jobs:
   deploy:
