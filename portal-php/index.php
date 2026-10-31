@@ -5,6 +5,8 @@
    - Same routes and replies as the Cloudflare version in ../portal-server, so the website needs no change.
    Setup: see SETUP.md. Copy config.sample.php to config.php and fill it in. */
 
+date_default_timezone_set('Asia/Kolkata');
+
 const PLANS = [
   ['id' => 'bronze', 'name' => 'Bronze', 'price' => 499, 'period' => 'year', 'discount' => 5, 'perks' => ['5% off every test', 'Free home collection', 'Reports on WhatsApp']],
   ['id' => 'silver', 'name' => 'Silver', 'price' => 999, 'period' => 'year', 'discount' => 10, 'perks' => ['10% off every test', 'Free home collection', 'Priority slots', 'Reports on WhatsApp']],
@@ -79,8 +81,8 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v1';
-  if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '1'); }
+  $mark = $dir . '/.schema-v3';
+  if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '3'); }
   return $pdo;
 }
 function migrate($pdo, $mysql) {
@@ -98,8 +100,21 @@ function migrate($pdo, $mysql) {
     "CREATE TABLE IF NOT EXISTS chat_state (uid VARCHAR(32) PRIMARY KEY, last BIGINT NOT NULL DEFAULT 0, greeted BIGINT NOT NULL DEFAULT 0)$tail",
     "CREATE TABLE IF NOT EXISTS attempts (k VARCHAR(64) PRIMARY KEY, n INT NOT NULL DEFAULT 0, until_ts BIGINT NOT NULL DEFAULT 0, t BIGINT NOT NULL DEFAULT 0)$tail",
   ];
+  $sql[] = "CREATE TABLE IF NOT EXISTS staff (id VARCHAR(32) PRIMARY KEY, username VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(60) NOT NULL, role VARCHAR(12) NOT NULL, title VARCHAR(120) NULL, hash VARCHAR(255) NOT NULL, active INT NOT NULL DEFAULT 1, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS test_templates (tkey VARCHAR(40) PRIMARY KEY, name VARCHAR(120) NOT NULL, params TEXT NOT NULL, matches TEXT NULL, updated BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS stock_items (id $ai, name VARCHAR(80) NOT NULL, unit VARCHAR(20) NOT NULL, qty INT NOT NULL DEFAULT 0, min_qty INT NOT NULL DEFAULT 0, active INT NOT NULL DEFAULT 1, updated BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS stock_items (id $ai, name VARCHAR(80) NOT NULL, unit VARCHAR(20) NOT NULL, qty INT NOT NULL DEFAULT 0, min_qty INT NOT NULL DEFAULT 0, active INT NOT NULL DEFAULT 1, updated BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
-  foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts')] as $s) if ($s) $pdo->exec($s);
+  // columns added in v2 (safe to repeat: errors for existing columns are ignored)
+  $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
+    "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
+    "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
+    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0"];
+  foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
+  foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile')] as $s) if ($s) $pdo->exec($s);
+  if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
 }
 function q($sql, $args = []) { $st = db()->prepare($sql); $st->execute($args); return $st; }
 function one($sql, $args = []) { $r = q($sql, $args)->fetch(); return $r === false ? null : $r; }
@@ -135,7 +150,7 @@ function authHeader() {
 function authed() {
   $h = authHeader();
   $d = verify(strpos($h, 'Bearer ') === 0 ? substr($h, 7) : '');
-  $u = $d ? one('SELECT * FROM users WHERE id=?', [$d['u']]) : null;
+  $u = ($d && isset($d['u'])) ? one('SELECT * FROM users WHERE id=?', [$d['u']]) : null;
   if (!$u) throw new HttpErr(401, 'Please log in again.');
   return $u;
 }
@@ -443,6 +458,7 @@ function route() {
 
   if ($path === '/' && $m === 'GET') out(['ok' => true, 'service' => 'trinetri-portal']);
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
+  if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
   if (strpos($path, '/lab/') === 0) lab($path, $m);
   if ($path === '/auth/register' && $m === 'POST') register();
   if ($path === '/auth/login' && $m === 'POST') login();

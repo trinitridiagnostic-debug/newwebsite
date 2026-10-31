@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Lab Console | Trinetri Diagnostics</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="portal.css">
+<link rel="stylesheet" href="lab.css">
+</head>
+<body class="pt lab">
+
+<section class="auth" id="auth">
+  <div class="box">
+    <div class="brand2"><img src="icon.png" alt="" width="44" height="44"><div><h1>Trinetri Diagnostics</h1><span class="note">Lab console (staff only)</span></div></div>
+    <div id="nosrv" class="demo" hidden style="border-radius:10px;margin-bottom:12px">The lab server is not connected yet. Set the server address in <b>portal-config.js</b> (see portal-php/SETUP.md).</div>
+    <form id="fl" novalidate autocomplete="on" hidden>
+      <div class="f"><label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="none"></div>
+      <div class="f"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password"></div>
+      <button class="btn" type="submit">Log in</button>
+      <span class="msg" id="lmsg" role="status"></span>
+    </form>
+    <form id="fs" novalidate hidden autocomplete="off">
+      <p class="note" style="margin:0">First-time setup. Create the owner login for the lab console.</p>
+      <div class="f"><label for="sn">Your name</label><input id="sn" autocomplete="name"></div>
+      <div class="f"><label for="st">Title shown on reports (optional)</label><input id="st" placeholder="e.g. MD Pathology, KMC Reg. No. 12345"></div>
+      <div class="f"><label for="su">Username</label><input id="su" autocapitalize="none" autocomplete="off"></div>
+      <div class="f"><label for="sp">Password (8 or more characters)</label><input id="sp" type="password" autocomplete="new-password"></div>
+      <div class="f"><label for="sc">Setup code</label><input id="sc" type="password" autocomplete="off" placeholder="the lab_api_key from config.php"></div>
+      <button class="btn" type="submit">Create owner login</button>
+      <span class="msg" id="smsg" role="status"></span>
+    </form>
+    <p class="note" style="margin:16px 0 0;text-align:center"><a href="index.html">Back to website</a> &middot; <a href="admin.html">Catalog admin</a></p>
+  </div>
+</section>
+
+<div class="shell" id="app" hidden>
+  <aside class="side" id="side" aria-label="Menu">
+    <div class="brand"><img src="icon.png" alt="" width="36" height="36"><div><b>Trinetri</b><small>Lab console</small></div></div>
+    <nav class="menu" id="menu"></nav>
+    <div class="sfoot">
+      <div class="who"><b id="wn"></b><span id="wr"></span></div>
+      <a class="nv" href="admin.html"><span>Catalog admin</span></a>
+      <a class="nv" href="index.html"><span>Back to website</span></a>
+      <button type="button" class="nv" id="out"><span>Log out</span></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="content">
+    <header class="top"><button type="button" class="burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><h1 id="vt">Dashboard</h1><div id="topact"></div></header>
+    <main class="page wide" id="page" tabindex="-1"></main>
+  </div>
+</div>
+<div id="rcpt" aria-hidden="true"></div>
+
+<script src="data.js"></script>
+<script src="catalog.js"></script>
+<script src="portal-config.js"></script>
+<script src="lab.js"></script>
+<script src="lab2.js"></script>
+</body>
+</html>

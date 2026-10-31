@@ -14,7 +14,19 @@ The website can stay on GitHub Pages. Only this API folder goes on the PHP host.
 
 Do not upload `config.php` to GitHub. The `storage/` folder (database, report PDFs, signing key) is created by the API and blocked from the web by `.htaccess`. Back it up with your normal cPanel backups.
 
-## Lab API (header `X-Lab-Key: <lab_api_key>`, JSON unless noted)
+## Lab console (lab.html): your lab management software
+Open `https://YOUR-WEBSITE/lab.html`. The first time, it asks you to create the owner login. The **setup code** is the `lab_api_key` from `config.php` (so nobody else can claim the first login).
+Then add staff under **Staff** and give each a role:
+- **Reception**: register patients, bill, take payments, print receipts, inbox (tickets, chat), memberships
+- **Technician**: mark samples collected / in progress, enter results, stock
+- **Doctor / Pathologist**: enter results, **approve reports** (this publishes them to the customer), edit result templates
+- **Admin**: everything, plus staff accounts
+
+Daily flow: New order (bill, print receipt, give the PIN) -> mark sample collected -> enter results (or attach a ready PDF) -> Approve. Customers see each step live on their dashboard and download the PDF only after approval.
+Billing uses the same test prices as the website (and your changes in the catalog admin). Anything not in the price list can be added as a custom test. Member discounts are suggested automatically for active members.
+Result templates (parameters, units, normal ranges) are starter values only. Have your pathologist review them under **Result templates** before issuing reports.
+
+## Lab API (for connecting other lab software) (header `X-Lab-Key: <lab_api_key>`, JSON unless noted)
 | Call | Purpose |
 |---|---|
 | `POST /lab/orders` `{code?, mobile, name, tests:[{name,price}], amount?}` | Create an order. Returns the 6-digit `pin` to print on the receipt |
@@ -30,4 +42,4 @@ Example: `curl -X POST https://YOUR-DOMAIN/portal-api/lab/orders -H "X-Lab-Key: 
 - Customers link a test with Order ID + PIN from the receipt, so nobody can read another person's reports by signing up with their number.
 - Passwords are stored with PHP `password_hash`. Logins lock for 15 minutes after 5 wrong tries.
 - Plans and prices are placeholders (edit `PLANS` near the top of `index.php`, and the matching list in `portal.js` for demo mode).
-- Developers: `node portal-php/test.mjs` runs 66 checks against PHP's built-in server.
+- Developers: `node portal-php/test.mjs` (66 checks) and `node portal-php/test-staff.mjs` (100 checks) run against PHP's built-in server.
