@@ -87,7 +87,26 @@ function createOrder($s) {
       break;
     } catch (PDOException $e) { if ($try > 5) throw $e; }
   }
+  $bid = (int)field($b, 'booking_id');
+  if ($bid > 0) q("UPDATE bookings SET status='done', order_code=? WHERE id=? AND status='new'", [$code, $bid]);
   out(['order' => sView(sFresh($id)), 'pin' => $pin], 201);
+}
+
+/* A booking request sent from the website forms (no login). Rate limited per visitor address. */
+function publicBooking() {
+  $b = body(); $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'x';
+  $k = 'pb:' . substr(hash('sha256', $ip), 0, 20); $a = attempt($k); $now = nowms();
+  if ($now - $a['t'] > 3600000) { $a['t'] = $now; $a['n'] = 0; } $a['n']++;
+  if ($a['n'] > 10) throw new HttpErr(429, 'Too many requests. Please call or WhatsApp us.');
+  saveAttempt($k, $a);
+  $name = clean(field($b, 'name'), 60); $mobile = normMobile(field($b, 'mobile'));
+  if (mb_strlen($name) < 2 || !preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter your name and a valid mobile number.');
+  $tests = field($b, 'tests'); if (is_array($tests)) $tests = implode(', ', array_map(function ($x) { return clean($x, 100); }, array_slice($tests, 0, 40)));
+  $src = field($b, 'source') === 'book' ? 'book' : 'home';
+  $dup = one('SELECT id FROM bookings WHERE mobile=? AND created>? AND tests=?', [$mobile, $now - 600000, clean($tests, 600)]);   // same request sent twice
+  if (!$dup) q('INSERT INTO bookings (name, mobile, tests, pref_date, slot, address, note, source, status, created) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    [$name, $mobile, clean($tests, 600), clean(field($b, 'date'), 12), clean(field($b, 'slot'), 40), clean(field($b, 'address'), 200), clean(field($b, 'note'), 300), $src, 'new', $now]);
+  out(['ok' => true], 201);
 }
 
 function updateOrder($s, $o) {
@@ -338,6 +357,19 @@ function staff($path, $m) {
   }
   if ($path === '/staff/templates/delete' && $m === 'POST') { need($s, 'templates'); q('DELETE FROM test_templates WHERE tkey=?', [strtoupper(clean(field(body(), 'key'), 40))]); out(['ok' => true]); }
 
+  /* website booking requests */
+  if ($path === '/staff/bookings' && $m === 'GET') {
+    need($s, 'billing'); $st = isset($q['status']) ? (string)$q['status'] : 'new';
+    $rows = in_array($st, ['new', 'done', 'cancelled'], true) ? all('SELECT * FROM bookings WHERE status=? ORDER BY created DESC LIMIT 200', [$st]) : all('SELECT * FROM bookings ORDER BY created DESC LIMIT 200');
+    out(['bookings' => array_map(function ($x) { return ['id' => (int)$x['id'], 'name' => $x['name'], 'mobile' => $x['mobile'], 'tests' => (string)$x['tests'], 'date' => (string)$x['pref_date'], 'slot' => (string)$x['slot'],
+      'address' => (string)$x['address'], 'note' => (string)$x['note'], 'source' => (string)$x['source'], 'status' => $x['status'], 'orderCode' => $x['order_code'], 'created' => (int)$x['created']]; }, $rows)]);
+  }
+  if ($m === 'POST' && preg_match('#^/staff/bookings/(\d+)/status$#', $path, $r)) {
+    need($s, 'billing'); $st = strtolower(clean(field(body(), 'status'), 12));
+    if (!in_array($st, ['new', 'done', 'cancelled'], true)) throw bad('Status must be new, done or cancelled.');
+    q('UPDATE bookings SET status=? WHERE id=?', [$st, (int)$r[1]]); out(['ok' => true]);
+  }
+
   /* inbox: tickets */
   if ($path === '/staff/tickets' && $m === 'GET') {
     need($s, 'inbox'); $st = isset($q['status']) ? (string)$q['status'] : '';
@@ -445,7 +477,8 @@ function staff($path, $m) {
         'awaiting' => $c("SELECT COUNT(*) AS n FROM orders WHERE res_status='entered'")],
       'dues' => ['orders' => $c('SELECT COUNT(*) AS n FROM orders WHERE amount>paid'), 'amount' => $c('SELECT COALESCE(SUM(amount-paid),0) AS n FROM orders WHERE amount>paid')],
       'stock' => ['low' => $c('SELECT COUNT(*) AS n FROM stock_items WHERE active=1 AND qty<=min_qty')],
-      'inbox' => ['tickets' => $c("SELECT COUNT(*) AS n FROM tickets WHERE status='open'"), 'chats' => $unread, 'members' => $reqs]]);
+      'inbox' => ['tickets' => $c("SELECT COUNT(*) AS n FROM tickets WHERE status='open'"), 'chats' => $unread, 'members' => $reqs],
+      'bookings' => $c("SELECT COUNT(*) AS n FROM bookings WHERE status='new'")]);
   }
   if ($path === '/staff/summary' && $m === 'GET') {
     $from = (int)(isset($q['from']) ? $q['from'] : 0); $to = (int)(isset($q['to']) ? $q['to'] : nowms()); $tz = (int)(isset($q['tz']) ? $q['tz'] : 330);

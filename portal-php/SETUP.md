@@ -22,6 +22,8 @@ Then add staff under **Staff** and give each a role:
 - **Doctor / Pathologist**: enter results, **approve reports** (this publishes them to the customer), edit result templates
 - **Admin**: everything, plus staff accounts
 
+**Website bookings:** the home page form and the Book page also send each request to the lab console. It appears under **Bookings** (with a red count) and on the Dashboard. Click **Create order** to open New order with the patient, tests, date and address already filled in. The booking is marked done and linked to the order. WhatsApp still opens for the customer as before.
+
 Daily flow: New order (bill, print receipt, give the PIN) -> mark sample collected -> enter results (or attach a ready PDF) -> Approve. Customers see each step live on their dashboard and download the PDF only after approval.
 Billing uses the same test prices as the website (and your changes in the catalog admin). Anything not in the price list can be added as a custom test. Member discounts are suggested automatically for active members.
 Result templates (parameters, units, normal ranges) are starter values only. Have your pathologist review them under **Result templates** before issuing reports.

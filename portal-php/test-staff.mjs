@@ -175,6 +175,21 @@ try {
   r = await call('GET', `/staff/stock/${sid}/log`, { token: TECH }); ok(r.j.log.length === 2 && r.j.log[0].delta === -7 && r.j.log[1].note === 'Opening stock', 'stock log');
   r = await call('GET', '/staff/dashboard?since=0', { token: TECH }); ok(r.s === 200 && r.j.stock.low === 1, 'dashboard shows low stock');
   await call('POST', '/staff/stock', { token: TECH, body: { id: sid, name: 'EDTA tubes', unit: 'box', min: 4, remove: true } }); ok((await call('GET', '/staff/stock', { token: TECH })).j.items.length === 0, 'item removed');
+  // website booking requests -> lab console
+  r = await call('POST', '/public/booking', { body: { name: 'R', mobile: '123' } }); ok(r.s === 400, 'booking needs valid name + mobile');
+  r = await call('POST', '/public/booking', { body: { name: 'Ravi Kumar', mobile: '9845012345', tests: ['Lipid Profile', 'HbA1c Test'], date: '2026-11-02', slot: '7:00 - 9:00 am', address: 'Temple Road', source: 'book' } }); ok(r.s === 201 && r.j.ok, 'website booking is accepted without login');
+  await call('POST', '/public/booking', { body: { name: 'Ravi Kumar', mobile: '9845012345', tests: ['Lipid Profile', 'HbA1c Test'], source: 'book' } });
+  r = await call('GET', '/staff/bookings?status=new', { token: REC }); ok(r.s === 200 && r.j.bookings.length === 1 && r.j.bookings[0].tests === 'Lipid Profile, HbA1c Test' && r.j.bookings[0].source === 'book', 'reception sees the booking (same request sent twice is saved once)');
+  const bid = r.j.bookings[0].id;
+  ok((await call('GET', '/staff/bookings', { token: TECH })).s === 403, 'technician cannot see bookings');
+  ok((await call('GET', '/staff/bookings')).s === 401, 'bookings need login');
+  ok((await call('GET', '/staff/dashboard?since=0', { token: REC })).j.bookings === 1, 'dashboard counts new bookings');
+  r = await call('POST', '/staff/orders', { token: REC, body: { name: 'Ravi Kumar', mobile: '9845012345', tests: [{ key: '', name: 'Lipid Profile', price: 250 }], booking_id: bid } });
+  ok(r.s === 201, 'order created from the booking');
+  const bcode = r.j.order.code;
+  r = await call('GET', '/staff/bookings?status=done', { token: REC }); ok(r.j.bookings.length === 1 && r.j.bookings[0].orderCode === bcode, 'booking marked done and linked to the order');
+  ok((await call('GET', '/staff/dashboard?since=0', { token: REC })).j.bookings === 0, 'new-bookings count drops to 0');
+  ok((await call('POST', `/staff/bookings/${bid}/status`, { token: REC, body: { status: 'cancelled' } })).j.ok, 'booking status can be changed');
   // deactivate
   const rec = (await call('GET', '/staff/users', { token: A })).j.users.find((u) => u.username === 'rec1');
   await call('POST', '/staff/users/' + rec.id, { token: A, body: { active: false } }); ok((await call('GET', '/staff/orders', { token: REC })).s === 401, 'deactivated staff is locked out at once');

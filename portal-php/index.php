@@ -81,8 +81,8 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v3';
-  if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '3'); }
+  $mark = $dir . '/.schema-v4';
+  if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '4'); }
   return $pdo;
 }
 function migrate($pdo, $mysql) {
@@ -101,6 +101,7 @@ function migrate($pdo, $mysql) {
     "CREATE TABLE IF NOT EXISTS attempts (k VARCHAR(64) PRIMARY KEY, n INT NOT NULL DEFAULT 0, until_ts BIGINT NOT NULL DEFAULT 0, t BIGINT NOT NULL DEFAULT 0)$tail",
   ];
   $sql[] = "CREATE TABLE IF NOT EXISTS staff (id VARCHAR(32) PRIMARY KEY, username VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(60) NOT NULL, role VARCHAR(12) NOT NULL, title VARCHAR(120) NULL, hash VARCHAR(255) NOT NULL, active INT NOT NULL DEFAULT 1, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS bookings (id $ai, name VARCHAR(60) NOT NULL, mobile VARCHAR(10) NOT NULL, tests VARCHAR(600) NULL, pref_date VARCHAR(12) NULL, slot VARCHAR(40) NULL, address VARCHAR(200) NULL, note VARCHAR(300) NULL, source VARCHAR(12) NULL, status VARCHAR(12) NOT NULL DEFAULT 'new', order_code VARCHAR(30) NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS test_templates (tkey VARCHAR(40) PRIMARY KEY, name VARCHAR(120) NOT NULL, params TEXT NOT NULL, matches TEXT NULL, updated BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_items (id $ai, name VARCHAR(80) NOT NULL, unit VARCHAR(20) NOT NULL, qty INT NOT NULL DEFAULT 0, min_qty INT NOT NULL DEFAULT 0, active INT NOT NULL DEFAULT 1, updated BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
@@ -458,6 +459,7 @@ function route() {
 
   if ($path === '/' && $m === 'GET') out(['ok' => true, 'service' => 'trinetri-portal']);
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
+  if ($path === '/public/booking' && $m === 'POST') { require_once __DIR__ . '/staff.php'; publicBooking(); }
   if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
   if (strpos($path, '/lab/') === 0) lab($path, $m);
   if ($path === '/auth/register' && $m === 'POST') register();

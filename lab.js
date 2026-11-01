@@ -80,6 +80,7 @@
   var NAV = [
     ['dash', 'Dashboard', null, 'M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
     ['new', 'New order', 'billing', 'M12 5v14M5 12h14'],
+    ['bookings', 'Bookings', 'billing', 'M7 3v3M17 3v3M4 8h16M5 5h14v15H5V5zM9 13l2 2 4-4'],
     ['orders', 'Orders', 'view', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
     ['patients', 'Patients', 'view', 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21c1-4 4-6 8-6s7 2 8 6'],
     ['inbox', 'Inbox', 'inbox', 'M4 5h16v11H8l-4 4V5z'],
@@ -89,7 +90,7 @@
     ['staff', 'Staff', 'staff', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z'],
     ['acct', 'My account', null, 'M12 8m-4 0a4 4 0 108 0 4 4 0 10-8 0M5 21c1-4 4-6 7-6s6 2 7 6']
   ];
-  var TITLES = { dash: 'Dashboard', new: 'New order', orders: 'Orders', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
+  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
   var ROLES = { admin: 'Admin', reception: 'Reception', technician: 'Technician', doctor: 'Doctor / Pathologist' };
   LAB.roles = ROLES;
   function tok(v) { try { if (v === null) sessionStorage.removeItem('trin.lab.tok'); else if (v) sessionStorage.setItem('trin.lab.tok', v); else return sessionStorage.getItem('trin.lab.tok') || ''; } catch (e) { } return ''; }
@@ -110,7 +111,7 @@
   function refreshDash() {
     api('GET', '/staff/dashboard?since=' + dayStart(0) + '&tz=' + (-new Date().getTimezoneOffset()), undefined, { quiet: true }).then(function (d) {
       DASH = d; LAB.dash = d;
-      var n = { inbox: d.inbox.tickets + d.inbox.chats + d.inbox.members, stock: d.stock ? d.stock.low : 0, orders: d.pipeline.awaiting };
+      var n = { bookings: d.bookings || 0, inbox: d.inbox.tickets + d.inbox.chats + d.inbox.members, stock: d.stock ? d.stock.low : 0, orders: d.pipeline.awaiting };
       $$('#menu .nv').forEach(function (b) { var c = n[b.getAttribute('data-v')], dot = $('.dot', b); if (dot) { dot.hidden = !c; dot.textContent = c || ''; } });
     }).catch(function () { });
   }
@@ -175,6 +176,7 @@
       if (can('inbox') || can('stock')) {
         page.appendChild(el('h2', { text: 'Needs attention' })); var g2 = el('div', 'grid4');
         if (can('inbox')) { g2.appendChild(kpi(String(d.inbox.tickets), 'Open tickets', null, function () { go('inbox'); }, d.inbox.tickets > 0)); g2.appendChild(kpi(String(d.inbox.chats), 'Unread chats', null, function () { go('inbox'); }, d.inbox.chats > 0)); g2.appendChild(kpi(String(d.inbox.members), 'Membership requests', null, function () { go('inbox'); }, d.inbox.members > 0)); }
+        if (can('billing')) g2.appendChild(kpi(String(d.bookings || 0), 'New website bookings', null, function () { go('bookings'); }, (d.bookings || 0) > 0));
         if (can('stock')) g2.appendChild(kpi(String(d.stock.low), 'Low stock items', null, function () { go('stock'); }, d.stock.low > 0));
         page.appendChild(g2);
       }

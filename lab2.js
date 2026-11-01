@@ -9,6 +9,7 @@
 
   /* ======================= NEW ORDER (registration + billing) ======================= */
   L.views.new = function (page, _a, done) {
+    var pre = L.prefill || null; L.prefill = null; var bookingId = pre ? pre.id : 0;
     var items = [], pct = 0, discTouched = false;
     var mobile = el('input', { inputmode: 'tel', placeholder: '10-digit mobile', autocomplete: 'off' }), name = el('input', { autocomplete: 'off' }), age = el('input', { type: 'number', min: 0, max: 120 });
     var sex = el('select', null, opts([['', 'Select'], ['M', 'Male'], ['F', 'Female'], ['O', 'Other']], '')), doc = el('input', { placeholder: 'Doctor name (optional)' }), kind = el('select', null, opts([['walk-in', 'Walk-in'], ['home', 'Home collection']], 'walk-in')), notes = el('input', { placeholder: 'Optional' });
@@ -56,7 +57,7 @@
     function create() {
       var m = L.mob(mobile.value); if (m.length !== 10) return say(ms, 'Enter a valid 10-digit mobile number.', 'err'); if (name.value.trim().length < 2) return say(ms, 'Enter the patient name.', 'err'); if (!items.length) return say(ms, 'Add at least one test.', 'err');
       var t = totals(); go.disabled = true; say(ms, 'Creating...', 'info');
-      api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: doc.value, kind: kind.value, notes: notes.value, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
+      api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: doc.value, kind: kind.value, notes: notes.value, booking_id: bookingId, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
         .then(function (r) { L.refreshDash(); success(r.order, r.pin); }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); });
     }
     function success(o, pin) {
@@ -66,11 +67,54 @@
         el('div', 'sum', [el('span', { text: 'Total' }), el('b', { text: inr(o.amount) }), el('span', { text: 'Paid' }), el('b', { text: inr(o.paid) }), el('span', { text: 'Balance due' }), el('b', { text: inr(o.due) })]),
         el('div', 'row', [btn('Print receipt', '', function () { L.receipt(o, pin); }), btn('Send on WhatsApp', 'ghost', function () { window.open(L.waLink(o, pin), '_blank'); }), btn('Open order', 'ghost', function () { L.go('order', o.code); }), btn('New order', 'ghost', function () { L.go('new'); })])]));
     }
+    if (pre) {   // opened from a website booking: fill in what the customer sent
+      name.value = pre.name || ''; mobile.value = pre.mobile || ''; kind.value = 'home';
+      notes.value = ('Website booking #' + pre.id + (pre.date ? ', ' + pre.date : '') + (pre.slot ? ' ' + pre.slot : '') + (pre.address ? ', ' + pre.address : '') + (pre.note ? ', ' + pre.note : '')).slice(0, 480);
+      var left = [];
+      String(pre.tests || '').split(/\s*,\s*|\n/).forEach(function (s) {
+        s = s.trim(); if (!s) return; var hit = L.search(s).filter(function (t) { return t.name.toLowerCase() === s.toLowerCase(); })[0];
+        if (hit) { if (!items.some(function (x) { return x.key === hit.key && x.name === hit.name; })) items.push({ key: hit.key, name: hit.name, price: hit.price }); } else left.push(s);
+      });
+      page.appendChild(el('div', 'card', [el('h2', { text: 'From website booking #' + pre.id }),
+        el('p', { class: 'note', text: 'Check the details below, add or change tests, then create the order. The booking is marked done automatically.' + (left.length ? ' Not matched to the price list, add them yourself: ' + left.join(', ') + '.' : '') })]));
+      lookup();
+    }
     page.appendChild(el('div', 'card', [el('h2', { text: '1. Patient' }), el('div', 'form2', [fld('Mobile number', mobile), fld('Patient name', name), fld('Age', age), fld('Sex', sex), fld('Referred by', doc), fld('Collection', kind), fld('Notes', notes, 'full'), info])]));
     page.appendChild(el('div', 'card', [el('h2', { text: '2. Tests' }), fld('Add test or package', q), sugg, el('p', { class: 'upd', text: 'Quick packages:' }), chips, custom,
       el('div', 'tbl-wrap', el('table', 'tbl', [el('thead', null, el('tr', null, [el('th', { text: 'Test' }), el('th', { class: 'num', text: 'Price' }), el('th')])), tbody]))]));
     page.appendChild(el('div', 'card', [el('h2', { text: '3. Billing' }), el('div', 'filters', [fld('Discount (₹)', disc), memBtn, fld('Paid now (₹)', paid), fld('Payment mode', mode), btn('Paid in full', 'ghost', function () { paid.value = totals().t; draw(); })]), sum, el('div', 'row', [go, ms])]));
     draw(); done(); mobile.focus();
+  };
+
+  /* ======================= WEBSITE BOOKINGS ======================= */
+  L.views.bookings = function (page, arg, done) {
+    var tab = arg || 'new', tabs = el('div', 'tabs2'), pane = el('div');
+    [['new', 'New requests'], ['done', 'Done'], ['cancelled', 'Cancelled']].forEach(function (t) { tabs.appendChild(el('button', { type: 'button', 'aria-selected': String(t[0] === tab), text: t[1], onclick: function () { L.go('bookings', t[0]); } })); });
+    page.appendChild(tabs); page.appendChild(pane);
+    function setStatus(b, s) { api('POST', '/staff/bookings/' + b.id + '/status', { status: s }).then(function () { toast('Updated'); L.refreshDash(); L.go('bookings', tab); }).catch(function (e) { toast(e.message); }); }
+    api('GET', '/staff/bookings?status=' + encodeURIComponent(tab)).then(function (r) {
+      if (!r.bookings.length) pane.appendChild(el('p', { class: 'empty', text: tab === 'new' ? 'No new booking requests from the website.' : 'Nothing here.' }));
+      r.bookings.forEach(function (b) {
+        var acts = el('div', 'row');
+        if (tab === 'new') {
+          acts.appendChild(btn('Create order', '', function () { L.prefill = { id: b.id, name: b.name, mobile: b.mobile, tests: b.tests, date: b.date, slot: b.slot, address: b.address, note: b.note }; L.go('new'); }));
+          acts.appendChild(btn('WhatsApp', 'ghost', function () { window.open('https://wa.me/91' + b.mobile, '_blank'); }));
+          acts.appendChild(btn('Mark done', 'ghost', function () { setStatus(b, 'done'); }));
+          acts.appendChild(btn('Cancel', 'ghost', function () { setStatus(b, 'cancelled'); }));
+        } else {
+          if (b.orderCode) acts.appendChild(btn('Open order ' + b.orderCode, '', function () { L.go('order', b.orderCode); }));
+          acts.appendChild(btn('Move back to new', 'ghost', function () { setStatus(b, 'new'); }));
+        }
+        pane.appendChild(el('section', 'card', [
+          el('h2', { text: b.name }),
+          el('p', null, [el('a', { href: 'tel:' + b.mobile, text: b.mobile }), '  \u00b7  received ' + fdt(b.created) + '  \u00b7  ' + (b.source === 'book' ? 'Booking page' : 'Home page form')]),
+          el('p', null, [el('b', { text: 'Tests: ' }), b.tests || 'Not chosen, please advise']),
+          el('p', null, [el('b', { text: 'Preferred: ' }), (b.date || '-') + (b.slot ? ', ' + b.slot : '')]),
+          b.address ? el('p', null, [el('b', { text: 'Address: ' }), b.address]) : null,
+          b.note ? el('p', null, [el('b', { text: 'Note: ' }), b.note]) : null, acts].filter(Boolean)));
+      });
+      done();
+    }).catch(function (e) { L.fail($('#page'), e); });
   };
 
   /* ======================= PATIENTS ======================= */

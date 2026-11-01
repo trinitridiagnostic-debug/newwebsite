@@ -251,6 +251,13 @@
 
   /* ---------- booking via WhatsApp ---------- */
   var WA='919187315972';
+  /* also hand the request to the lab software (if the portal server is set up); WhatsApp still opens as before */
+  var LABAPI=String((window.TRIN_PORTAL||{}).api||'').replace(/\/+$/,''),lastLab='';
+  function sendToLab(p){
+    if(!LABAPI)return;
+    var key=JSON.stringify(p);if(key===lastLab)return;lastLab=key;
+    try{fetch(LABAPI+'/public/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:key,keepalive:true}).catch(function(){});}catch(e){}
+  }
   var PKGP={};PKS.forEach(function(p){PKGP[p.name]='offer price Rs '+Number(p.price).toLocaleString('en-IN')+', free home collection';});
   var bk=$('#bk'),d=$('#dt'),out=$('#out'),st=$('#st'),wa=$('#wa'),cp=$('#cp'),ol=$('#ol'),lastMsg='';
   function say(m,c){st.style.color=c;st.textContent=m;}
@@ -392,6 +399,7 @@
     wa.addEventListener('click',function(e){
       var r=build();
       if(r.err){e.preventDefault();say(r.err,'var(--flag)');return;}
+      sendToLab({name:$('#nm').value.trim(),mobile:$('#ph').value.replace(/\D/g,''),tests:(pkg?[pkg]:[]).concat(sel.map(function(id){return BY[id].n;})),date:d.value,slot:$('#sl').value,address:$('#ad').value.trim(),source:'book'});
       lastMsg=r.msg;wa.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
       out.hidden=false;out.textContent=r.msg;cp.hidden=false;
       say('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab. If nothing opened, copy the message below and send it to +91 91873 15972.','var(--teal)');
@@ -422,6 +430,7 @@
     hw.addEventListener('click',function(e){
       var r=hbuild();
       if(r.err){e.preventDefault();hsay(r.err,'var(--flag)');return;}
+      sendToLab({name:$('#hq-nm').value.trim(),mobile:$('#hq-ph').value.replace(/\D/g,''),tests:$('#hq-pk').value?[$('#hq-pk').value]:[],date:hd.value,slot:$('#hq-sl').value,source:'home'});
       hw.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
       hsay('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab.','var(--teal)');
     });
