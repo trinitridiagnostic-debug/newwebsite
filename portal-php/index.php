@@ -15,6 +15,8 @@ const PLANS = [
 ];
 const STATUSES = ['booked', 'collected', 'processing', 'completed'];
 
+require_once __DIR__ . '/otp.php';
+
 class HttpErr extends Exception {
   public $status;
   public function __construct($status, $msg) { parent::__construct($msg); $this->status = $status; }
@@ -26,11 +28,15 @@ function cfg() {
   static $c = null;
   if ($c !== null) return $c;
   $c = ['db_dsn' => '', 'db_user' => '', 'db_pass' => '', 'lab_api_key' => '', 'secret' => '',
-        'allowed_origins' => 'https://trinitridiagnostic-debug.github.io', 'storage_dir' => __DIR__ . '/storage'];
+        'allowed_origins' => 'https://trinitridiagnostic-debug.github.io', 'storage_dir' => __DIR__ . '/storage',
+        // OTP by WhatsApp (Meta Cloud API) with SMS (MSG91) as backup. Leave otp_provider empty to keep OTP switched off.
+        'otp_provider' => '', 'otp_channels' => 'whatsapp,sms', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en',
+        'wa_api_base' => 'https://graph.facebook.com/v21.0', 'msg91_key' => '', 'msg91_template' => '', 'sms_api_base' => 'https://control.msg91.com'];
   $f = __DIR__ . '/config.php';
   if (is_file($f)) { $x = require $f; if (is_array($x)) $c = array_merge($c, $x); }
   foreach (['db_dsn' => 'PORTAL_DB_DSN', 'db_user' => 'PORTAL_DB_USER', 'db_pass' => 'PORTAL_DB_PASS', 'lab_api_key' => 'PORTAL_LAB_KEY',
-            'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE'] as $k => $e) {
+            'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE', 'otp_provider' => 'PORTAL_OTP_PROVIDER', 'otp_channels' => 'PORTAL_OTP_CHANNELS', 'otp_cooldown' => 'PORTAL_OTP_COOLDOWN',
+            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_api_base' => 'PORTAL_WA_BASE', 'msg91_key' => 'PORTAL_MSG91_KEY', 'msg91_template' => 'PORTAL_MSG91_TEMPLATE', 'sms_api_base' => 'PORTAL_SMS_BASE'] as $k => $e) {
     $v = getenv($e); if ($v !== false && $v !== '') $c[$k] = $v;
   }
   return $c;
@@ -81,8 +87,8 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v4';
-  if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '4'); }
+  $mark = $dir . '/.schema-v5';
+  if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
 function migrate($pdo, $mysql) {
@@ -101,6 +107,8 @@ function migrate($pdo, $mysql) {
     "CREATE TABLE IF NOT EXISTS attempts (k VARCHAR(64) PRIMARY KEY, n INT NOT NULL DEFAULT 0, until_ts BIGINT NOT NULL DEFAULT 0, t BIGINT NOT NULL DEFAULT 0)$tail",
   ];
   $sql[] = "CREATE TABLE IF NOT EXISTS staff (id VARCHAR(32) PRIMARY KEY, username VARCHAR(30) NOT NULL UNIQUE, name VARCHAR(60) NOT NULL, role VARCHAR(12) NOT NULL, title VARCHAR(120) NULL, hash VARCHAR(255) NOT NULL, active INT NOT NULL DEFAULT 1, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS otps (id $ai, mobile VARCHAR(10) NOT NULL, purpose VARCHAR(12) NOT NULL, code_hash VARCHAR(64) NOT NULL, expires BIGINT NOT NULL, tries INT NOT NULL DEFAULT 0, used INT NOT NULL DEFAULT 0, channel VARCHAR(10) NULL, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS devices (id $ai, uid VARCHAR(32) NOT NULL, token_hash VARCHAR(64) NOT NULL, expires BIGINT NOT NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS bookings (id $ai, name VARCHAR(60) NOT NULL, mobile VARCHAR(10) NOT NULL, tests VARCHAR(600) NULL, pref_date VARCHAR(12) NULL, slot VARCHAR(40) NULL, address VARCHAR(200) NULL, note VARCHAR(300) NULL, source VARCHAR(12) NULL, status VARCHAR(12) NOT NULL DEFAULT 'new', order_code VARCHAR(30) NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS test_templates (tkey VARCHAR(40) PRIMARY KEY, name VARCHAR(120) NOT NULL, params TEXT NOT NULL, matches TEXT NULL, updated BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_items (id $ai, name VARCHAR(80) NOT NULL, unit VARCHAR(20) NOT NULL, qty INT NOT NULL DEFAULT 0, min_qty INT NOT NULL DEFAULT 0, active INT NOT NULL DEFAULT 1, updated BIGINT NOT NULL)$tail";
@@ -114,8 +122,8 @@ function migrate($pdo, $mysql) {
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
     "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
-  foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile')] as $s) if ($s) $pdo->exec($s);
-  if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
+  foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);
+  if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)', 'CREATE INDEX otp_m ON otps(mobile, purpose)', 'CREATE INDEX dev_u ON devices(uid)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
 }
 function q($sql, $args = []) { $st = db()->prepare($sql); $st->execute($args); return $st; }
 function one($sql, $args = []) { $r = q($sql, $args)->fetch(); return $r === false ? null : $r; }
@@ -166,19 +174,25 @@ function saveAttempt($k, $a) {
 }
 function clearAttempt($k) { q('DELETE FROM attempts WHERE k=?', [$k]); }
 
+function checkPassword($pw) {
+  if (strlen($pw) < 8 || mb_strlen($pw) > 100) throw bad('Use a password of at least 8 characters.');
+  if (preg_match('/^(.)\1+$/su', $pw) || in_array(strtolower($pw), ['password', '12345678', 'qwertyuiop'], true)) throw bad('That password is too easy to guess.');
+}
 function register() {
   $b = body();
   $name = clean(field($b, 'name'), 60); $mobile = normMobile(field($b, 'mobile')); $pw = (string)field($b, 'password');
   if (mb_strlen($name) < 2) throw bad('Enter your name.');
   if (!preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter a valid 10-digit mobile number.');
-  if (strlen($pw) < 8 || mb_strlen($pw) > 100) throw bad('Use a password of at least 8 characters.');
-  if (preg_match('/^(.)\1+$/su', $pw) || in_array(strtolower($pw), ['password', '12345678', 'qwertyuiop'], true)) throw bad('That password is too easy to guess.');
+  checkPassword($pw);
   if (one('SELECT id FROM users WHERE mobile=?', [$mobile])) throw bad('This mobile number already has an account. Please log in.');
+  if (otpEnabled()) checkOtp($mobile, 'register', field($b, 'otp'));      // the mobile number must be proven with an OTP
   $id = rnd(9); $created = nowms();
   try { q('INSERT INTO users (id, name, mobile, hash, membership, created) VALUES (?,?,?,?,NULL,?)', [$id, $name, $mobile, password_hash($pw, PASSWORD_DEFAULT), $created]); }
   catch (PDOException $e) { throw bad('This mobile number already has an account. Please log in.'); }
   $u = one('SELECT * FROM users WHERE id=?', [$id]);
-  out(['token' => sign(['u' => $id, 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)], 201);
+  $r = ['token' => sign(['u' => $id, 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)];
+  if (otpEnabled() && !empty($b['remember'])) $r['device'] = deviceMake($id);
+  out($r, 201);
 }
 function login() {
   $b = body();
@@ -193,8 +207,16 @@ function login() {
     throw new HttpErr(401, 'Wrong mobile number or password.');
   }
   if ($a['n'] || $a['until']) clearAttempt($key);
+  $device = null;
+  if (otpEnabled() && !deviceOk($u['id'], field($b, 'device'))) {             // password is right, now prove the mobile number
+    if (field($b, 'otp') === '') { $r = sendOtp($mobile, 'login', (string)field($b, 'channel')); $r['otpRequired'] = true; out($r, 202); }
+    checkOtp($mobile, 'login', field($b, 'otp'));
+    if (!empty($b['remember'])) $device = deviceMake($u['id']);
+  }
   if (password_needs_rehash($u['hash'], PASSWORD_DEFAULT)) q('UPDATE users SET hash=? WHERE id=?', [password_hash($pw, PASSWORD_DEFAULT), $u['id']]);
-  out(['token' => sign(['u' => $u['id'], 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)]);
+  $r = ['token' => sign(['u' => $u['id'], 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)];
+  if ($device) $r['device'] = $device;
+  out($r);
 }
 
 /* ---------- orders ---------- */
@@ -462,6 +484,7 @@ function route() {
   if ($path === '/public/booking' && $m === 'POST') { require_once __DIR__ . '/staff.php'; publicBooking(); }
   if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
   if (strpos($path, '/lab/') === 0) lab($path, $m);
+  if (strpos($path, '/auth/') === 0) otpRoute($path, $m);
   if ($path === '/auth/register' && $m === 'POST') register();
   if ($path === '/auth/login' && $m === 'POST') login();
   customer($path, $m, authed());

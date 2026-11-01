@@ -28,6 +28,15 @@ Daily flow: New order (bill, print receipt, give the PIN) -> mark sample collect
 Billing uses the same test prices as the website (and your changes in the catalog admin). Anything not in the price list can be added as a custom test. Member discounts are suggested automatically for active members.
 Result templates (parameters, units, normal ranges) are starter values only. Have your pathologist review them under **Result templates** before issuing reports.
 
+## Mobile number verification (OTP)
+With OTP switched on, a one-time code sent to the customer's mobile is required to: create an account, log in on a new device, and reset a forgotten password. The password stays as the second check. Customers can tick "Keep me logged in on this device" to skip the code on that device for 30 days. Codes are 6 digits, last 5 minutes, allow 5 tries, and sending is limited per number and per visitor. Codes are never shown on screen or stored in readable form.
+
+**It is OFF until you set up a sender**, because it cannot work without one. To switch it on, edit `config.php` (see `config.sample.php` for the exact lines):
+1. **WhatsApp (tried first):** in Meta Business, set up the WhatsApp Business Platform with a phone number, create a message template of type *Authentication* named `otp_code` (language English) and wait for approval. Copy the *Phone number ID* and a *permanent access token* into `wa_phone_id` and `wa_token`.
+2. **SMS (backup, or when the customer taps "Send by SMS instead"):** create an MSG91 account, get an approved OTP template (India needs DLT registration) and put the auth key and template id in `msg91_key` and `msg91_template`.
+3. Set `'otp_provider' => 'live'` and save. Test with a new account using your own number.
+You can use only one of the two: remove the other name from `otp_channels`. Keep the keys and tokens private and never put them on GitHub. The WhatsApp and SMS sending code could not be tried against the real services here, so test it once with your own number before announcing it.
+
 ## Lab API (for connecting other lab software) (header `X-Lab-Key: <lab_api_key>`, JSON unless noted)
 | Call | Purpose |
 |---|---|

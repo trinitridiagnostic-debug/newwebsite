@@ -102,6 +102,7 @@ function publicBooking() {
   $name = clean(field($b, 'name'), 60); $mobile = normMobile(field($b, 'mobile'));
   if (mb_strlen($name) < 2 || !preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter your name and a valid mobile number.');
   $tests = field($b, 'tests'); if (is_array($tests)) $tests = implode(', ', array_map(function ($x) { return clean($x, 100); }, array_slice($tests, 0, 40)));
+  if (otpEnabled() && !proofOk(field($b, 'proof'), $mobile)) throw new HttpErr(403, 'Please verify your mobile number with the OTP first.');
   $src = field($b, 'source') === 'book' ? 'book' : 'home';
   $dup = one('SELECT id FROM bookings WHERE mobile=? AND created>? AND tests=?', [$mobile, $now - 600000, clean($tests, 600)]);   // same request sent twice
   if (!$dup) q('INSERT INTO bookings (name, mobile, tests, pref_date, slot, address, note, source, status, created) VALUES (?,?,?,?,?,?,?,?,?,?)',

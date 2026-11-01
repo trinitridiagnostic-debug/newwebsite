@@ -95,3 +95,8 @@ body.pt{--bg:#f4faf8;--fg:#243030;--muted:#566264;--line:#dbe4e4;--teal:#3f7b82;
   .tbl .hide-s{display:none}
 }
 @media(max-width:520px){.trk{grid-template-columns:1fr;gap:12px}.tstep{display:flex;gap:12px;text-align:left;align-items:center}.tstep::before{display:none}.tstep i{margin:0;flex:none}}
+
+/* OTP boxes on the customer sign-in screens */
+.otpnote{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-2px 0 10px}
+#ff h2{font-size:1.1rem}
+#lo,#ro,#fo{letter-spacing:.2em;font-weight:700}

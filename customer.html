@@ -22,18 +22,42 @@
     <form id="fl" novalidate autocomplete="on">
       <div class="f"><label for="lm">Mobile number</label><input id="lm" type="tel" inputmode="tel" autocomplete="username" placeholder="10-digit mobile number"></div>
       <div class="f"><label for="lpw">Password</label><input id="lpw" type="password" autocomplete="current-password"></div>
-      <label class="row note"><input type="checkbox" id="keep" style="width:auto"> Keep me logged in on this device</label>
+      <div id="lotp" hidden>
+        <div class="f"><label for="lo">OTP sent to <b id="lto"></b> on <span id="lch">WhatsApp</span></label><input id="lo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit OTP"></div>
+        <p class="note otpnote"><button type="button" class="linkbtn" id="lre" disabled>Resend OTP</button> <span id="lcd"></span> <span id="lsmswrap" hidden>&middot; <button type="button" class="linkbtn" id="lsms">Send by SMS instead</button></span></p>
+      </div>
+      <label class="row note"><input type="checkbox" id="keep" style="width:auto"> Keep me logged in on this device (no OTP for 30 days)</label>
       <button class="btn" type="submit" id="lgo">Log in</button>
       <span class="msg" id="lmsg" role="status"></span>
+      <p class="note" style="margin:0" id="forgotp" hidden><button type="button" class="linkbtn" id="forgot">Forgot password?</button></p>
     </form>
     <form id="fr" novalidate hidden autocomplete="on">
       <div class="f"><label for="rn">Full name</label><input id="rn" autocomplete="name"></div>
       <div class="f"><label for="rm">Mobile number</label><input id="rm" type="tel" inputmode="tel" autocomplete="username" placeholder="10-digit mobile number"></div>
       <div class="f"><label for="rp">Password (8 or more characters)</label><input id="rp" type="password" autocomplete="new-password"></div>
       <div class="f"><label for="rp2">Repeat the password</label><input id="rp2" type="password" autocomplete="new-password"></div>
-      <button class="btn" type="submit" id="rgo">Create account</button>
+      <div id="rotp" hidden>
+        <div class="f"><label for="ro">OTP sent to <b id="rto"></b> on <span id="rch">WhatsApp</span></label><input id="ro" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit OTP"></div>
+        <p class="note otpnote"><button type="button" class="linkbtn" id="rre" disabled>Resend OTP</button> <span id="rcd"></span> <span id="rsmswrap" hidden>&middot; <button type="button" class="linkbtn" id="rsms">Send by SMS instead</button></span></p>
+      </div>
+      <button class="btn" type="submit" id="rgo">Send OTP to verify my mobile</button>
       <span class="msg" id="rmsg" role="status"></span>
       <p class="note" style="margin:0">Your reports stay hidden until you add an order with the Order ID and report PIN from your receipt.</p>
+    </form>
+    <form id="ff" novalidate hidden autocomplete="off">
+      <h2 style="margin:0 0 4px;font-size:1.1rem">Reset your password</h2>
+      <div class="f"><label for="fm">Mobile number</label><input id="fm" type="tel" inputmode="tel" placeholder="10-digit mobile number"></div>
+      <div id="fotp" hidden>
+        <div class="f"><label for="fo">OTP sent to <b id="fto"></b> on <span id="fch">WhatsApp</span></label><input id="fo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit OTP"></div>
+        <p class="note otpnote"><button type="button" class="linkbtn" id="fre" disabled>Resend OTP</button> <span id="fcd"></span> <span id="fsmswrap" hidden>&middot; <button type="button" class="linkbtn" id="fsms">Send by SMS instead</button></span></p>
+      </div>
+      <div id="fnew" hidden>
+        <div class="f"><label for="fp">New password (8 or more characters)</label><input id="fp" type="password" autocomplete="new-password"></div>
+        <div class="f"><label for="fp2">Repeat the new password</label><input id="fp2" type="password" autocomplete="new-password"></div>
+      </div>
+      <button class="btn" type="submit" id="fgo">Send OTP</button>
+      <span class="msg" id="fmsg" role="status"></span>
+      <p class="note" style="margin:0"><button type="button" class="linkbtn" id="fback">Back to log in</button></p>
     </form>
     <p class="note" style="margin:16px 0 0;text-align:center"><button type="button" class="linkbtn" id="demobtn">Try the demo with sample data</button> &middot; <a href="index.html">Back to website</a></p>
   </div>
