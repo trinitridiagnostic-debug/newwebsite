@@ -1,6 +1,6 @@
 <?php
-/* Mobile-number OTP: sent on WhatsApp first (Meta WhatsApp Business Cloud API, "authentication" template),
-   plain SMS only as a fallback or when the customer asks for it (MSG91). Loaded by index.php.
+/* Mobile-number OTP: sent ONLY on WhatsApp (Meta WhatsApp Business Cloud API, "authentication" template).
+   There is no SMS sending anywhere in this system, by design. Loaded by index.php.
    OTP codes are stored only as keyed hashes, expire in 5 minutes, allow 5 tries, and sending is rate limited. */
 
 const OTP_TTL = 300000;        // 5 minutes
@@ -31,15 +31,7 @@ function sendWhatsAppOtp($mobile, $code) {
   $j = json_decode($res, true);
   if ($st < 200 || $st >= 300 || empty($j['messages'][0]['id'])) throw new Exception('WhatsApp send failed (' . $st . '): ' . substr($res, 0, 200));
 }
-function sendSmsOtp($mobile, $code) {
-  $c = cfg();
-  if ($c['msg91_key'] === '' || $c['msg91_template'] === '') throw new Exception('SMS OTP is not set up (msg91_key / msg91_template).');
-  $url = rtrim($c['sms_api_base'], '/') . '/api/v5/otp?' . http_build_query(['template_id' => $c['msg91_template'], 'mobile' => '91' . $mobile, 'authkey' => $c['msg91_key'], 'otp' => $code]);
-  list($st, $res) = httpPost($url, ['Content-Type: application/json'], '{}');
-  $j = json_decode($res, true);
-  if ($st < 200 || $st >= 300 || (isset($j['type']) && $j['type'] !== 'success')) throw new Exception('SMS send failed (' . $st . '): ' . substr($res, 0, 200));
-}
-/* Returns the channel used: 'whatsapp' or 'sms'. $want: '' (normal order), 'whatsapp' or 'sms'. */
+/* Sends the code on WhatsApp and returns 'whatsapp' ('dev' = local test mode). Any other channel a client asks for is ignored. */
 function deliverOtp($mobile, $code, $want) {
   $c = cfg();
   if ($c['otp_provider'] === 'dev') {   // local testing only: refuse on a live server
@@ -48,21 +40,17 @@ function deliverOtp($mobile, $code, $want) {
     @file_put_contents($c['storage_dir'] . '/otp-dev.log', date('c') . " $mobile $code\n", FILE_APPEND | LOCK_EX);
     return 'dev';
   }
-  $order = array_values(array_filter(array_map('trim', explode(',', $c['otp_channels']))));
-  if ($want === 'sms') $order = ['sms']; elseif ($want === 'whatsapp') $order = ['whatsapp'];
-  $errs = [];
-  foreach ($order as $ch) {
-    try { if ($ch === 'whatsapp') sendWhatsAppOtp($mobile, $code); elseif ($ch === 'sms') sendSmsOtp($mobile, $code); else continue; return $ch; }
-    catch (Exception $e) { $errs[] = $ch . ': ' . $e->getMessage(); }
+  try { sendWhatsAppOtp($mobile, $code); return 'whatsapp'; }
+  catch (Exception $e) {
+    error_log('[trinetri-portal] WhatsApp OTP delivery failed for ' . maskMobile($mobile) . ' | ' . $e->getMessage());
+    throw new HttpErr(502, 'We could not send the OTP on WhatsApp. Please check that this number has WhatsApp, then try again in a minute, or call the lab.');
   }
-  error_log('[trinetri-portal] OTP delivery failed for ' . maskMobile($mobile) . ' | ' . implode(' | ', $errs));
-  throw new HttpErr(502, $want === 'sms' ? 'We could not send the SMS. Please try WhatsApp or try again in a minute.' : 'We could not send the OTP. Please try again, or choose "Send by SMS instead".');
 }
 
 /* ---------- issue + check ---------- */
 function otpHash($mobile, $purpose, $code) { return hash_hmac('sha256', $mobile . '|' . $purpose . '|' . $code, secret()); }
 function sendOtp($mobile, $purpose, $want = '') {
-  if (!in_array($want, ['', 'whatsapp', 'sms'], true)) $want = '';
+  $want = '';   // WhatsApp is the only channel
   $now = nowms();
   $last = one('SELECT created FROM otps WHERE mobile=? AND purpose=? ORDER BY created DESC LIMIT 1', [$mobile, $purpose]);
   if ($last && $now - (int)$last['created'] < otpCooldown()) throw new HttpErr(429, 'Please wait ' . (int)ceil((otpCooldown() - ($now - (int)$last['created'])) / 1000) . ' seconds before asking for another OTP.');
@@ -113,8 +101,8 @@ function proofOk($proof, $mobile) { $d = verify((string)$proof); return $d && is
 /* ---------- routes: /auth/config, /auth/otp/send, /auth/otp/verify, /auth/reset ---------- */
 function otpRoute($path, $m) {
   if ($path === '/auth/config' && $m === 'GET') {
-    $c = cfg(); $ch = array_values(array_filter(array_map('trim', explode(',', $c['otp_channels']))));
-    out(['otp' => otpEnabled(), 'channels' => $c['otp_provider'] === 'dev' ? ['dev'] : $ch, 'smsAvailable' => $c['otp_provider'] === 'dev' || in_array('sms', $ch, true)]);
+    $c = cfg();
+    out(['otp' => otpEnabled(), 'channels' => $c['otp_provider'] === 'dev' ? ['dev'] : ['whatsapp'], 'smsAvailable' => false]);
   }
   if ($path === '/auth/otp/send' && $m === 'POST') {
     if (!otpEnabled()) throw new HttpErr(503, 'OTP is not switched on yet.');

@@ -154,16 +154,15 @@
     $('#wn').textContent = me.name; $('#wm').textContent = isDemo ? 'Demo account' : '+91 ' + me.mobile;
     buildMenu(); var h = (location.hash || '').replace('#', ''); show(VIEWS[h] ? h : 'home');
   }
-  /* ---- mobile-number OTP (WhatsApp first, SMS on request). Switched on by the server when it is set up. ---- */
-  var OTPON = false, SMSOK = false;
-  if (LIVE) live.config().then(function (j) { OTPON = !!j.otp; SMSOK = !!j.smsAvailable; $('#forgotp').hidden = !OTPON; }).catch(function () { });
-  function chName(c) { return c === 'sms' ? 'SMS' : c === 'dev' ? 'test mode' : 'WhatsApp'; }
+  /* ---- mobile-number OTP (WhatsApp only). Switched on by the server when it is set up. ---- */
+  var OTPON = false;
+  if (LIVE) live.config().then(function (j) { OTPON = !!j.otp; $('#forgotp').hidden = !OTPON; }).catch(function () { });
+  function chName(c) { return c === 'dev' ? 'test mode' : 'WhatsApp'; }
   function devGet(mo) { try { return localStorage.getItem('trin.portal.dev.' + mo) || ''; } catch (e) { return ''; } }
   function devSet(mo, v) { try { if (v) localStorage.setItem('trin.portal.dev.' + mo, v); } catch (e) { } }
   var timers = {};
   function otpShow(pre, r) {     // pre: 'l' login, 'r' sign up, 'f' reset
     $('#' + pre + 'otp').hidden = false; $('#' + pre + 'to').textContent = r.to; $('#' + pre + 'ch').textContent = chName(r.channel);
-    $('#' + pre + 'smswrap').hidden = !(SMSOK && r.channel !== 'sms');
     var btn = $('#' + pre + 're'), cd = $('#' + pre + 'cd'), left = r.resendIn || 30; clearInterval(timers[pre]); btn.disabled = true;
     function tick() { if (left <= 0) { clearInterval(timers[pre]); btn.disabled = false; cd.textContent = ''; return; } cd.textContent = 'in ' + left + 's'; left--; }
     tick(); timers[pre] = setInterval(tick, 1000); $('#' + pre + 'o').value = ''; $('#' + pre + 'o').focus();
@@ -186,7 +185,6 @@
   }
   $('#fl').addEventListener('submit', function (e) { e.preventDefault(); login(''); });
   $('#lre').addEventListener('click', function () { login('whatsapp'); });
-  $('#lsms').addEventListener('click', function () { login('sms'); });
   ['#lm', '#lpw'].forEach(function (s) { $(s).addEventListener('input', function () { if (!$('#lotp').hidden) { otpHide('l'); $('#lgo').textContent = 'Log in'; } }); });
 
   function regInputs() {
@@ -209,7 +207,6 @@
       .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
   });
   $('#rre').addEventListener('click', function () { regSend('whatsapp'); });
-  $('#rsms').addEventListener('click', function () { regSend('sms'); });
   ['#rn', '#rm', '#rp', '#rp2'].forEach(function (s) { $(s).addEventListener('input', function () { if (!$('#rotp').hidden && s === '#rm') { otpHide('r'); $('#rgo').textContent = 'Send OTP to verify my mobile'; } }); });
   if (!LIVE) $('#rgo').textContent = 'Create account';
   /* when the server has OTP switched off, sign up keeps its old one-step behaviour */
@@ -235,7 +232,6 @@
       .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
   });
   $('#fre').addEventListener('click', function () { resetSend('whatsapp'); });
-  $('#fsms').addEventListener('click', function () { resetSend('sms'); });
   $('#demobtn').addEventListener('click', function () { var s = dstate(); enter(s.user, true); });
   $('#out').addEventListener('click', function () {
     clearTok(); TOKEN = ''; me = null; stopTimers(); sw('login'); appBox.hidden = true; authBox.hidden = false; $('#page').textContent = ''; try { history.replaceState(null, '', location.pathname); } catch (e) { }

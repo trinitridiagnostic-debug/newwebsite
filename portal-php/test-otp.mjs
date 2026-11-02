@@ -1,4 +1,4 @@
-// OTP tests against the real server, with a mock WhatsApp / SMS provider. Run: node portal-php/test-otp.mjs
+// OTP tests against the real server, with a mock WhatsApp provider (SMS must never be used). Run: node portal-php/test-otp.mjs
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,7 +7,7 @@ import path from 'node:path';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const tmp = mkdtempSync(path.join(tmpdir(), 'otp-')), store = path.join(tmp, 'store');
 const P1 = process.env.PORT || 8792, P2 = Number(P1) + 1, B = `http://127.0.0.1:${P1}`, ORIGIN = 'http://localhost:8765';
-const LOG = path.join(tmp, 'provider.log'), FAILWA = path.join(tmp, 'fail-wa'), FAILSMS = path.join(tmp, 'fail-sms');
+const LOG = path.join(tmp, 'provider.log'), FAILWA = path.join(tmp, 'fail-wa');
 writeFileSync(path.join(tmp, 'mock.php'), `<?php
 $p = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $body = file_get_contents('php://input');
 $h = function_exists('getallheaders') ? getallheaders() : [];
@@ -16,14 +16,13 @@ if (preg_match('#/messages$#', $p)) {
   if (file_exists('${FAILWA.replace(/\\/g, '/')}')) { http_response_code(400); echo json_encode(['error' => ['code' => 131026, 'message' => 'Message undeliverable']]); exit; }
   echo json_encode(['messaging_product' => 'whatsapp', 'messages' => [['id' => 'wamid.TEST']]]); exit;
 }
-if (preg_match('#/api/v5/otp$#', $p)) {
+if (preg_match('#/api/v5/otp$#', $p)) {   // an SMS provider: the server must NEVER call this
   file_put_contents('${LOG.replace(/\\/g, '/')}', json_encode(['ch' => 'sms', 'query' => $_GET]) . "\\n", FILE_APPEND);
-  if (file_exists('${FAILSMS.replace(/\\/g, '/')}')) { http_response_code(500); echo json_encode(['type' => 'error']); exit; }
-  echo json_encode(['type' => 'success', 'message' => 'otp sent']); exit;
+  echo json_encode(['type' => 'success']); exit;
 }
 http_response_code(404);`);
 const env = { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'live', PORTAL_OTP_COOLDOWN: '1', PORTAL_WA_PHONE_ID: '1234567', PORTAL_WA_TOKEN: 'secret-token',
-  PORTAL_WA_BASE: `http://127.0.0.1:${P2}/v21.0`, PORTAL_MSG91_KEY: 'authkey1', PORTAL_MSG91_TEMPLATE: 'tpl9', PORTAL_SMS_BASE: `http://127.0.0.1:${P2}` };
+  PORTAL_WA_BASE: `http://127.0.0.1:${P2}/v21.0` , PORTAL_MSG91_KEY: 'authkey1', PORTAL_MSG91_TEMPLATE: 'tpl9', PORTAL_SMS_BASE: `http://127.0.0.1:${P2}` };
 const srv = spawn('php', ['-S', `127.0.0.1:${P1}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env });
 const mock = spawn('php', ['-S', `127.0.0.1:${P2}`, path.join(tmp, 'mock.php')], { stdio: 'ignore' });
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
@@ -36,7 +35,7 @@ const sent = () => (existsSync(LOG) ? readFileSync(LOG, 'utf8').trim().split('\n
 const lastCode = () => { const s = sent().pop(); return s.ch === 'wa' ? s.body.template.components[0].parameters[0].text : s.query.otp; };
 try {
   for (let i = 0; i < 40; i++) { try { await fetch(B + '/'); await fetch(`http://127.0.0.1:${P2}/x`); break; } catch (e) { await sleep(150); } }
-  let r = await call('GET', '/auth/config'); ok(r.j.otp === true && r.j.channels.join() === 'whatsapp,sms' && r.j.smsAvailable, 'config says OTP on, WhatsApp then SMS');
+  let r = await call('GET', '/auth/config'); ok(r.j.otp === true && r.j.channels.join() === 'whatsapp' && r.j.smsAvailable === false, 'config says OTP on, WhatsApp only');
 
   // ---- sign up
   const M1 = '9876500001', PW = 'Strong#2026';
@@ -94,19 +93,17 @@ try {
   ok((await call('POST', '/auth/login', { body: { mobile: M1, password: 'BrandNew#2026', device: dev2 } })).s === 202, 'reset forgets remembered devices');
   ok((await call('POST', '/auth/reset', { body: { mobile: M1, otp: rc, password: 'Another#2026' } })).s === 400, 'reset OTP cannot be reused');
 
-  // ---- WhatsApp down -> SMS; forced SMS; both down
+  // ---- WhatsApp only: asking for SMS is ignored, and a WhatsApp failure never falls back to SMS
   await sleep(1200);
-  writeFileSync(FAILWA, '1');
-  const M3 = '9876500003'; r = await call('POST', '/auth/otp/send', { body: { mobile: M3, purpose: 'register' } });
-  ok(r.s === 200 && r.j.channel === 'sms', 'falls back to SMS when WhatsApp fails');
-  let s = sent().pop(); ok(s.ch === 'sms' && s.query.mobile === '919876500003' && s.query.template_id === 'tpl9' && s.query.authkey === 'authkey1' && /^\d{6}$/.test(s.query.otp), 'SMS request has the template, mobile and our own code');
-  unlinkSync(FAILWA);
   const M4 = '9876500004'; const w0 = sent().filter((x) => x.ch === 'wa').length;
   r = await call('POST', '/auth/otp/send', { body: { mobile: M4, purpose: 'register', channel: 'sms' } });
-  ok(r.s === 200 && r.j.channel === 'sms' && sent().filter((x) => x.ch === 'wa').length === w0, '"Send by SMS instead" uses SMS only');
-  writeFileSync(FAILWA, '1'); writeFileSync(FAILSMS, '1');
-  r = await call('POST', '/auth/otp/send', { body: { mobile: '9876500005', purpose: 'register' } }); ok(r.s === 502 && /could not send/i.test(r.j.error) && !r.text.includes('secret-token'), 'both channels down gives a clear error and leaks no secrets');
-  unlinkSync(FAILWA); unlinkSync(FAILSMS);
+  ok(r.s === 200 && r.j.channel === 'whatsapp' && sent().filter((x) => x.ch === 'wa').length === w0 + 1, 'asking for SMS still sends on WhatsApp');
+  await sleep(1200);
+  writeFileSync(FAILWA, '1');
+  r = await call('POST', '/auth/otp/send', { body: { mobile: '9876500005', purpose: 'register' } });
+  ok(r.s === 502 && /WhatsApp/i.test(r.j.error) && !/SMS/i.test(r.j.error) && !r.text.includes('secret-token'), 'WhatsApp down gives a clear WhatsApp error and leaks no secrets');
+  unlinkSync(FAILWA);
+  ok(sent().filter((x) => x.ch === 'sms').length === 0, 'no SMS request was ever made during the whole test');
 
   // ---- website booking needs a verified mobile
   const BK = { name: 'Ravi Kumar', mobile: '9845012345', tests: ['Lipid Profile'], date: '2026-11-02', source: 'home' };

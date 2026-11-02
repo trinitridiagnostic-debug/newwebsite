@@ -252,7 +252,7 @@
   /* ---------- booking via WhatsApp ---------- */
   var WA='919187315972';
   /* also hand the request to the lab software (if the portal server is set up); WhatsApp still opens as before.
-     When the server has OTP switched on, the visitor confirms the mobile number with an OTP first (WhatsApp, or SMS on request),
+     When the server has OTP switched on, the visitor confirms the mobile number with an OTP first (on WhatsApp),
      and only verified requests reach the lab. */
   var LABAPI=String((window.TRIN_PORTAL||{}).api||'').replace(/\/+$/,''),lastLab='',OTPCFG=null,proofs={},pending=null,verifiers=[];
   function labPost(path,body){
@@ -276,10 +276,9 @@
     if(!phone||phone.dataset.vfy)return;phone.dataset.vfy='1';
     var box=document.createElement('div');box.className='vfy';
     box.innerHTML='<button type="button" class="vbtn">Verify my mobile (OTP) so the lab gets this request</button><span class="vmsg" role="status"></span>'+
-      '<div class="vrow" hidden><input class="vin" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6-digit OTP" aria-label="OTP"><button type="button" class="vok">Verify</button>'+
-      '<button type="button" class="vlink vsms" hidden>Send by SMS instead</button></div>';
+      '<div class="vrow" hidden><input class="vin" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6-digit OTP" aria-label="OTP"><button type="button" class="vok">Verify</button></div>';
     (phone.closest('.f')||phone.parentNode).insertAdjacentElement('afterend',box);
-    var btn=box.querySelector('.vbtn'),msg=box.querySelector('.vmsg'),row=box.querySelector('.vrow'),inp=box.querySelector('.vin'),ok=box.querySelector('.vok'),sms=box.querySelector('.vsms'),sent='';
+    var btn=box.querySelector('.vbtn'),msg=box.querySelector('.vmsg'),row=box.querySelector('.vrow'),inp=box.querySelector('.vin'),ok=box.querySelector('.vok'),sent='';
     function mob(){return phone.value.replace(/\D/g,'').slice(-10);}
     function say(m,c){msg.textContent=m;msg.style.color=c||'';}
     function refresh(){
@@ -291,8 +290,8 @@
       var m=mob();if(!/^[6-9]\d{9}$/.test(m)){say('Enter your 10-digit mobile number first.','var(--flag,#b3261e)');return;}
       btn.disabled=true;say('Sending the OTP...');
       labPost('/auth/otp/send',{mobile:m,purpose:'booking',channel:ch||''}).then(function(r){
-        sent=m;row.hidden=false;sms.hidden=!(OTPCFG&&OTPCFG.smsAvailable&&r.channel!=='sms');inp.value='';inp.focus();
-        say('OTP sent to '+r.to+' on '+(r.channel==='sms'?'SMS':r.channel==='dev'?'test mode':'WhatsApp')+'.','var(--teal)');
+        sent=m;row.hidden=false;inp.value='';inp.focus();
+        say('OTP sent to '+r.to+' on '+(r.channel==='dev'?'test mode':'WhatsApp')+'.','var(--teal)');
       }).catch(function(e){say(e.message,'var(--flag,#b3261e)');}).then(function(){btn.disabled=false;});
     }
     function verify(){
@@ -305,7 +304,6 @@
       }).catch(function(e){say(e.message,'var(--flag,#b3261e)');}).then(function(){ok.disabled=false;});
     }
     btn.addEventListener('click',function(){send('');});
-    sms.addEventListener('click',function(){send('sms');});
     ok.addEventListener('click',verify);
     inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();verify();}});
     phone.addEventListener('input',refresh);
