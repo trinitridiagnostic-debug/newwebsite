@@ -30,13 +30,13 @@ function cfg() {
   $c = ['db_dsn' => '', 'db_user' => '', 'db_pass' => '', 'lab_api_key' => '', 'secret' => '',
         'allowed_origins' => 'https://trinitridiagnostic-debug.github.io', 'storage_dir' => __DIR__ . '/storage',
         // OTP on WhatsApp only (Meta Cloud API). Leave otp_provider empty to keep OTP switched off.
-        'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en',
+        'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '',
         'wa_api_base' => 'https://graph.facebook.com/v21.0'];
   $f = __DIR__ . '/config.php';
   if (is_file($f)) { $x = require $f; if (is_array($x)) $c = array_merge($c, $x); }
   foreach (['db_dsn' => 'PORTAL_DB_DSN', 'db_user' => 'PORTAL_DB_USER', 'db_pass' => 'PORTAL_DB_PASS', 'lab_api_key' => 'PORTAL_LAB_KEY',
             'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE', 'otp_provider' => 'PORTAL_OTP_PROVIDER', 'otp_cooldown' => 'PORTAL_OTP_COOLDOWN',
-            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_api_base' => 'PORTAL_WA_BASE'] as $k => $e) {
+            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'wa_api_base' => 'PORTAL_WA_BASE'] as $k => $e) {
     $v = getenv($e); if ($v !== false && $v !== '') $c[$k] = $v;
   }
   return $c;
@@ -480,6 +480,15 @@ function route() {
   $path = rtrim($uri, '/') ?: '/';
 
   if ($path === '/' && $m === 'GET') out(['ok' => true, 'service' => 'trinetri-portal']);
+  if ($path === '/wa/webhook') {   // Meta WhatsApp webhook: GET = one-time verification, POST = delivery events (acknowledged, not stored)
+    if ($m === 'GET') {
+      $vt = (string)cfg()['wa_verify_token'];
+      $ok = $vt !== '' && ($_GET['hub_mode'] ?? $_GET['hub.mode'] ?? '') === 'subscribe' && hash_equals($vt, (string)($_GET['hub_verify_token'] ?? $_GET['hub.verify_token'] ?? ''));
+      if (!$ok) { http_response_code(403); header('Content-Type: text/plain'); echo 'Forbidden'; exit; }
+      header('Content-Type: text/plain'); echo (string)($_GET['hub_challenge'] ?? $_GET['hub.challenge'] ?? ''); exit;
+    }
+    if ($m === 'POST') { http_response_code(200); header('Content-Type: text/plain'); echo 'OK'; exit; }
+  }
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
   if ($path === '/public/booking' && $m === 'POST') { require_once __DIR__ . '/staff.php'; publicBooking(); }
   if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
