@@ -1114,11 +1114,6 @@ window.CATALOG = {
    "m": 150
   },
   {
-   "k": "L002",
-   "n": "AFB Smear (Acid Fast Bacilli)",
-   "m": 150
-  },
-  {
    "k": "L003",
    "n": "Albert Stain (Diptheria)",
    "m": 300
@@ -1374,24 +1369,9 @@ window.CATALOG = {
    "m": 100
   },
   {
-   "k": "L057",
-   "n": "T3",
-   "m": 150
-  },
-  {
-   "k": "L058",
-   "n": "T4",
-   "m": 150
-  },
-  {
    "k": "L059",
    "n": "Triglycerides",
    "m": 150
-  },
-  {
-   "k": "L060",
-   "n": "TSH",
-   "m": 300
   },
   {
    "k": "L061",
@@ -1496,11 +1476,6 @@ window.CATALOG = {
   {
    "k": "L081",
    "n": "AFB Smear (Acid Fast Bacilli)",
-   "m": 250
-  },
-  {
-   "k": "L082",
-   "n": "Albert Stain (Diptheria)",
    "m": 250
   },
   {
