@@ -98,8 +98,9 @@ function seed_templates() {
     'P:LIPID' => ['Lipid Profile', ['chol', 'trig', 'hdl', 'ldl', 'vldl', 'nhdl', 'chr'], ['LIPID PROFILE']],
     'P:LFT'   => ['Liver Function Test (LFT)', ['bilt', 'bild', 'bili', 'sgot', 'sgpt', 'alp', 'tp', 'alb', 'glob', 'ag'], ['LIVER FUNCTION', 'LFT']],
     'P:KFT'   => ['Kidney Function Test (KFT)', ['urea', 'bun', 'crea', 'uric', 'ca', 'phos', 'na', 'k', 'cl'], ['KIDNEY FUNCTION', 'RENAL', 'KFT']],
-    'P:THY'   => ['Thyroid Profile', ['t3', 't4', 'tsh'], ['THYROID PROFILE', 'T3 T4 TSH']],
-    'P:URINE' => ['Urine Routine Examination', ['u_col', 'u_app', 'u_ph', 'u_sg', 'u_pro', 'u_glu', 'u_ket', 'u_bil', 'u_uro', 'u_bld', 'u_nit', 'u_pus', 'u_rbc', 'u_epi', 'u_cas', 'u_cry', 'u_bac'], ['URINE ROUTINE', 'URINE EXAMINATION', 'URINE R/M']],
+    'P:THY'   => ['Thyroid Profile', ['t3', 't4', 'tsh'], ['THYROID PROFILE', 'T3 T4 TSH', 'THYROID FUNCTION TEST - T3']],
+    'P:THYF'  => ['Thyroid Profile (Free T3, Free T4, TSH)', ['ft3', 'ft4', 'tsh'], ['THYROID FUNCTION TEST - FREE']],
+    'P:URINE' => ['Urine Routine Examination', ['u_col', 'u_app', 'u_ph', 'u_sg', 'u_pro', 'u_glu', 'u_ket', 'u_bil', 'u_uro', 'u_bld', 'u_nit', 'u_pus', 'u_rbc', 'u_epi', 'u_cas', 'u_cry', 'u_bac'], ['URINE ROUTINE', 'URINE EXAMINATION', 'URINE R/M', 'URINE COMPLETE ANALYSIS']],
     'P:DIAB'  => ['Diabetes Panel', ['fbs', 'ppbs', 'hba'], ['DIABETIC', 'DIABETES']],
   ];
 
@@ -109,7 +110,7 @@ function seed_templates() {
     'T:CHOL' => ['chol'], 'T:TRIG' => ['trig'], 'T:HCHO' => ['hdl'], 'T:LDL' => ['ldl'],
     'T:BILT' => ['bilt'], 'T:BILD' => ['bild'], 'T:SGOT' => ['sgot'], 'T:SGPT' => ['sgpt'], 'T:ALKP' => ['alp'], 'T:PROT' => ['tp'], 'T:SALB' => ['alb'],
     'T:SCRE' => ['crea'], 'T:URIC' => ['uric'], 'T:CALC' => ['ca'], 'T:SODI' => ['na'], 'T:POT' => ['k'], 'T:CHL' => ['cl'], 'T:MG' => ['mg'],
-    'T:T3' => ['t3'], 'T:T4' => ['t4'], 'T:USTSH' => ['tsh'], 'T:FT3' => ['ft3'], 'T:FT4' => ['ft4'],
+    'T:FT3' => ['ft3'], 'T:FT4' => ['ft4'], 'T:T3' => ['t3'], 'T:T4' => ['t4'], 'T:USTSH' => ['tsh'],
     'T:FBS' => ['fbs'], 'T:PPBS' => ['ppbs'], 'T:HBA' => ['hba'], 'T:VITDC' => ['vitd'], 'T:FERR' => ['ferr'], 'T:IRON' => ['iron'], 'T:CRP' => ['crp'], 'T:PSA' => ['psa'],
     'T:MP' => ['mp'], 'T:NS1' => ['ns1'], 'T:DGNS1' => ['ns1'], 'T:HIVE' => ['hiv'], 'T:SAG' => ['hbs'], 'T:HBSAG' => ['hbs'],
   ];
@@ -121,6 +122,24 @@ function seed_templates() {
   };
   $res = [];
   foreach ($panels as $k => $v) $res[] = ['key' => $k, 'name' => $v[0], 'params' => $build($v[1]), 'match' => $v[2]];
-  foreach ($singles as $k => $ids) $res[] = ['key' => $k, 'name' => $P[$ids[0]][0], 'params' => $build($ids), 'match' => []];
+  // Words that tie each template to the test names on the current price list (matched inside the upper-cased test name)
+  $words = [
+    'T:ESR' => ['ESR'], 'T:CHOL' => ['CHOLESTEROL TOTAL'], 'T:HCHO' => ['HDL'], 'T:LDL' => ['LDL'], 'T:SGOT' => ['SGOT'], 'T:SGPT' => ['SGPT'],
+    'T:ALKP' => ['ALKALINE PHOSPHATASE'], 'T:SALB' => ['ALBUMIN='], 'T:SCRE' => ['CREATININE='], 'T:URIC' => ['URIC ACID='], 'T:CALC' => ['CALCIUM='],
+    'T:FT3' => ['FREE - T3', 'FREE T3'], 'T:FT4' => ['FREE - T4', 'FREE T4'], 'T:T3' => ['T3='], 'T:T4' => ['T4='], 'T:USTSH' => ['TSH='],
+    'T:CRP' => ['C - REACTIVE PROTIEN', 'C - REACTIVE PROTEIN='], 'T:VITDC' => ['VITAMIN D='], 'T:PSA' => ['PROSTRATE SPECIFIC', 'PROSTATE SPECIFIC', 'PSA'],
+    'T:FERR' => ['FERRITIN='], 'T:HBA' => ['HBA1C'], 'T:HIVE' => ['HIV I & II (CARD)'], 'T:SAG' => ['HBSAG'],
+  ];
+  foreach ($singles as $k => $ids) $res[] = ['key' => $k, 'name' => $P[$ids[0]][0], 'params' => $build($ids), 'match' => isset($words[$k]) ? $words[$k] : []];
+  // Extra templates for tests whose names do not fit a single parameter
+  $extra = [
+    'C:BUN'   => ['Blood Urea Nitrogen (BUN)', ['bun'], ['UREA NITROGEN']],
+    'C:UREA'  => ['Urea', ['urea'], ['UREA=']],
+    'C:PHOS'  => ['Phosphorus', ['phos'], ['PHOSPHORUS=']],
+    'C:ELEC'  => ['Electrolyte Profile (Na, K, Cl)', ['na', 'k', 'cl'], ['ELECTROLYTE']],
+    'C:BILI'  => ['Bilirubin (Total, Direct, Indirect)', ['bilt', 'bild', 'bili'], ['BILIRUBIN (TOTAL']],
+    'C:GLU'   => ['Blood Glucose (Fasting / PP)', ['fbs', 'ppbs'], ['BLOOD GLUCOSE']],
+  ];
+  foreach ($extra as $k => $v) $res[] = ['key' => $k, 'name' => $v[0], 'params' => $build($v[1]), 'match' => $v[2]];
   return $res;
 }

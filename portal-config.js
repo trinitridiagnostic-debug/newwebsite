@@ -1,4 +1,2 @@
-/* Customer portal settings. api = the address of the deployed portal server,
-   e.g. https://trinetri-portal.yourname.workers.dev  (see portal-server/SETUP.md).
-   While api is empty the dashboard runs in demo mode with sample data only. */
-window.TRIN_PORTAL = { api: '' };
+/* Where the server lives. On cPanel it is the portal-api folder of this same website. */
+window.TRIN_PORTAL = { api: '/portal-api' };

@@ -314,11 +314,17 @@
   var TPL = null;
   LAB.templates = function () { return TPL ? Promise.resolve(TPL) : api('GET', '/staff/templates').then(function (r) { TPL = r.templates; return TPL; }); };
   LAB.resetTemplates = function () { TPL = null; };
+  /* A template is picked by its key, or by name. A match word is compared with the START of the test name (a word ending in "="
+     must equal the whole name), so "Urine Albumin" never picks the "Albumin" template. */
+  function normName(x) { return String(x).toUpperCase().replace(/\([^)]*\)/g, '').replace(/[^A-Z0-9]+/g, ' ').trim(); }
   function findTpl(t) {
-    if (!TPL) return null; var up = String(t.name).toUpperCase(), i, hit = null;
+    if (!TPL) return null; var up = String(t.name).toUpperCase().trim(), i, hit = null;
     for (i = 0; i < TPL.length; i++) if (t.key && TPL[i].key === t.key) return TPL[i];
-    for (i = 0; i < TPL.length && !hit; i++) (TPL[i].match || []).forEach(function (w) { if (!hit && up.indexOf(w) >= 0) hit = TPL[i]; });
-    for (i = 0; i < TPL.length && !hit; i++) if (TPL[i].key.indexOf('T:') === 0 && TPL[i].name.length >= 3 && up.indexOf(TPL[i].name.toUpperCase()) >= 0) hit = TPL[i];
+    for (i = 0; i < TPL.length && !hit; i++) (TPL[i].match || []).forEach(function (w) {
+      w = String(w).toUpperCase().trim(); if (hit || !w) return;
+      if (w.slice(-1) === '=') { if (up === w.slice(0, -1).trim()) hit = TPL[i]; } else if (up.indexOf(w) === 0) hit = TPL[i];
+    });
+    for (i = 0; i < TPL.length && !hit; i++) if (normName(TPL[i].name) === normName(t.name)) hit = TPL[i];
     return hit;
   }
   function rowsFrom(tpl, sex) {

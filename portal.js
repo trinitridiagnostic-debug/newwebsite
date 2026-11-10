@@ -1,11 +1,11 @@
 /* Trinetri Diagnostics customer dashboard.
-   Live mode talks to the portal server (portal-config.js api). Demo mode uses sample data kept in this browser only. */
+   Talks to the portal server set in portal-config.js (the portal-api folder on the website). */
 (function () {
   'use strict';
   var CFG = window.TRIN_PORTAL || {};
   var BASE = String(CFG.api || '').replace(/\/+$/, '');
   var LIVE = !!BASE;
-  var isDemo = false, A = null, TOKEN = '', me = null;
+  var A = null, TOKEN = '', me = null;
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
@@ -57,87 +57,6 @@
     select: function (tier) { return http('POST', '/membership', { tier: tier }).then(function (j) { return j.user; }); }
   };
 
-  /* ======================= demo API (sample data in this browser) ======================= */
-  var PLANS = [
-    { id: 'bronze', name: 'Bronze', price: 499, period: 'year', perks: ['5% off every test', 'Free home collection', 'Reports on WhatsApp'] },
-    { id: 'silver', name: 'Silver', price: 999, period: 'year', perks: ['10% off every test', 'Free home collection', 'Priority slots', 'Reports on WhatsApp'] },
-    { id: 'gold', name: 'Gold', price: 1999, period: 'year', perks: ['15% off every test', 'Free home collection', 'Priority slots', '1 free basic health package a year', 'Family members can use it (up to 3)'] },
-    { id: 'platinum', name: 'Platinum', price: 3999, period: 'year', perks: ['20% off every test', 'Free home collection', 'Fastest priority slots', '2 free health packages a year', 'Family members can use it (up to 5)', 'Dedicated support contact'] }
-  ];
-  function makePdf(lines) {
-    function esc(s) { return String(s).replace(/[^\x20-\x7e]/g, '?').replace(/[\\()]/g, '\\$&'); }
-    var content = 'BT /F1 12 Tf 50 790 Td 17 TL\n' + lines.map(function (l) { return '(' + esc(l) + ') Tj T*'; }).join('\n') + '\nET';
-    var o = [null,
-      '<< /Type /Catalog /Pages 2 0 R >>',
-      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
-      '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream',
-      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
-    var out = '%PDF-1.4\n', off = [];
-    for (var i = 1; i < o.length; i++) { off[i] = out.length; out += i + ' 0 obj\n' + o[i] + '\nendobj\n'; }
-    var x = out.length; out += 'xref\n0 ' + o.length + '\n0000000000 65535 f \n';
-    for (i = 1; i < o.length; i++) out += ('0000000000' + off[i]).slice(-10) + ' 00000 n \n';
-    out += 'trailer\n<< /Size ' + o.length + ' /Root 1 0 R >>\nstartxref\n' + x + '\n%%EOF';
-    return new Blob([out], { type: 'application/pdf' });
-  }
-  var DKEY = 'trin.portal.demo.v2';
-  function dload() { try { var s = JSON.parse(localStorage.getItem(DKEY)); if (s && s.v === 2) return s; } catch (e) { } return null; }
-  function dsave(s) { try { localStorage.setItem(DKEY, JSON.stringify(s)); } catch (e) { } }
-  function dstate() {
-    var s = dload(); if (s) return s;
-    var n = Date.now(), H = 36e5, D = 24 * H;
-    s = { v: 2, user: { id: 'demo', name: 'Demo Customer', mobile: '9000000000', membership: null }, t0: n,
-      orders: [
-        { id: 'd1', code: 'TD-DEMO-0001', tests: [{ name: 'COMPLETE BLOOD COUNT (CBC)', price: 300 }, { name: 'LIPID PROFILE', price: 250 }], amount: 550, status: 'completed', created: n - 20 * D, times: { booked: n - 20 * D, collected: n - 20 * D + 2 * H, processing: n - 20 * D + 4 * H, completed: n - 20 * D + 9 * H }, hasReport: true },
-        { id: 'd2', code: 'TD-DEMO-0002', tests: [{ name: 'THYROID PROFILE (T3, T4, TSH)', price: 450 }, { name: 'HBA1C', price: 280 }], amount: 730, status: 'processing', created: n - 5 * H, times: { booked: n - 5 * H, collected: n - 3 * H, processing: n - 1 * H }, hasReport: false },
-        { id: 'd3', code: 'TD-DEMO-0003', tests: [{ name: '25-OH VITAMIN D (TOTAL)', price: 1300 }], amount: 1300, status: 'collected', created: n - 10 * 6e4, times: { booked: n - 30 * 6e4, collected: n - 10 * 6e4 }, hasReport: false, sim: true }
-      ],
-      unlinked: [{ id: 'd4', code: 'TD-DEMO-0004', pin: '246810', tests: [{ name: 'FASTING BLOOD SUGAR', price: 80 }, { name: 'URINE ROUTINE', price: 100 }], amount: 180, status: 'completed', created: n - 3 * D, times: { booked: n - 3 * D, collected: n - 3 * D + H, processing: n - 3 * D + 3 * H, completed: n - 3 * D + 6 * H }, hasReport: true }],
-      tickets: [], chat: [], pw: null };
-    dsave(s); return s;
-  }
-  function dsim(s) {   // makes order 3 move through the stages so live tracking can be seen
-    var o = s.orders.filter(function (x) { return x.sim; })[0]; if (!o) return;
-    var e = Date.now() - s.t0, n = Date.now();
-    if (e > 90000 && o.status !== 'completed') { o.status = 'completed'; o.times.processing = o.times.processing || n - 30000; o.times.completed = n; o.hasReport = true; dsave(s); }
-    else if (e > 40000 && o.status === 'collected') { o.status = 'processing'; o.times.processing = n; dsave(s); }
-  }
-  function ok(v) { return Promise.resolve(JSON.parse(JSON.stringify(v === undefined ? null : v))); }
-  var demo = {
-    orders: function () { var s = dstate(); dsim(s); return ok(s.orders.slice().sort(function (a, b) { return b.created - a.created; })); },
-    link: function (code, pin) {
-      var s = dstate(), i = -1; s.unlinked.forEach(function (u, k) { if (u.code === String(code).toUpperCase() && u.pin === pin) i = k; });
-      if (i < 0) return Promise.reject(new Error('We could not match that Order ID and PIN. In the demo, try TD-DEMO-0004 with PIN 246810.'));
-      var o = s.unlinked.splice(i, 1)[0]; delete o.pin; s.orders.push(o); dsave(s); return ok(o);
-    },
-    report: function (code) {
-      var s = dstate(), o = s.orders.filter(function (x) { return x.code === code; })[0];
-      if (!o || !o.hasReport) return Promise.reject(new Error('The report is not ready yet.'));
-      var L = ['TRINETRI DIAGNOSTICS', 'K C Rani Road, 3rd Cross Rd, Betageri, Karnataka 582101', '', 'DEMO REPORT - SAMPLE DATA ONLY, NOT A REAL RESULT', '', 'Order ID : ' + o.code, 'Patient  : ' + s.user.name, 'Date     : ' + fdate(o.created), '', 'Test                              Result        Reference'];
-      o.tests.forEach(function (t) { L.push(t.name.slice(0, 32) + '   (sample value)   (sample range)'); });
-      L.push('', 'This file is generated in your browser for the demo.', 'A real report is signed by the consultant pathologist.');
-      return Promise.resolve(makePdf(L));
-    },
-    tickets: function () { return ok(dstate().tickets.slice().sort(function (a, b) { return b.updated - a.updated; })); },
-    newTicket: function (b) {
-      var s = dstate(), t = { id: 'TK' + (1000 + s.tickets.length + 1), subject: b.subject, category: b.category, status: 'open', created: Date.now(), updated: Date.now(), msgs: [{ from: 'customer', body: b.message, ts: Date.now() }] };
-      s.tickets.push(t); dsave(s); return ok(t);
-    },
-    reply: function (id, message) {
-      var s = dstate(), t = s.tickets.filter(function (x) { return x.id === id; })[0]; if (!t) return Promise.reject(new Error('Ticket not found.'));
-      t.msgs.push({ from: 'customer', body: message, ts: Date.now() }); t.status = 'open'; t.updated = Date.now(); dsave(s); return ok(t);
-    },
-    chat: function (after) { var s = dstate(), n = Date.now(); s.chat.forEach(function (m) { if (m.pending && m.pending <= n) { delete m.pending; m.ts = n; } }); dsave(s); return ok(s.chat.filter(function (m) { return !m.pending && m.ts > (after || 0); })); },
-    send: function (body) {
-      var s = dstate(), n = Date.now(), mine = { id: 'm' + n, from: 'customer', body: body, ts: n, label: '' };
-      s.chat.push(mine);
-      s.chat.push({ id: 'a' + n, from: 'staff', body: 'Demo reply: in the real portal our team answers here during lab hours (Mon to Sat 7 am to 10 pm, Sun 7 am to 2 pm).', ts: n + 2500, label: 'Trinetri Support', pending: n + 2500 });
-      dsave(s); return ok([mine]);
-    },
-    plans: function () { return ok(PLANS); },
-    select: function (tier) { var s = dstate(); s.user.membership = { tier: tier, status: 'requested' }; dsave(s); return ok(s.user); }
-  };
-
   /* ======================= auth screens ======================= */
   var authBox = $('#auth'), appBox = $('#app');
   function sw(t) {
@@ -148,10 +67,10 @@
   if (!LIVE) { $('#livenote').hidden = false; $('#lgo').disabled = true; $('#rgo').disabled = true; }
   function store(tok, keep) { try { (keep ? localStorage : sessionStorage).setItem('trin.portal.tok', tok); (keep ? sessionStorage : localStorage).removeItem('trin.portal.tok'); } catch (e) { } }
   function clearTok() { try { sessionStorage.removeItem('trin.portal.tok'); localStorage.removeItem('trin.portal.tok'); } catch (e) { } }
-  function enter(user, demoMode) {
-    me = user; isDemo = !!demoMode; A = demoMode ? demo : live;
-    authBox.hidden = true; appBox.hidden = false; $('#demobar').hidden = !isDemo;
-    $('#wn').textContent = me.name; $('#wm').textContent = isDemo ? 'Demo account' : '+91 ' + me.mobile;
+  function enter(user) {
+    me = user; A = live;
+    authBox.hidden = true; appBox.hidden = false;
+    $('#wn').textContent = me.name; $('#wm').textContent = '+91 ' + me.mobile;
     buildMenu(); var h = (location.hash || '').replace('#', ''); show(VIEWS[h] ? h : 'home');
   }
   /* ---- mobile-number OTP (WhatsApp only). Switched on by the server when it is set up. ---- */
@@ -170,7 +89,7 @@
   function otpHide(pre) { clearInterval(timers[pre]); $('#' + pre + 'otp').hidden = true; $('#' + pre + 'o').value = ''; }
   function finishLogin(j, mo, m, b) {
     TOKEN = j.token; store(TOKEN, $('#keep').checked); if (j.device) devSet(mo, j.device);
-    $('#lpw').value = ''; otpHide('l'); b.textContent = 'Log in'; say(m, '', ''); enter(j.user, false);
+    $('#lpw').value = ''; otpHide('l'); b.textContent = 'Log in'; say(m, '', ''); enter(j.user);
   }
   function login(channel) {
     var m = $('#lmsg'), mo = mob($('#lm').value), pw = $('#lpw').value, otpOpen = !$('#lotp').hidden;
@@ -203,7 +122,7 @@
     if (OTPON && $('#rotp').hidden) { regSend(''); return; }
     if (OTPON) { var o = $('#ro').value.replace(/\D/g, ''); if (o.length !== 6) { say(m, 'Enter the 6-digit OTP.', 'err'); return; } v.otp = o; }
     var b = $('#rgo'); b.disabled = true; say(m, 'Creating your account...', 'info');
-    live.register(v).then(function (j) { TOKEN = j.token; store(TOKEN, false); $('#rp').value = ''; $('#rp2').value = ''; otpHide('r'); b.textContent = OTPON ? 'Send OTP to verify my mobile' : 'Create account'; say(m, '', ''); enter(j.user, false); })
+    live.register(v).then(function (j) { TOKEN = j.token; store(TOKEN, false); $('#rp').value = ''; $('#rp2').value = ''; otpHide('r'); b.textContent = OTPON ? 'Send OTP to verify my mobile' : 'Create account'; say(m, '', ''); enter(j.user); })
       .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
   });
   $('#rre').addEventListener('click', function () { regSend('whatsapp'); });
@@ -228,11 +147,10 @@
     var o = $('#fo').value.replace(/\D/g, ''), p = $('#fp').value;
     if (o.length !== 6) { say(m, 'Enter the 6-digit OTP.', 'err'); return; } if (p.length < 8) { say(m, 'Use a password of at least 8 characters.', 'err'); return; } if (p !== $('#fp2').value) { say(m, 'The two passwords do not match.', 'err'); return; }
     var b = $('#fgo'); b.disabled = true; say(m, 'Saving your new password...', 'info');
-    live.reset({ mobile: mo, otp: o, password: p }).then(function (j) { TOKEN = j.token; store(TOKEN, false); $('#fp').value = ''; $('#fp2').value = ''; otpHide('f'); $('#fnew').hidden = true; b.textContent = 'Send OTP'; say(m, '', ''); enter(j.user, false); })
+    live.reset({ mobile: mo, otp: o, password: p }).then(function (j) { TOKEN = j.token; store(TOKEN, false); $('#fp').value = ''; $('#fp2').value = ''; otpHide('f'); $('#fnew').hidden = true; b.textContent = 'Send OTP'; say(m, '', ''); enter(j.user); })
       .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
   });
   $('#fre').addEventListener('click', function () { resetSend('whatsapp'); });
-  $('#demobtn').addEventListener('click', function () { var s = dstate(); enter(s.user, true); });
   $('#out').addEventListener('click', function () {
     clearTok(); TOKEN = ''; me = null; stopTimers(); sw('login'); appBox.hidden = true; authBox.hidden = false; $('#page').textContent = ''; try { history.replaceState(null, '', location.pathname); } catch (e) { }
   });
@@ -278,7 +196,7 @@
     RENDER[v](page);
   }
   function fail(node, err) {
-    if (err && err.status === 401 && !isDemo) { clearTok(); TOKEN = ''; stopTimers(); appBox.hidden = true; authBox.hidden = false; say($('#lmsg'), 'Your session ended. Please log in again.', 'err'); return; }
+    if (err && err.status === 401) { clearTok(); TOKEN = ''; stopTimers(); appBox.hidden = true; authBox.hidden = false; say($('#lmsg'), 'Your session ended. Please log in again.', 'err'); return; }
     say(node, err && err.message || 'Something went wrong.', 'err');
   }
   function loadOrders() { return A.orders().then(function (o) { cache.orders = o; badges(); return o; }); }
@@ -318,7 +236,6 @@
     var b = el('div', 'f'), bl = el('label', '', 'Report PIN'), bi = el('input'); bi.inputMode = 'numeric'; bi.maxLength = 6; bi.placeholder = '6 digits'; bi.autocomplete = 'off'; bl.htmlFor = bi.id = 'lk-p'; b.appendChild(bl); b.appendChild(bi);
     var rw = el('div', 'row full'), bt = el('button', 'btn sm', 'Add order'); bt.type = 'submit'; rw.appendChild(bt); rw.appendChild(msg);
     f.appendChild(a); f.appendChild(b); f.appendChild(rw); c.appendChild(f);
-    if (isDemo) c.appendChild(el('p', 'note', 'Demo: use Order ID TD-DEMO-0004 and PIN 246810.'));
     f.addEventListener('submit', function (e) {
       e.preventDefault(); var code = ai.value.trim().toUpperCase(), pin = bi.value.replace(/\D/g, '');
       if (!code || pin.length !== 6) { say(msg, 'Enter the Order ID and the 6-digit PIN.', 'err'); return; }
@@ -485,5 +402,5 @@
   /* ======================= start ======================= */
   document.addEventListener('visibilitychange', function () { });
   var saved = ''; try { saved = sessionStorage.getItem('trin.portal.tok') || localStorage.getItem('trin.portal.tok') || ''; } catch (e) { }
-  if (LIVE && saved) { TOKEN = saved; live.me().then(function (j) { enter(j.user, false); }).catch(function () { clearTok(); TOKEN = ''; }); }
+  if (LIVE && saved) { TOKEN = saved; live.me().then(function (j) { enter(j.user); }).catch(function () { clearTok(); TOKEN = ''; }); }
 })();

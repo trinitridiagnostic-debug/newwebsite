@@ -1,65 +1,59 @@
-# Customer portal (PHP version): setup on BigRock / any cPanel PHP host
+# Trinetri Diagnostics: server setup (cPanel)
 
-Needs: PHP 7.4 or newer (8.x is best) with PDO, and HTTPS on the domain (cPanel > SSL/TLS Status > run AutoSSL).
-The website can stay on GitHub Pages. Only this API folder goes on the PHP host.
+Everything runs on your own hosting: the website, the customer portal, the lab console and the catalog admin.
+The website files sit in `public_html`. The server sits in the `portal-api` folder next to them and uses one MySQL database.
 
-1. cPanel > File Manager > `public_html`. Create a folder, e.g. `portal-api`. Open it, Upload `trinetri-portal-api.zip`, then Extract.
-2. In that folder, copy `config.sample.php` to `config.php` and Edit it:
-   - `lab_api_key`: a long random text (30+ characters). Keep it secret. Your lab software sends it as the `X-Lab-Key` header.
-   - Database: leave `db_dsn` empty to use a SQLite file (simplest). Or create a MySQL database + user in cPanel > MySQL Databases and fill in `db_dsn`, `db_user`, `db_pass` (example inside the file). Tables are created automatically on the first request.
-   - `allowed_origins`: the website address(es) that may call the API. Add your own domain if the site is served from it.
-3. Open `https://YOUR-DOMAIN/portal-api/` in a browser. You should see `{"ok":true,"service":"trinetri-portal"}`.
-   Also try `/portal-api/plans`. If you get a 404 there, ask the host to enable `mod_rewrite`, or use `https://YOUR-DOMAIN/portal-api/index.php` as the address in step 4 (it works without rewrites).
-4. In the website repo, set `portal-config.js`:  `window.TRIN_PORTAL = { api: 'https://YOUR-DOMAIN/portal-api' };`  (no slash at the end) and push. The dashboard leaves demo mode.
+## First-time setup
 
-Do not upload `config.php` to GitHub. The `storage/` folder (database, report PDFs, signing key) is created by the API and blocked from the web by `.htaccess`. Back it up with your normal cPanel backups.
+1. cPanel > **MySQL Databases**: create a database `trinetri`, create a user `trinetri` with the password given in your credentials sheet, then **Add user to database** with ALL PRIVILEGES.
+2. cPanel > **phpMyAdmin**: click the database, open **Import**, choose `trinetri-database.sql`, press **Go**. (It creates every table, your owner login and the starter result templates.)
+3. cPanel > **File Manager** > `public_html` > **Upload** the website zip, then **Extract**.
+4. Open `public_html/portal-api/config.php` > **Edit**. Replace `CPANELUSER` (two places) with your cPanel username as shown in MySQL Databases. Save.
+5. cPanel > **Select PHP Version**: PHP 8.1 or newer, with `pdo_mysql`, `curl`, `mbstring`, `json` ticked.
+6. Check: open `https://YOURDOMAIN/portal-api/` and you should see `{"ok":true,...}`.
+7. Open `https://YOURDOMAIN/lab.html` and log in as the owner. Change the password under **My account**, then add your staff under **Staff**.
 
-## Lab console (lab.html): your lab management software
-Open `https://YOUR-WEBSITE/lab.html`. The first time, it asks you to create the owner login. The **setup code** is the `lab_api_key` from `config.php` (so nobody else can claim the first login).
-Then add staff under **Staff** and give each a role:
-- **Reception**: register patients, bill, take payments, print receipts, inbox (tickets, chat), memberships
-- **Technician**: mark samples collected / in progress, enter results, stock
-- **Doctor / Pathologist**: enter results, **approve reports** (this publishes them to the customer), edit result templates
-- **Admin**: everything, plus staff accounts
+The first request creates anything the SQL file did not (the app checks its own tables automatically), so a missing table never stops the site.
 
-**Website bookings:** the home page form and the Book page also send each request to the lab console. It appears under **Bookings** (with a red count) and on the Dashboard. Click **Create order** to open New order with the patient, tests, date and address already filled in. The booking is marked done and linked to the order. WhatsApp still opens for the customer as before.
+## What lives where
 
-Daily flow: New order (bill, print receipt, give the PIN) -> mark sample collected -> enter results (or attach a ready PDF) -> Approve. Customers see each step live on their dashboard and download the PDF only after approval.
-Billing uses the same test prices as the website (and your changes in the catalog admin). Anything not in the price list can be added as a custom test. Member discounts are suggested automatically for active members.
-Result templates (parameters, units, normal ranges) are starter values only. Have your pathologist review them under **Result templates** before issuing reports.
+| Address | Who | What |
+|---|---|---|
+| `/` | public | website, test and package list, booking form (bookings land in Lab console > Bookings) |
+| `/customer.html` | customers | account, order tracking, reports (PDF), tickets, chat, membership |
+| `/lab.html` | staff | lab console with roles: admin, reception, technician, doctor |
+| `/admin.html` | admin | edit packages, tests and prices (saved straight to the site) |
 
-## Mobile number verification (OTP)
-With OTP switched on, a one-time code sent to the customer's mobile is required to: create an account, log in on a new device, and reset a forgotten password. The password stays as the second check. Customers can tick "Keep me logged in on this device" to skip the code on that device for 30 days. Codes are 6 digits, last 5 minutes, allow 5 tries, and sending is limited per number and per visitor. Codes are never shown on screen or stored in readable form.
+All of them read and write the same database, so a booking made on the website, an order made at reception and what the customer sees in their account are always the same record.
 
-**Codes are sent on WhatsApp only. Nothing is ever sent by SMS.** If WhatsApp cannot deliver (for example the number has no WhatsApp), the customer sees a clear message and can try again or call the lab.
+## Settings in config.php
 
-**It is OFF until you set up WhatsApp**, because it cannot work without a sender. To switch it on:
-1. In Meta Business, set up the WhatsApp Business Platform with a phone number for the lab.
-2. Create a message template of type *Authentication* named `otp_code` (language English) and wait for approval.
-3. Copy the *Phone number ID* and a *permanent access token* into `config.php` as `wa_phone_id` and `wa_token` (see `config.sample.php` for the exact lines), and set `'otp_provider' => 'live'`.
-4. Test with a new account using your own number. Keep the token private and never put it on GitHub.
-The WhatsApp sending code could not be tried against the real service from here, so this first test with your own number is important.
-
-## Lab API (for connecting other lab software) (header `X-Lab-Key: <lab_api_key>`, JSON unless noted)
-| Call | Purpose |
+| Setting | Meaning |
 |---|---|
-| `POST /lab/orders` `{code?, mobile, name, tests:[{name,price}], amount?}` | Create an order. Returns the 6-digit `pin` to print on the receipt |
-| `POST /lab/orders/CODE/status` `{status}` | `booked`, `collected`, `processing`, `completed` |
-| `PUT /lab/orders/CODE/report?name=file.pdf` (body = PDF bytes, max 3 MB) | Attach the report; marks the order completed |
-| `GET /lab/tickets?status=open`, `POST /lab/tickets/ID/reply` `{message, close?}` | Support tickets |
-| `GET /lab/chat`, `GET /lab/chat/MOBILE`, `POST /lab/chat/MOBILE` `{body}` | Live chat |
-| `POST /lab/membership` `{mobile, tier, status}` | `status`: `active`, `requested` or `cancelled` |
+| `db_dsn`, `db_user`, `db_pass` | the MySQL database |
+| `secret` | signs login tokens. Never change it after go-live (everyone would be logged out) |
+| `lab_api_key` | machine key for the lab API (X-Lab-Key header). Keep private |
+| `otp_provider` | empty = OTP off. `'live'` = WhatsApp OTP on (needs the lines below) |
+| `wa_phone_id`, `wa_token`, `wa_template`, `wa_lang` | Meta WhatsApp Business Cloud API |
+| `wa_verify_token` | the Verify token you type in Meta when saving the webhook |
+| `site_dir` | only if `catalog.js` is not in the folder above `portal-api` |
 
-Example: `curl -X POST https://YOUR-DOMAIN/portal-api/lab/orders -H "X-Lab-Key: KEY" -H "Content-Type: application/json" -d '{"mobile":"9876543210","name":"Asha","tests":[{"name":"CBC","price":300}]}'`
+## WhatsApp OTP (optional, recommended)
 
-## Notes
-- Customers link a test with Order ID + PIN from the receipt, so nobody can read another person's reports by signing up with their number.
-- Passwords are stored with PHP `password_hash`. Logins lock for 15 minutes after 5 wrong tries.
-- Plans and prices are placeholders (edit `PLANS` near the top of `index.php`, and the matching list in `portal.js` for demo mode).
-- Developers: `node portal-php/test.mjs` (66 checks) and `node portal-php/test-staff.mjs` (100 checks) run against PHP's built-in server.
+OTP is sent on WhatsApp only. It is required for new accounts, login on a new device, password reset and website booking verification once switched on.
 
-## Catalog admin (admin.html)
+1. Meta Business: WhatsApp Business Cloud API, a phone number, and an approved **authentication** template named `otp_code`.
+2. In Meta > WhatsApp > Configuration > Webhook: callback URL `https://YOURDOMAIN/portal-api/wa/webhook`, verify token = `wa_verify_token` from config.php.
+3. In `config.php` add `wa_phone_id`, `wa_token`, then set `'otp_provider' => 'live'`.
+4. Test with your own number from `customer.html` > Create account.
 
-Open `https://YOURDOMAIN.com/admin.html` and log in with the same admin username and password as the lab console. No GitHub token is needed.
-"Publish" writes `catalog.js` and the package pictures straight into your website folder (the folder above `portal-api`), so the website updates at once.
-The previous 30 versions are kept in `portal-api/storage/catalog-backups/`. If the folder is somewhere else, set `site_dir` in `config.php`.
+## Backups
+
+- Database: cPanel > **Backup** > Download a MySQL database backup (do this weekly).
+- Files: cPanel > Backup > Home directory backup. Reports are stored in `portal-api/storage/reports`.
+- Catalog: the last 30 versions are kept in `portal-api/storage/catalog-backups`.
+
+## Moving or resetting
+
+- Forgot the owner password: in phpMyAdmin open table `staff`, delete the owner row, then run the owner INSERT line from `trinetri-database.sql` again with a new hash, or ask me to generate a new one.
+- Membership prices are in `PLANS` near the top of `portal-api/index.php`.

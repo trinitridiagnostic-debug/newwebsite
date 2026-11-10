@@ -329,7 +329,7 @@
   }
   /* ---------- online payment (Razorpay Checkout; prices are re-checked on the server) ---------- */
   var PAYCFG=window.TRIN_PAY||{},PKGRS={'Advance Health Package':1199,'Lipid Profile':250,'Double Marker Test':2300,'NT-proBNP':1800,'Trinetri Care Package':799,'Advance+ Health Package':1499,'Basic Health Package':499,'HbA1c Test':280,'Comprehensive Health Package':3199,'Cancer Screening Male':657,'Diabetic Health Package':1199};
-  var DEMO=!PAYCFG.key||!PAYCFG.api;
+  var NOPAY=!PAYCFG.key||!PAYCFG.api;   // no online payment gateway set up: customers pay at collection
   var payb=$('#pay'),paynote=$('#paynote'),paying=false,payRS=0,paidDone=false;
   function payInfo(){
     var amt=0;
@@ -340,11 +340,12 @@
   }
   function refreshPay(){
     if(!payb)return;
+    if(NOPAY){payb.hidden=true;if(paynote)paynote.textContent='Pay at the time of sample collection (cash or UPI). Home collection is free.';return;}
     var p=payInfo();payRS=p.amt;
     payb.textContent=p.ok?'Pay online \u20b9'+p.amt.toLocaleString('en-IN'):'Pay online';
     payb.disabled=!p.ok||paying||paidDone;
     if(paidDone){payb.textContent='Paid';if(paynote)paynote.textContent='Payment received. Send the booking details on WhatsApp above.';return;}
-    if(paynote)paynote.textContent=p.ok&&DEMO?'Demo preview: the payment window is simulated and no real money is charged.':p.why;
+    if(paynote)paynote.textContent=p.why;
   }
   function loadRzp(){
     return new Promise(function(res,rej){
@@ -357,60 +358,20 @@
     return fetch(PAYCFG.api.replace(/\/+$/,'')+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Request failed');return j;});});
   }
-  function paidPanel(amt,pid,msg,demo){
+  function paidPanel(amt,pid,msg){
     var box=$('#paid');
     if(!box){box=document.createElement('div');box.id='paid';box.className='paid';box.setAttribute('role','status');bk.insertBefore(box,payb);}
     var link='https://wa.me/'+WA+'?text='+encodeURIComponent(msg);
-    box.innerHTML='<h3>'+(demo?'Demo payment complete':'Payment received')+'</h3><p>\u20b9'+amt.toLocaleString('en-IN')+(demo?' (demo, no money was charged).':' paid.')+' Payment ID: <code></code></p>'+
+    box.innerHTML='<h3>'+'Payment received'+'</h3><p>\u20b9'+amt.toLocaleString('en-IN')+' paid.'+' Payment ID: <code></code></p>'+
       '<p>Last step: tap the button to send your booking details to the lab on WhatsApp so they can schedule your collection.</p>'+
       '<a class="btn" target="_blank" rel="noopener">Send booking details on WhatsApp</a>';
     box.querySelector('code').textContent=pid;box.querySelector('a').href=link;box.hidden=false;
     try{box.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){}
   }
-  function demoPay(r,amt){
-    var old=$('#dm');if(old)old.remove();
-    var m=document.createElement('div');m.id='dm';m.className='dm';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-label','Demo payment');
-    var rs='\u20b9'+amt.toLocaleString('en-IN');
-    m.innerHTML='<div class="dm-box"><div class="dm-top"><b>Trinetri Diagnostics</b><span class="dm-tag">DEMO</span></div>'+
-      '<div class="dm-amt"><small>Amount to pay</small><b>'+rs+'</b></div>'+
-      '<div class="dm-tabs" role="radiogroup" aria-label="Payment method">'+
-      '<label><input type="radio" name="dmm" value="upi" checked><span>UPI</span></label>'+
-      '<label><input type="radio" name="dmm" value="card"><span>Card</span></label>'+
-      '<label><input type="radio" name="dmm" value="net"><span>Net banking</span></label></div>'+
-      '<div class="dm-f" data-m="upi"><label>UPI ID</label><input value="demo@upi" readonly></div>'+
-      '<div class="dm-f" data-m="card" hidden><label>Card number</label><input value="4111 1111 1111 1111" readonly><div class="dm-2"><input value="12 / 30" readonly><input value="123" readonly></div></div>'+
-      '<div class="dm-f" data-m="net" hidden><label>Bank</label><input value="Demo Bank" readonly></div>'+
-      '<button class="btn pay" id="dmpay" type="button">Pay '+rs+'</button>'+
-      '<button class="btn ghost" id="dmx" type="button">Cancel</button>'+
-      '<p class="dm-note">Demo only. This window is simulated and no real payment is taken.</p></div>';
-    document.body.appendChild(m);
-    var prev=document.activeElement;
-    function close(){m.remove();document.removeEventListener('keydown',esc);try{prev&&prev.focus();}catch(e){}}
-    function esc(e){if(e.key==='Escape')close();}
-    document.addEventListener('keydown',esc);
-    $$('input[name=dmm]',m).forEach(function(i){i.addEventListener('change',function(){
-      $$('.dm-f',m).forEach(function(f){f.hidden=f.getAttribute('data-m')!==i.value;});});});
-    $('#dmx',m).addEventListener('click',close);
-    m.addEventListener('click',function(e){if(e.target===m)close();});
-    var go=$('#dmpay',m);go.focus();
-    go.addEventListener('click',function(){
-      go.disabled=true;go.innerHTML='<span class="dm-spin"></span> Processing...';$('#dmx',m).hidden=true;
-      setTimeout(function(){
-        var pid='demo_'+Math.random().toString(36).slice(2,10);
-        m.querySelector('.dm-box').innerHTML='<div class="dm-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 9"/></svg><b>Payment successful</b><small>'+rs+' (demo)</small></div>';
-        setTimeout(function(){
-          close();
-          paidPanel(amt,pid,r.msg+'\nDEMO PAYMENT (no money charged): Rs '+amt+', ID '+pid,true);
-          say('','var(--ok)');
-        },1300);
-      },1700);
-    });
-  }
   function startPay(){
     var r=build();
     if(r.err){say(r.err,'var(--flag)');return;}
     var p=payInfo();if(!p.ok){say(p.why,'var(--flag)');return;}
-    if(DEMO){say('','var(--muted)');demoPay(r,p.amt);return;}
     paying=true;refreshPay();say('Starting secure payment...','var(--muted)');
     var nm=$('#nm').value.trim(),ph=$('#ph').value.replace(/\D/g,'');
     function fail(m){paying=false;refreshPay();say(m,'var(--flag)');}

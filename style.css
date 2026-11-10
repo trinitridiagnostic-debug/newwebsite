@@ -447,33 +447,6 @@ nav.main a.l[aria-current="page"]::after{transform:scaleX(1)}
 .paid code{font:500 .85rem/1.4 var(--font-mono);background:var(--surface);padding:3px 8px;border-radius:6px;word-break:break-all}
 
 /* demo payment window */
-.dm{position:fixed;inset:0;z-index:90;background:rgba(10,14,14,.62);display:grid;place-items:center;padding:16px}
-.dm-box{width:min(400px,100%);background:var(--surface);color:var(--fg);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 30px 80px -20px rgba(0,0,0,.6);max-height:calc(100dvh - 32px);overflow:auto}
-.dm-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.dm-tag{font:600 .72rem/1 var(--font-mono);letter-spacing:.12em;background:var(--sun);color:#3a2c00;padding:6px 10px;border-radius:99px}
-.dm-amt{background:var(--soft);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
-.dm-amt small{color:var(--muted)}
-.dm-amt b{font:800 2rem/1 var(--font-display);color:var(--teal)}
-.dm-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.dm-tabs label{cursor:pointer}
-.dm-tabs input{position:absolute;opacity:0;pointer-events:none}
-.dm-tabs span{display:block;text-align:center;padding:10px 6px;border:1.5px solid var(--line);border-radius:12px;font-weight:600;font-size:.9rem}
-.dm-tabs input:checked+span{border-color:var(--teal);background:var(--soft);color:var(--teal)}
-.dm-tabs input:focus-visible+span{outline:3px solid var(--teal);outline-offset:2px}
-.dm-f{display:flex;flex-direction:column;gap:6px}
-.dm-f label{font-size:.82rem;color:var(--muted);font-weight:600}
-.dm-f input{font:inherit;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);color:var(--fg);width:100%}
-.dm-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.dm-note{font-size:.8rem;color:var(--muted);text-align:center}
-.dm-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;animation:dmsp .7s linear infinite;display:inline-block}
-@keyframes dmsp{to{transform:rotate(360deg)}}
-.dm-ok{display:flex;flex-direction:column;align-items:center;gap:8px;padding:26px 0;text-align:center}
-.dm-ok svg{width:72px;height:72px;fill:var(--leaf);stroke:none}
-.dm-ok path{stroke:#fff;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;animation:dmck .5s .15s forwards}
-@keyframes dmck{to{stroke-dashoffset:0}}
-.dm-ok b{font:700 1.3rem/1.2 var(--font-display)}
-.dm-ok small{color:var(--muted)}
-@media(prefers-reduced-motion:reduce){.dm-spin,.dm-ok path{animation:none;stroke-dashoffset:0}}
 
 /* policy pages and footer policy row */
 .legal-pg{padding-block:clamp(32px,5vw,56px)}
