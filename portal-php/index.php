@@ -502,7 +502,7 @@ function route() {
   if ($path === '/health' && $m === 'GET') {   // setup check: shows whether the database connects, never any secret
     if (!is_file(__DIR__ . '/config.php')) out(['ok' => false, 'problem' => 'config.php is missing in the portal-api folder.'], 500);
     try { db(); one('SELECT 1 AS x'); out(['ok' => true, 'database' => 'connected']); }
-    catch (Throwable $e) { error_log('[trinetri-portal] health: ' . $e->getMessage()); out(['ok' => false, 'problem' => dbHint($e) ?: 'The database could not be opened. Check portal-api/config.php.'], 500); }
+    catch (Throwable $e) { error_log('[trinetri-portal] health: ' . $e->getMessage()); $code = preg_match('/SQLSTATE\[(\w+)\]\s*(?:\[(\d+)\])?/', $e->getMessage(), $mm) ? ' (error ' . $mm[1] . (isset($mm[2]) ? '/' . $mm[2] : '') . ')' : ' (' . get_class($e) . ')'; out(['ok' => false, 'problem' => (dbHint($e) ?: 'The database could not be opened. Check portal-api/config.php.') . $code], 500); }
   }
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
   if ($path === '/public/booking' && $m === 'POST') { require_once __DIR__ . '/staff.php'; publicBooking(); }
