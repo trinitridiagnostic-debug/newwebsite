@@ -10,7 +10,7 @@ The website files sit in `public_html`. The server sits in the `portal-api` fold
 3. cPanel > **File Manager** > `public_html` > **Upload** the website zip, then **Extract**.
 4. Open `public_html/portal-api/config.php` > **Edit**. Replace `CPANELUSER` (two places) with your cPanel username as shown in MySQL Databases. Save.
 5. cPanel > **Select PHP Version**: PHP 8.1 or newer, with `pdo_mysql`, `curl`, `mbstring`, `json` ticked.
-6. Check: open `https://trinetridiagnostics.com/portal-api/` and you should see `{"ok":true,...}`.
+6. Check: open `https://trinetridiagnostics.com/portal-api/health` and you should see `{"ok":true,"database":"connected"}`. If not, the message tells you what to fix.
 7. Open `https://trinetridiagnostics.com/lab.html` and log in as the owner. Change the password under **My account**, then add your staff under **Staff**.
 
 The first request creates anything the SQL file did not (the app checks its own tables automatically), so a missing table never stops the site.

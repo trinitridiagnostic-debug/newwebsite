@@ -125,6 +125,16 @@ function migrate($pdo, $mysql) {
   foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);
   if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)', 'CREATE INDEX otp_m ON otps(mobile, purpose)', 'CREATE INDEX dev_u ON devices(uid)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
 }
+function dbHint(Throwable $e) {
+  $m = $e->getMessage();
+  if (stripos($m, 'could not find driver') !== false) return 'The PHP extension pdo_mysql is not switched on. In cPanel > Select PHP Version, tick pdo_mysql.';
+  if (strpos($m, '1045') !== false) return 'The database user or password is wrong. Check db_user and db_pass in portal-api/config.php (the user name must start with your cPanel username).';
+  if (strpos($m, '1049') !== false) return 'The database name was not found. Check db_dsn in portal-api/config.php (dbname must start with your cPanel username, for example myuser_trinetri).';
+  if (strpos($m, '1044') !== false) return 'The database user has no access to this database. In cPanel > MySQL Databases, add the user to the database with ALL PRIVILEGES.';
+  if (strpos($m, '2002') !== false || strpos($m, '2006') !== false) return 'The MySQL server could not be reached. Check that host=localhost in db_dsn.';
+  if (stripos($m, 'unable to open') !== false || stripos($m, 'permission') !== false) return 'The server cannot write to portal-api/storage. Set the portal-api folder permission to 755.';
+  return '';
+}
 function q($sql, $args = []) { $st = db()->prepare($sql); $st->execute($args); return $st; }
 function one($sql, $args = []) { $r = q($sql, $args)->fetch(); return $r === false ? null : $r; }
 function all($sql, $args = []) { return q($sql, $args)->fetchAll(); }
@@ -489,6 +499,11 @@ function route() {
     }
     if ($m === 'POST') { http_response_code(200); header('Content-Type: text/plain'); echo 'OK'; exit; }
   }
+  if ($path === '/health' && $m === 'GET') {   // setup check: shows whether the database connects, never any secret
+    if (!is_file(__DIR__ . '/config.php')) out(['ok' => false, 'problem' => 'config.php is missing in the portal-api folder.'], 500);
+    try { db(); one('SELECT 1 AS x'); out(['ok' => true, 'database' => 'connected']); }
+    catch (Throwable $e) { error_log('[trinetri-portal] health: ' . $e->getMessage()); out(['ok' => false, 'problem' => dbHint($e) ?: 'The database could not be opened. Check portal-api/config.php.'], 500); }
+  }
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
   if ($path === '/public/booking' && $m === 'POST') { require_once __DIR__ . '/staff.php'; publicBooking(); }
   if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
@@ -505,5 +520,6 @@ try {
   out(['error' => $e->getMessage()], $e->status);
 } catch (Throwable $e) {
   error_log('[trinetri-portal] ' . $e);
-  out(['error' => 'Something went wrong. Please try again.'], 500);
+  $h = dbHint($e);
+  out(['error' => $h !== '' ? $h : 'Something went wrong. Please try again.'], 500);
 }
