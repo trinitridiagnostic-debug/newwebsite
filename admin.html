@@ -101,29 +101,12 @@
       <div class="view" id="v-conn">
   <section class="card" id="conn">
     <h2 id="lh">Admin login</h2>
+    <p class="help" style="margin:0 0 12px">Log in with your lab console username and password (admin role). Changes are saved straight to your website; no GitHub token is needed.</p>
     <form id="lgin" novalidate autocomplete="on" style="display:block;padding:0">
       <div class="f"><label for="lu">Username</label><input id="lu" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
       <div class="f" style="margin-top:10px"><label for="lp">Password</label><input id="lp" name="password" type="password" autocomplete="current-password"></div>
       <div class="row" style="margin-top:12px"><button class="btn" id="ll" type="submit">Log in</button><span class="msg" id="lm" role="status"></span></div>
-      <p class="help" style="margin-top:12px">Forgot your password? On GitHub, open the <b>newwebsite</b> repository, delete the file <b>admin-vault.json</b>, and come back here to set up a new login.</p>
-    </form>
-    <form id="lset" novalidate hidden autocomplete="off" style="display:block;padding:0">
-      <p class="help" style="margin:0 0 12px">First-time setup. Choose the username and password you will use from now on. Your GitHub token is locked with that password, so you only paste the token once.</p>
-      <div class="f"><label for="stok">GitHub access token</label><input id="stok" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
-      <div class="f" style="margin-top:10px"><label for="su">Choose a username</label><input id="su" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
-      <div class="f" style="margin-top:10px"><label for="sp">Choose a password (12 or more characters)</label><input id="sp" type="password" autocomplete="new-password"></div>
-      <div class="f" style="margin-top:10px"><label for="sp2">Repeat the password</label><input id="sp2" type="password" autocomplete="new-password"></div>
-      <div class="row" style="margin-top:12px"><button class="btn" id="sgo" type="submit">Create admin login</button><span class="msg" id="sm" role="status"></span></div>
-      <details class="help" style="margin-top:12px"><summary>How do I get a token?</summary>
-        <ol>
-          <li>On GitHub open <b>Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token</b>.</li>
-          <li>Name it "Trinetri admin". Set an expiry (for example 90 days).</li>
-          <li>Under <b>Repository access</b> choose <b>Only select repositories</b> and pick <b>newwebsite</b>.</li>
-          <li>Under <b>Permissions, Repository permissions</b> set <b>Contents</b> to <b>Read and write</b>.</li>
-          <li>Generate, copy the token and paste it above. Never share it with anyone, and never paste it in a chat.</li>
-        </ol>
-        <p>The token is locked with your password and saved as <b>admin-vault.json</b> in the repository. Use a long, unique password: anyone can download that file, and only the password protects the token inside.</p>
-      </details>
+      <p class="help" style="margin-top:12px">Forgot your password? Ask the lab owner to reset it in the <a href="lab.html">Lab console</a>, under Staff.</p>
     </form>
   </section>
       </div>
@@ -178,13 +161,12 @@
       <div class="view" id="v-acct" hidden>
         <section class="card">
           <h2>Account</h2>
-          <p class="help">Change your login username and password, or replace your GitHub token when it expires. The new details work from the next login.</p>
+          <p class="help">Change your password. Your username stays the same. This is the same login as the lab console.</p>
           <form id="af" novalidate autocomplete="off" style="display:block;padding:0">
-            <div class="f"><label for="au">Username</label><input id="au" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
-            <div class="f" style="margin-top:10px"><label for="ap">New password (12 or more characters)</label><input id="ap" type="password" autocomplete="new-password"></div>
-            <div class="f" style="margin-top:10px"><label for="ap2">Repeat the password</label><input id="ap2" type="password" autocomplete="new-password"></div>
-            <div class="f" style="margin-top:10px"><label for="at">New GitHub token (leave empty to keep the current one)</label><input id="at" type="password" autocomplete="off" placeholder="github_pat_..." spellcheck="false"></div>
-            <div class="row" style="margin-top:12px"><button class="btn" id="asv" type="submit">Save account</button><span class="msg" id="am" role="status"></span></div>
+            <div class="f"><label for="aold">Current password</label><input id="aold" type="password" autocomplete="current-password"></div>
+            <div class="f" style="margin-top:10px"><label for="ap">New password (8 or more characters)</label><input id="ap" type="password" autocomplete="new-password"></div>
+            <div class="f" style="margin-top:10px"><label for="ap2">Repeat the new password</label><input id="ap2" type="password" autocomplete="new-password"></div>
+            <div class="row" style="margin-top:12px"><button class="btn" id="asv" type="submit">Save password</button><span class="msg" id="am" role="status"></span></div>
           </form>
         </section>
       </div>
@@ -216,14 +198,14 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
+<script src="portal-config.js"></script>
 <script>
 (function(){
   'use strict';
-  var OWNER='trinitridiagnostic-debug',REPO='newwebsite',BRANCH='main',FILE='catalog.js';
-  var API='https://api.github.com/repos/'+OWNER+'/'+REPO+'/contents/';
+  var SERVER=((window.TRIN_PORTAL&&window.TRIN_PORTAL.api)||'').replace(/\/$/,'');
   var $=function(s){return document.querySelector(s);};
   var RAW=window.RAW||[];
-  var tpage=0,token='',cat=null,sha='',pend={},dirty=false;   // pend: path -> base64 image to upload
+  var tpage=0,token='',cat=null,pend={},dirty=false;   // pend: path -> base64 image to upload
   var removedImgs=[];
 
   /* ---------- helpers ---------- */
@@ -232,11 +214,12 @@
   function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'pkg';}
   function b64utf8(str){var b=new TextEncoder().encode(str),s='';b.forEach(function(x){s+=String.fromCharCode(x);});return btoa(s);}
   function utf8b64(b64){var s=atob(b64.replace(/\s/g,'')),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return new TextDecoder().decode(a);}
-  function gh(path,opt){
-    opt=opt||{};opt.headers=Object.assign({'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},opt.headers||{});
-    return fetch(API+path,opt).then(function(r){
+  function api(path,method,data){
+    if(!SERVER)return Promise.reject(Object.assign(new Error('The lab server is not connected. Set the server address in portal-config.js.'),{status:0}));
+    var h={'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;
+    return fetch(SERVER+path,{method:method||'GET',headers:h,body:data===undefined?undefined:JSON.stringify(data),cache:'no-store'}).then(function(r){
       return r.json().catch(function(){return {};}).then(function(j){
-        if(!r.ok){var e=new Error(j.message||('GitHub error '+r.status));e.status=r.status;throw e;}
+        if(!r.ok){var e=new Error(j.error||j.message||('Server error '+r.status));e.status=r.status;throw e;}
         return j;
       });
     });
@@ -282,113 +265,38 @@
 
   /* ---------- connect ---------- */
 
-  function fail(e){return e&&e.status===401?'GitHub rejected the token. Check it and its expiry.':e&&e.status===404?'Cannot find the repository or catalog.js. Check that the token has access to "newwebsite" with Contents permission.':e&&e.status===403?'The token does not have permission. Set Contents to Read and write.':(e&&e.message)||'Could not reach GitHub.';}
+  function fail(e){return e&&e.status===401?'Please log in again.':e&&e.status===403?'Only an admin login can change the catalogue.':(e&&e.message)||'Could not reach the server.';}
   function loadCatalog(){
-    return gh(FILE+'?ref='+BRANCH+'&t='+Date.now()).then(function(j){
-      var txt=utf8b64(j.content).replace(/^\s*window\.CATALOG\s*=\s*/,'').replace(/;\s*$/,'');
-      cat=JSON.parse(txt);sha=j.sha;
+    return api('/staff/catalog').then(function(j){
+      cat=j.catalog;
       cat.packages=cat.packages||[];cat.hiddenTests=cat.hiddenTests||[];cat.extraTests=cat.extraTests||[];cat.editedTests=cat.editedTests||{};
     });
   }
-  /* ---------- login: username + password unlock the GitHub token (stored encrypted in admin-vault.json) ---------- */
-  var VAULT='admin-vault.json',ITER=600000,vaultSha='',vaultData=null,vaultState='checking',fails=0;
-  var TE=new TextEncoder(),TD=new TextDecoder();
-  function bEnc(buf){var a=new Uint8Array(buf),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s);}
-  function bDec(str){var s=atob(str),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
-  function cryptoOk(){return !!(window.crypto&&crypto.subtle);}
-  function derive(pw,user,salt,iter){
-    return crypto.subtle.importKey('raw',TE.encode(pw),'PBKDF2',false,['deriveKey']).then(function(km){
-      var extra=TE.encode('|'+user.trim().toLowerCase()),sl=new Uint8Array(salt.length+extra.length);sl.set(salt);sl.set(extra,salt.length);
-      return crypto.subtle.deriveKey({name:'PBKDF2',salt:sl,iterations:iter,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-    });
-  }
-  function seal(tok,user,pw){
-    var salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
-    return derive(pw,user,salt,ITER).then(function(k){return crypto.subtle.encrypt({name:'AES-GCM',iv:iv},k,TE.encode(JSON.stringify({t:tok})));})
-      .then(function(ct){return {v:1,kdf:'PBKDF2-SHA256',iter:ITER,salt:bEnc(salt),iv:bEnc(iv),ct:bEnc(ct)};});
-  }
-  function unseal(v,user,pw){
-    return derive(pw,user,bDec(v.salt),v.iter||ITER).then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:bDec(v.iv)},k,bDec(v.ct));})
-      .then(function(pt){return JSON.parse(TD.decode(pt)).t;});
-  }
-  var COMMON=['password','123456','qwerty','admin','letmein','trinetri','welcome','iloveyou','000000','111111'];
-  function pwProblem(pw,user){
-    if(pw.length<12)return 'Use at least 12 characters.';
-    var cls=(/[a-z]/.test(pw)?1:0)+(/[A-Z]/.test(pw)?1:0)+(/[0-9]/.test(pw)?1:0)+(/[^A-Za-z0-9]/.test(pw)?1:0);
-    if(cls<3&&pw.length<16)return 'Mix upper and lower case letters, numbers and symbols, or use 16 or more characters.';
-    var l=pw.toLowerCase();
-    if(COMMON.some(function(c){return l.indexOf(c)>-1;}))return 'That password is too easy to guess. Avoid common words.';
-    if(user&&user.length>2&&l.indexOf(user.trim().toLowerCase())>-1)return 'The password must not contain the username.';
-    if(/^(.)\1+$/.test(pw))return 'That password is too easy to guess.';
-    return '';
-  }
-  function showLogin(){
-    var setup=vaultState==='none';
-    $('#lgin').hidden=setup;$('#lset').hidden=!setup;
-    $('#lh').textContent=setup?'Set up admin login':'Admin login';
-  }
-  function checkVault(){
-    if(!cryptoOk()){vaultState='nocrypto';showLogin();say($('#lm'),'This browser cannot do secure login. Open the page over https in an up-to-date browser.','err');return Promise.resolve();}
-    return fetch(VAULT+'?t='+Date.now(),{cache:'no-store'}).then(function(r){
-      if(r.status===404){vaultState='none';return;}
-      if(!r.ok)throw new Error('status '+r.status);
-      return r.json().then(function(j){vaultData=j;vaultState='ready';});
-    }).catch(function(){vaultState='ready';vaultData=null;say($('#lm'),'Could not load the login file. Check your connection and try again.','err');}).then(showLogin);
-  }
-  function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
-  function afterToken(tk){
-    token=tk;
+  /* ---------- login: staff username + password (same as the lab console), admin role only ---------- */
+  function afterLogin(){
     return loadCatalog().then(function(){
-      try{sessionStorage.setItem('trin.admin.tok',tk);}catch(e){}
       pend={};removedImgs=[];setDirty(false);render();enter();
     });
   }
   $('#lgin').addEventListener('submit',function(e){
     e.preventDefault();var m=$('#lm'),u=$('#lu').value.trim(),p=$('#lp').value,btn=$('#ll');
     if(!u||!p){say(m,'Enter your username and password.','err');return;}
-    if(!vaultData){say(m,'Login file not loaded yet. Reload the page.','err');return;}
     btn.disabled=true;say(m,'Checking...','info');
-    var delay=fails>=3?Math.min(30,Math.pow(2,fails-2)):0;
-    wait(delay*1000).then(function(){return unseal(vaultData,u,p);}).then(function(tk){
-      fails=0;return afterToken(tk).then(function(){$('#lp').value='';say(m,'','');});
-    }).catch(function(err){
-      token='';
-      if(err&&err.status){say(m,'Logged in, but GitHub says: '+fail(err)+' Ask for a new token under Account after fixing it, or reset the login.','err');}
-      else{fails++;say(m,'Wrong username or password.','err');}
-    }).then(function(){btn.disabled=false;});
-  });
-  $('#lset').addEventListener('submit',function(e){
-    e.preventDefault();var m=$('#sm'),tk=$('#stok').value.trim(),u=$('#su').value.trim(),p=$('#sp').value;
-    if(!tk){say(m,'Paste your GitHub token.','err');return;}
-    if(u.length<3){say(m,'Choose a username of at least 3 characters.','err');return;}
-    var pr=pwProblem(p,u);if(pr){say(m,pr,'err');return;}
-    if(p!==$('#sp2').value){say(m,'The two passwords do not match.','err');return;}
-    var btn=$('#sgo');btn.disabled=true;say(m,'Checking the token...','info');
-    token=tk;
-    loadCatalog().then(function(){say(m,'Creating your login...','info');return seal(tk,u,p);}).then(function(v){
-      return putFile(VAULT,b64utf8(JSON.stringify(v)+'\n'),'Admin: create login').then(function(j){vaultSha=j.content.sha;vaultData=v;});
-    }).then(function(){return afterToken(tk);}).then(function(){$('#stok').value='';$('#sp').value='';$('#sp2').value='';say(m,'','');vaultState='ready';showLogin();})
-    .catch(function(err){
-      token='';
-      if(err&&err.status===422)say(m,'A login already exists. Wait a minute, reload this page and log in. If you forgot the password, delete admin-vault.json on GitHub.','err');
-      else say(m,fail(err),'err');
-    }).then(function(){btn.disabled=false;});
+    api('/staff/login','POST',{username:u,password:p}).then(function(j){
+      if(!j.staff||j.staff.role!=='admin'){throw Object.assign(new Error('Only an admin login can open the catalog admin. Ask the lab owner.'),{status:-1});}
+      token=j.token;try{sessionStorage.setItem('trin.admin.tok',token);}catch(x){}
+      return afterLogin().then(function(){$('#lp').value='';say(m,'','');});
+    }).catch(function(err){token='';say(m,fail(err),'err');}).then(function(){btn.disabled=false;});
   });
   $('#af').addEventListener('submit',function(e){
-    e.preventDefault();var m=$('#am'),u=$('#au').value.trim(),p=$('#ap').value,nt=$('#at').value.trim();
-    if(u.length<3){say(m,'Choose a username of at least 3 characters.','err');return;}
-    var pr=pwProblem(p,u);if(pr){say(m,pr,'err');return;}
+    e.preventDefault();var m=$('#am'),o=$('#aold').value,p=$('#ap').value;
+    if(!o){say(m,'Enter your current password.','err');return;}
+    if(p.length<8){say(m,'Use at least 8 characters.','err');return;}
     if(p!==$('#ap2').value){say(m,'The two passwords do not match.','err');return;}
-    var btn=$('#asv'),use=nt||token;btn.disabled=true;say(m,'Saving...','info');
-    var old=token,chk=nt?(token=nt,loadCatalog()):Promise.resolve();
-    chk.then(function(){return seal(use,u,p);}).then(function(v){
-      return gh(VAULT+'?ref='+BRANCH+'&t='+Date.now()).then(function(j){return j.sha;}).catch(function(){return '';}).then(function(sh){
-        return putFile(VAULT,b64utf8(JSON.stringify(v)+'\n'),'Admin: update login',sh).then(function(){vaultData=v;});
-      });
-    }).then(function(){
-      token=use;try{sessionStorage.setItem('trin.admin.tok',use);}catch(e){}
-      $('#ap').value='';$('#ap2').value='';$('#at').value='';say(m,'Saved. Use the new details next time you log in.','ok');
-    }).catch(function(err){token=old;say(m,fail(err),'err');}).then(function(){btn.disabled=false;});
+    var btn=$('#asv');btn.disabled=true;say(m,'Saving...','info');
+    api('/staff/password','POST',{old:o,'new':p}).then(function(){
+      $('#aold').value='';$('#ap').value='';$('#ap2').value='';say(m,'Saved. Use the new password next time you log in.','ok');
+    }).catch(function(err){say(m,fail(err),'err');}).then(function(){btn.disabled=false;});
   });
   $('#out').addEventListener('click',function(){
     if(dirty&&!confirm('You have unpublished changes. Log out anyway?'))return;
@@ -396,7 +304,8 @@
     $('#lp').value='';say($('#lm'),'','');setDirty(false);leave();
   });
   var sv=null;try{sv=sessionStorage.getItem('trin.admin.tok');}catch(e){}
-  checkVault().then(function(){if(sv){afterToken(sv).catch(function(){token='';try{sessionStorage.removeItem('trin.admin.tok');}catch(e){}});}});
+  if(!SERVER){say($('#lm'),'The lab server is not connected yet. Set the server address in portal-config.js.','err');}
+  else if(sv){token=sv;afterLogin().catch(function(){token='';try{sessionStorage.removeItem('trin.admin.tok');}catch(e){}});}
 
   /* ---------- render ---------- */
   function render(){renderPk();renderTests();}
@@ -661,33 +570,12 @@
   });
 
   /* ---------- publish ---------- */
-  function putFile(path,b64,msg,shaOld){
-    var body={message:msg,content:b64,branch:BRANCH};if(shaOld)body.sha=shaOld;
-    return gh(path,{method:'PUT',body:JSON.stringify(body),headers:{'Content-Type':'application/json'}});
-  }
-  function delFile(path){
-    return gh(path+'?ref='+BRANCH).then(function(j){
-      return gh(path,{method:'DELETE',body:JSON.stringify({message:'Admin: remove '+path,sha:j.sha,branch:BRANCH}),headers:{'Content-Type':'application/json'}});
-    }).catch(function(){});   // clean-up only; a missing file is fine
-  }
   $('#pub').addEventListener('click',function(){
     var btn=this,s=$('#smsg');btn.disabled=true;say(s,'Publishing...','info');
-    var paths=Object.keys(pend),chain=Promise.resolve();
-    paths.forEach(function(p){chain=chain.then(function(){say(s,'Uploading '+p+'...','info');return putFile(p,pend[p],'Admin: add '+p).catch(function(e){if(e.status!==422)throw e;return gh(p+'?ref='+BRANCH).then(function(j){return putFile(p,pend[p],'Admin: add '+p,j.sha);});});});});
-    chain.then(function(){
-      var txt='window.CATALOG = '+JSON.stringify(cat,null,1)+';\n';
-      return putFile(FILE,b64utf8(txt),'Admin: update packages and tests',sha);
-    }).then(function(j){
-      sha=j.content.sha;pend={};
-      var rm=removedImgs.filter(function(f){return !cat.packages.some(function(p){return p.img===f||p.imgFull===f;});});removedImgs=[];
-      return Promise.all(rm.map(delFile));
-    }).then(function(){
-      setDirty(false);say(s,'Published to GitHub. The live website updates in about a minute.','ok');renderPk();
-    }).catch(function(e){
-      btn.disabled=false;
-      if(e&&e.status===409||e&&e.status===422){say(s,'The catalogue changed on GitHub since you opened this page. Reload the page, then repeat your changes.','err');}
-      else say(s,'Not published: '+fail(e),'err');
-    });
+    var rm=removedImgs.filter(function(f){return !cat.packages.some(function(p){return p.img===f||p.imgFull===f;});});
+    api('/staff/catalog','PUT',{catalog:cat,images:pend,remove:rm}).then(function(){
+      pend={};removedImgs=[];setDirty(false);say(s,'Published. The live website is updated now.','ok');renderPk();
+    }).catch(function(e){btn.disabled=false;say(s,'Not published: '+fail(e),'err');});
   });
 })();
 </script>

@@ -18,6 +18,7 @@ return [
   'otp_provider' => '',
   // WhatsApp Business Cloud API (Meta): needs an approved "authentication" message template
   // 'wa_phone_id' => 'PHONE NUMBER ID FROM META', 'wa_token' => 'PERMANENT ACCESS TOKEN', 'wa_template' => 'otp_code', 'wa_lang' => 'en',
+  // 'site_dir' => '/home/CPANELUSER/public_html',   // only if catalog.js is NOT in the folder above portal-api
   // 'wa_verify_token' => 'trinetri-wa-7Kq92xPd4Lm8Vz3Tn6',   // any text you choose; paste the same in Meta's Verify token box
 
   // Website addresses allowed to call this API (comma separated, no trailing slash).

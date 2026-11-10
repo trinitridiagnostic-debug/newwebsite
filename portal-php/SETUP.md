@@ -57,3 +57,9 @@ Example: `curl -X POST https://YOUR-DOMAIN/portal-api/lab/orders -H "X-Lab-Key: 
 - Passwords are stored with PHP `password_hash`. Logins lock for 15 minutes after 5 wrong tries.
 - Plans and prices are placeholders (edit `PLANS` near the top of `index.php`, and the matching list in `portal.js` for demo mode).
 - Developers: `node portal-php/test.mjs` (66 checks) and `node portal-php/test-staff.mjs` (100 checks) run against PHP's built-in server.
+
+## Catalog admin (admin.html)
+
+Open `https://YOURDOMAIN.com/admin.html` and log in with the same admin username and password as the lab console. No GitHub token is needed.
+"Publish" writes `catalog.js` and the package pictures straight into your website folder (the folder above `portal-api`), so the website updates at once.
+The previous 30 versions are kept in `portal-api/storage/catalog-backups/`. If the folder is somewhere else, set `site_dir` in `config.php`.

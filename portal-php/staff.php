@@ -27,6 +27,46 @@ function validPassword($pw) {
 function cleanRole($r) { $r = strtolower((string)$r); if (!isset(ROLE_CAN[$r])) throw bad('Role must be admin, reception, technician or doctor.'); return $r; }
 function cleanUser($u) { $u = strtolower(trim((string)$u)); if (!preg_match('/^[a-z0-9._-]{3,30}$/', $u)) throw bad('Username: 3 to 30 letters, numbers, dot, dash or underscore.'); return $u; }
 
+
+/* ---------- website catalog (catalog.js + package pictures) ---------- */
+function siteDir() { $d = cfg()['site_dir']; $d = $d !== '' ? $d : dirname(__DIR__); return rtrim(str_replace('\\', '/', $d), '/'); }
+function catalogRead() {
+  $f = siteDir() . '/catalog.js'; $t = is_file($f) ? file_get_contents($f) : '';
+  $j = json_decode(preg_replace('/;\s*$/', '', preg_replace('/^\s*window\.CATALOG\s*=\s*/', '', $t)), true);
+  if (!is_array($j)) throw new HttpErr(500, 'catalog.js was not found next to the portal-api folder. Check that the website files are uploaded to the same folder.');
+  return $j;
+}
+function catalogWrite($b) {
+  $c = isset($b['catalog']) && is_array($b['catalog']) ? $b['catalog'] : null;
+  if (!$c || !isset($c['packages']) || !is_array($c['packages']) || !isset($c['hiddenTests']) || !is_array($c['hiddenTests']) || !isset($c['extraTests']) || !is_array($c['extraTests'])) throw bad('The catalogue is not valid.');
+  $dir = siteDir(); $nameRx = '/^[a-z0-9][a-z0-9-]{0,80}\.(jpg|png|webp)$/';
+  if (!is_dir($dir) || !is_writable($dir)) throw new HttpErr(500, 'The website folder is not writable. In cPanel File Manager, set the folder permission to 755.');
+  $imgs = isset($b['images']) && is_array($b['images']) ? $b['images'] : [];
+  if (count($imgs) > 60) throw bad('Too many pictures at once.');
+  $decoded = [];
+  foreach ($imgs as $name => $b64) {
+    if (!preg_match($nameRx, (string)$name)) throw bad('Bad picture name.');
+    $raw = base64_decode((string)$b64, true);
+    if ($raw === false || strlen($raw) > 3000000 || @getimagesizefromstring($raw) === false) throw bad('A picture is not valid or is over 3 MB.');
+    $decoded[$name] = $raw;
+  }
+  $old = $dir . '/catalog.js';
+  if (is_file($old)) {
+    $bk = cfg()['storage_dir'] . '/catalog-backups'; if (!is_dir($bk)) @mkdir($bk, 0755, true);
+    @copy($old, $bk . '/catalog-' . date('Ymd-His') . '.js');
+    $all = glob($bk . '/catalog-*.js') ?: []; sort($all); foreach (array_slice($all, 0, max(0, count($all) - 30)) as $x) @unlink($x);
+  }
+  foreach ($decoded as $name => $raw) if (file_put_contents($dir . '/' . $name, $raw) === false) throw new HttpErr(500, 'Could not save a picture.');
+  $txt = 'window.CATALOG = ' . json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ";\n";
+  $tmp = $dir . '/catalog.js.tmp';
+  if (file_put_contents($tmp, $txt) === false || !rename($tmp, $old)) throw new HttpErr(500, 'Could not save catalog.js.');
+  $used = []; foreach ($c['packages'] as $p) { if (is_array($p)) { $used[] = (string)($p['img'] ?? ''); $used[] = (string)($p['imgFull'] ?? ''); } }
+  foreach ((isset($b['remove']) && is_array($b['remove']) ? $b['remove'] : []) as $n) {
+    if (is_string($n) && preg_match($nameRx, $n) && !in_array($n, $used, true) && is_file($dir . '/' . $n)) @unlink($dir . '/' . $n);
+  }
+  out(['ok' => true, 'saved' => count($c['extraTests']) + count($c['packages'])]);
+}
+
 /* ---------- orders ---------- */
 function sOrder($code) {
   $o = one('SELECT * FROM orders WHERE code=?', [strtoupper(rawurldecode($code))]);
@@ -248,6 +288,11 @@ function staff($path, $m) {
     validPassword((string)field($b, 'new')); q('UPDATE staff SET hash=? WHERE id=?', [password_hash((string)$b['new'], PASSWORD_DEFAULT), $s['id']]);
     out(['ok' => true]);
   }
+
+
+  /* catalog admin (admin role): edits the website's catalog.js and package pictures directly on this server */
+  if ($path === '/staff/catalog' && $m === 'GET') { need($s, 'staff'); out(['catalog' => catalogRead()]); }
+  if ($path === '/staff/catalog' && $m === 'PUT') { need($s, 'staff'); catalogWrite(body(12000000)); }
 
   /* staff accounts (admin) */
   if ($path === '/staff/users' && $m === 'GET') { need($s, 'staff'); out(['users' => array_map('staffPublic', all('SELECT * FROM staff ORDER BY created'))]); }
