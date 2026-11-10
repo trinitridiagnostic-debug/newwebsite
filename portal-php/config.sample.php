@@ -22,5 +22,5 @@ return [
   // 'wa_verify_token' => 'trinetri-wa-7Kq92xPd4Lm8Vz3Tn6',   // any text you choose; paste the same in Meta's Verify token box
 
   // Website addresses allowed to call this API (comma separated, no trailing slash).
-  'allowed_origins' => 'https://trinitridiagnostic-debug.github.io',
+  'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com',
 ];

@@ -10,8 +10,8 @@ The website files sit in `public_html`. The server sits in the `portal-api` fold
 3. cPanel > **File Manager** > `public_html` > **Upload** the website zip, then **Extract**.
 4. Open `public_html/portal-api/config.php` > **Edit**. Replace `CPANELUSER` (two places) with your cPanel username as shown in MySQL Databases. Save.
 5. cPanel > **Select PHP Version**: PHP 8.1 or newer, with `pdo_mysql`, `curl`, `mbstring`, `json` ticked.
-6. Check: open `https://YOURDOMAIN/portal-api/` and you should see `{"ok":true,...}`.
-7. Open `https://YOURDOMAIN/lab.html` and log in as the owner. Change the password under **My account**, then add your staff under **Staff**.
+6. Check: open `https://trinetridiagnostics.com/portal-api/` and you should see `{"ok":true,...}`.
+7. Open `https://trinetridiagnostics.com/lab.html` and log in as the owner. Change the password under **My account**, then add your staff under **Staff**.
 
 The first request creates anything the SQL file did not (the app checks its own tables automatically), so a missing table never stops the site.
 
@@ -43,7 +43,7 @@ All of them read and write the same database, so a booking made on the website, 
 OTP is sent on WhatsApp only. It is required for new accounts, login on a new device, password reset and website booking verification once switched on.
 
 1. Meta Business: WhatsApp Business Cloud API, a phone number, and an approved **authentication** template named `otp_code`.
-2. In Meta > WhatsApp > Configuration > Webhook: callback URL `https://YOURDOMAIN/portal-api/wa/webhook`, verify token = `wa_verify_token` from config.php.
+2. In Meta > WhatsApp > Configuration > Webhook: callback URL `https://trinetridiagnostics.com/portal-api/wa/webhook`, verify token = `wa_verify_token` from config.php.
 3. In `config.php` add `wa_phone_id`, `wa_token`, then set `'otp_provider' => 'live'`.
 4. Test with your own number from `customer.html` > Create account.
 

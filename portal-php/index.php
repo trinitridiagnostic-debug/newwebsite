@@ -28,7 +28,7 @@ function cfg() {
   static $c = null;
   if ($c !== null) return $c;
   $c = ['db_dsn' => '', 'db_user' => '', 'db_pass' => '', 'lab_api_key' => '', 'secret' => '',
-        'allowed_origins' => 'https://trinitridiagnostic-debug.github.io', 'storage_dir' => __DIR__ . '/storage',
+        'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com', 'storage_dir' => __DIR__ . '/storage',
         // OTP on WhatsApp only (Meta Cloud API). Leave otp_provider empty to keep OTP switched off.
         'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
         'wa_api_base' => 'https://graph.facebook.com/v21.0'];
