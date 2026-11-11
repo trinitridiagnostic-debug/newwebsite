@@ -329,7 +329,7 @@
     OTPCFG=j;if(j&&j.otp){mountVerifier(document.getElementById('hq-ph'));mountVerifier(document.getElementById('ph'));}
   }).catch(function(){});
   var PKGP={};PKS.forEach(function(p){PKGP[p.name]='offer price Rs '+Number(p.price).toLocaleString('en-IN')+', free home collection';});
-  var bk=$('#bk'),d=$('#dt'),out=$('#out'),st=$('#st'),wa=$('#wa'),cp=$('#cp'),ol=$('#ol'),lastMsg='';
+  var bk=$('#bk'),d=$('#dt'),st=$('#st');
   function say(m,c){st.style.color=c;st.textContent=m;}
   function build(){
     var nm=$('#nm').value.trim(),ph=$('#ph').value.replace(/\D/g,'');
@@ -359,7 +359,7 @@
     var p=payInfo();payRS=p.amt;
     payb.textContent=p.ok?'Pay online \u20b9'+p.amt.toLocaleString('en-IN'):'Pay online';
     payb.disabled=!p.ok||paying||paidDone;
-    if(paidDone){payb.textContent='Paid';if(paynote)paynote.textContent='Payment received. Send the booking details on WhatsApp above.';return;}
+    if(paidDone){payb.textContent='Paid';if(paynote)paynote.textContent='Payment received. Our team will confirm your booking.';return;}
     if(paynote)paynote.textContent=p.why;
   }
   function loadRzp(){
@@ -414,40 +414,22 @@
       })
       .catch(function(e){fail(e&&e.message&&!/fetch|Failed|undefined/i.test(e.message)?e.message:'Could not reach the payment service right now. Send the request on WhatsApp and pay at collection.');});
   }
-  function refreshWA(){
-    if(!bk||!wa)return;
-    refreshPay();
-    var r=build();
-    if(r.err){out.hidden=true;ol.hidden=true;cp.hidden=true;wa.href='https://wa.me/'+WA;return;}
-    lastMsg=r.msg;wa.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
-    out.textContent=r.msg;out.hidden=false;ol.hidden=false;cp.hidden=false;
-  }
-  function selOut(){try{var r=document.createRange();r.selectNodeContents(out);var s=getSelection();s.removeAllRanges();s.addRange(r);}catch(y){}}
+  function refreshWA(){if(bk)refreshPay();}
   if(bk){
     try{var t0d=new Date();t0d.setDate(t0d.getDate()+1);d.min=new Date().toISOString().slice(0,10);d.value=t0d.toISOString().slice(0,10);}catch(e){}
     ['input','change'].forEach(function(ev){bk.addEventListener(ev,refreshWA);});
     if(payb)payb.addEventListener('click',startPay);
-    wa.addEventListener('click',function(e){
-      var r=build();
-      if(r.err){e.preventDefault();say(r.err,'var(--flag)');return;}
-      sendToLab({name:$('#nm').value.trim(),mobile:$('#ph').value.replace(/\D/g,''),tests:(pkg?[pkg]:[]).concat(sel.map(function(id){return BY[id].n;})),date:d.value,slot:$('#sl').value,address:$('#ad').value.trim(),source:'book'});
-      lastMsg=r.msg;wa.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
-      out.hidden=false;out.textContent=r.msg;cp.hidden=false;
-      say('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab. If nothing opened, copy the message below and send it to +91 91873 15972.','var(--teal)');
-    });
     bk.addEventListener('submit',function(e){e.preventDefault();var r=build();if(r.err){say(r.err,'var(--flag)');return;}
       bookNow({name:$('#nm').value.trim(),mobile:$('#ph').value.replace(/\D/g,''),tests:(pkg?[pkg]:[]).concat(sel.map(function(id){return BY[id].n;})),date:d.value,slot:$('#sl').value,address:$('#ad').value.trim(),source:'book'},say,$('#go'));});
-    cp.addEventListener('click',function(){
-      try{navigator.clipboard.writeText(lastMsg).then(function(){say('Message copied. Paste it in WhatsApp and send it to +91 91873 15972.','var(--ok)');},selOut);}catch(x){selOut();}
-    });
+
   }
 
 
 
-  /* ---------- homepage banner: quick booking form (sends to WhatsApp) ---------- */
+  /* ---------- homepage banner: quick booking form (sends to the lab) ---------- */
   var hq=$('#hq');
   if(hq){
-    var hw=$('#hq-wa'),hs=$('#hq-st'),hd=$('#hq-dt');
+    var hs=$('#hq-st'),hd=$('#hq-dt');
     try{var t1=new Date();t1.setDate(t1.getDate()+1);hd.min=new Date().toISOString().slice(0,10);hd.value=t1.toISOString().slice(0,10);}catch(e){}
     var hsay=function(m,c){hs.style.color=c;hs.textContent=m;};
     var hbuild=function(){
@@ -459,13 +441,7 @@
         '\nPackage: '+(pk?pk+(PKGP[pk]?' ('+PKGP[pk]+')':''):'Not chosen - please advise')+
         '\nDate: '+hd.value+'\nSlot: '+$('#hq-sl').value};
     };
-    hw.addEventListener('click',function(e){
-      var r=hbuild();
-      if(r.err){e.preventDefault();hsay(r.err,'var(--flag)');return;}
-      sendToLab({name:$('#hq-nm').value.trim(),mobile:$('#hq-ph').value.replace(/\D/g,''),tests:$('#hq-pk').value?[$('#hq-pk').value]:[],date:hd.value,slot:$('#hq-sl').value,source:'home'});
-      hw.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
-      hsay('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab.','var(--teal)');
-    });
+
     hq.addEventListener('submit',function(e){e.preventDefault();var r=hbuild();if(r.err){hsay(r.err,'var(--flag)');return;}
       bookNow({name:$('#hq-nm').value.trim(),mobile:$('#hq-ph').value.replace(/\D/g,''),tests:$('#hq-pk').value?[$('#hq-pk').value]:[],date:hd.value,slot:$('#hq-sl').value,source:'home'},hsay,$('#hq-go'));});
   }
