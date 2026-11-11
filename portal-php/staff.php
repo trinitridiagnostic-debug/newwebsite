@@ -147,7 +147,8 @@ function publicBooking() {
   $dup = one('SELECT id FROM bookings WHERE mobile=? AND created>? AND tests=?', [$mobile, $now - 600000, clean($tests, 600)]);   // same request sent twice
   if (!$dup) q('INSERT INTO bookings (name, mobile, tests, pref_date, slot, address, note, source, status, created) VALUES (?,?,?,?,?,?,?,?,?,?)',
     [$name, $mobile, clean($tests, 600), clean(field($b, 'date'), 12), clean(field($b, 'slot'), 40), clean(field($b, 'address'), 200), clean(field($b, 'note'), 300), $src, 'new', $now]);
-  out(['ok' => true], 201);
+  $row = one('SELECT id FROM bookings WHERE mobile=? AND created>? ORDER BY id DESC', [$mobile, $now - 600000]);
+  out(['ok' => true, 'ref' => 'BK' . str_pad((string)($row ? $row['id'] : $dup['id']), 4, '0', STR_PAD_LEFT)], 201);
 }
 
 function updateOrder($s, $o) {

@@ -259,6 +259,21 @@
     return fetch(LABAPI+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(!r.ok)throw new Error(j.error||'Something went wrong. Please try again.');return j;});});
   }
+  /* Book now: send the request to the lab, wait for the answer and show the reference. Returns a promise of the server reply. */
+  function bookNow(p,say,btn){
+    if(!LABAPI){say('Online booking is not available right now. Please use WhatsApp below.','var(--flag)');return;}
+    if(OTPCFG&&OTPCFG.otp){
+      var pr=proofs[p.mobile];
+      if(!pr){pending=p;verifiers.forEach(function(v){v.nudge(p.mobile);});say('Please verify your mobile with the OTP above, then press Book again.','var(--flag)');return;}
+      p.proof=pr;
+    }
+    btn.disabled=true;say('Sending your request to the lab...','var(--muted)');
+    fetch(LABAPI+'/public/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+      .then(function(r){return r.json().catch(function(){return {};}).then(function(j){if(!r.ok)throw new Error(j.error||'Something went wrong.');return j;});})
+      .then(function(j){lastLab=JSON.stringify(p);say('\u2713 Request received'+(j.ref?' (reference '+j.ref+')':'')+'. Our team will call you on '+p.mobile+' to confirm your home collection.','var(--ok,#1b7a46)');})
+      .catch(function(e){say((e&&e.message?e.message:'Could not reach the lab')+'. Please try again, or send the request on WhatsApp below.','var(--flag)');})
+      .then(function(){btn.disabled=false;});
+  }
   function pushToLab(p){
     var key=JSON.stringify(p);if(key===lastLab)return;lastLab=key;
     try{fetch(LABAPI+'/public/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:key,keepalive:true}).catch(function(){});}catch(e){}
@@ -420,7 +435,8 @@
       out.hidden=false;out.textContent=r.msg;cp.hidden=false;
       say('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab. If nothing opened, copy the message below and send it to +91 91873 15972.','var(--teal)');
     });
-    bk.addEventListener('submit',function(e){e.preventDefault();var r=build();if(r.err)say(r.err,'var(--flag)');else say('Details look good. Tap "Send request on WhatsApp".','var(--muted)');});
+    bk.addEventListener('submit',function(e){e.preventDefault();var r=build();if(r.err){say(r.err,'var(--flag)');return;}
+      bookNow({name:$('#nm').value.trim(),mobile:$('#ph').value.replace(/\D/g,''),tests:(pkg?[pkg]:[]).concat(sel.map(function(id){return BY[id].n;})),date:d.value,slot:$('#sl').value,address:$('#ad').value.trim(),source:'book'},say,$('#go'));});
     cp.addEventListener('click',function(){
       try{navigator.clipboard.writeText(lastMsg).then(function(){say('Message copied. Paste it in WhatsApp and send it to +91 91873 15972.','var(--ok)');},selOut);}catch(x){selOut();}
     });
@@ -450,7 +466,8 @@
       hw.href='https://wa.me/'+WA+'?text='+encodeURIComponent(r.msg);
       hsay('WhatsApp is opening with your request filled in. Tap Send in WhatsApp to deliver it to the lab.','var(--teal)');
     });
-    hq.addEventListener('submit',function(e){e.preventDefault();});
+    hq.addEventListener('submit',function(e){e.preventDefault();var r=hbuild();if(r.err){hsay(r.err,'var(--flag)');return;}
+      bookNow({name:$('#hq-nm').value.trim(),mobile:$('#hq-ph').value.replace(/\D/g,''),tests:$('#hq-pk').value?[$('#hq-pk').value]:[],date:hd.value,slot:$('#hq-sl').value,source:'home'},hsay,$('#hq-go'));});
   }
 
   /* ---------- contact page: message to WhatsApp ---------- */
