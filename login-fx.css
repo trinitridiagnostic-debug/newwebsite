@@ -1,0 +1,97 @@
+/* Split-screen login: animated art on the left, the form on the right (desktop). Used by lab.html, customer.html, admin.html. */
+.auth.lfx{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);padding:0;background:#f3f8f8;place-items:stretch;min-height:100vh;overflow:hidden}
+.auth.lfx .lfx-form{display:grid;place-items:center;padding:32px 24px;position:relative;background:radial-gradient(1200px 500px at 100% 0,#e4f1f1 0,transparent 60%),#f6faf9}
+.auth.lfx .box{max-width:440px;box-shadow:0 30px 70px -30px rgba(14,70,78,.45),0 2px 0 rgba(255,255,255,.8) inset;animation:lfx-in .9s cubic-bezier(.2,.8,.2,1) both .15s}
+.auth.lfx .box .btn{position:relative;overflow:hidden}
+.auth.lfx .box .btn::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-20deg);animation:lfx-shine 4.5s ease-in-out infinite 1.5s}
+.auth.lfx input{transition:box-shadow .25s,border-color .25s,transform .25s}
+.auth.lfx input:focus{box-shadow:0 0 0 4px rgba(63,123,130,.18);border-color:var(--teal,#3f7b82)}
+@keyframes lfx-in{from{opacity:0;transform:translateY(26px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes lfx-shine{0%,60%{left:-60%}100%{left:130%}}
+
+.lfx-art{position:relative;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:center;padding:48px clamp(28px,5vw,72px) 48px clamp(100px,9vw,132px);isolation:isolate;
+  background:linear-gradient(125deg,#0a3138,#0f5560,#17808b,#0f5560,#0a3138);background-size:300% 300%;animation:lfx-bg 18s ease-in-out infinite}
+@keyframes lfx-bg{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.lfx-art::before{content:"";position:absolute;inset:-20%;z-index:-1;background:radial-gradient(40% 35% at 20% 25%,rgba(120,220,225,.28),transparent 70%),radial-gradient(35% 30% at 80% 80%,rgba(80,170,255,.22),transparent 70%);animation:lfx-glow 14s ease-in-out infinite alternate}
+@keyframes lfx-glow{from{transform:translate3d(-3%,-2%,0) scale(1)}to{transform:translate3d(4%,3%,0) scale(1.12)}}
+
+/* animated logo */
+.lfx-logo{position:relative;width:96px;height:96px;margin:0 0 26px;animation:lfx-float 6s ease-in-out infinite}
+.lfx-logo i{position:absolute;inset:0;border-radius:28px;border:2px solid rgba(255,255,255,.55);animation:lfx-ring 3.6s ease-out infinite}
+.lfx-logo i:nth-child(2){animation-delay:1.2s}.lfx-logo i:nth-child(3){animation-delay:2.4s}
+.lfx-logo span{position:absolute;inset:0;border-radius:24px;background:#fff;display:grid;place-items:center;box-shadow:0 18px 40px -12px rgba(0,0,0,.45);overflow:hidden;animation:lfx-pop 1s cubic-bezier(.2,1.4,.4,1) both}
+.lfx-logo span::after{content:"";position:absolute;top:-20%;left:-70%;width:45%;height:140%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.9),transparent);transform:skewX(-18deg);animation:lfx-sweep 5s ease-in-out infinite 1.2s}
+.lfx-logo img{width:70px;height:auto;display:block;position:relative}
+@keyframes lfx-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes lfx-ring{0%{transform:scale(1);opacity:.75}100%{transform:scale(1.9);opacity:0}}
+@keyframes lfx-pop{from{transform:scale(.4) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes lfx-sweep{0%,55%{left:-70%}100%{left:140%}}
+
+.lfx-art h2{margin:0 0 10px;font-size:clamp(1.6rem,2.3vw,2.25rem);line-height:1.15;font-weight:800;letter-spacing:-.01em;max-width:min(380px,54%)}
+.lfx-art h2 span{display:inline-block;opacity:0;transform:translateY(18px);animation:lfx-word .8s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes lfx-word{to{opacity:1;transform:none}}
+.lfx-art p{margin:0;max-width:min(380px,54%);font-size:1.02rem;line-height:1.55;color:rgba(255,255,255,.82);opacity:0;animation:lfx-word .9s ease forwards 1s}
+.lfx-pills{max-width:min(380px,54%);display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;opacity:0;animation:lfx-word .9s ease forwards 1.3s}
+.lfx-pills b{font-weight:600;font-size:.82rem;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(6px)}
+
+/* two columns of cards scrolling in opposite directions */
+.lfx-cols{position:absolute;right:clamp(20px,3vw,56px);top:0;bottom:0;width:min(40%,300px);display:flex;gap:14px;z-index:-1;pointer-events:none;
+  -webkit-mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent);transform:rotate(6deg) scale(1.08)}
+.lfx-col{flex:1;display:flex;flex-direction:column;gap:14px;animation:lfx-up 46s linear infinite;will-change:transform}
+.lfx-col:nth-child(2){animation-name:lfx-down;animation-duration:58s;margin-top:-70px}
+@keyframes lfx-up{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+@keyframes lfx-down{from{transform:translateY(-50%)}to{transform:translateY(0)}}
+.lfx-card{padding:14px 15px;border-radius:16px;background:linear-gradient(160deg,rgba(255,255,255,.2),rgba(255,255,255,.07));border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(8px);box-shadow:0 14px 30px -18px rgba(0,0,0,.5)}
+.lfx-card em{display:block;font-style:normal;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;opacity:.7;margin-bottom:5px}
+.lfx-card b{display:block;font-size:.98rem;font-weight:700;line-height:1.25}
+.lfx-card u{display:block;margin-top:9px;height:5px;border-radius:5px;background:rgba(255,255,255,.18);text-decoration:none;position:relative;overflow:hidden}
+.lfx-card u::after{content:"";position:absolute;inset:0;width:var(--w,60%);border-radius:5px;background:linear-gradient(90deg,#7ff0e1,#9fd4ff)}
+
+/* DNA helix */
+.lfx-helix{position:absolute;left:clamp(10px,2vw,26px);top:0;bottom:0;width:64px;display:flex;flex-direction:column;justify-content:space-around;padding:30px 0;z-index:-1;opacity:.55;pointer-events:none}
+.lfx-helix i{position:relative;display:flex;justify-content:center;align-items:center;height:10px}
+.lfx-helix i::before{content:"";position:absolute;width:44px;height:2px;background:rgba(255,255,255,.4);animation:lfx-bar 2.6s ease-in-out infinite;animation-delay:var(--d)}
+.lfx-helix b{position:absolute;width:10px;height:10px;border-radius:50%;background:#a8f3ec;box-shadow:0 0 12px rgba(168,243,236,.8);animation:lfx-hx 2.6s ease-in-out infinite alternate;animation-delay:var(--d)}
+.lfx-helix b+b{background:#bcd9ff;box-shadow:0 0 12px rgba(188,217,255,.8);animation-direction:alternate-reverse}
+@keyframes lfx-hx{from{transform:translateX(-22px) scale(.8)}to{transform:translateX(22px) scale(1.15)}}
+@keyframes lfx-bar{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.04)}}
+
+/* rising bubbles */
+.lfx-bub{position:absolute;bottom:-60px;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.55),rgba(255,255,255,.06) 60%);border:1px solid rgba(255,255,255,.28);animation:lfx-rise var(--t) linear infinite;animation-delay:var(--dl)}
+@keyframes lfx-rise{0%{transform:translate3d(0,0,0);opacity:0}10%{opacity:.9}50%{transform:translate3d(18px,-52vh,0)}90%{opacity:.7}100%{transform:translate3d(-12px,-112vh,0);opacity:0}}
+
+@media(max-width:900px){
+  .auth.lfx{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .lfx-art{padding:26px 22px 30px 22px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:0 18px}
+  .lfx-logo{width:64px;height:64px;margin:0}.lfx-logo img{width:46px}.lfx-logo span{border-radius:18px}.lfx-logo i{border-radius:20px}
+  .lfx-art h2{font-size:1.25rem;max-width:none;flex:1;margin:0}
+  .lfx-art p,.lfx-pills,.lfx-cols,.lfx-helix{display:none}
+  .auth.lfx .lfx-form{padding:22px 14px 30px;align-items:start}
+}
+@media(prefers-reduced-motion:reduce){
+  .lfx-art,.lfx-art::before,.lfx-logo,.lfx-logo i,.lfx-logo span::after,.lfx-col,.lfx-helix i::before,.lfx-helix b,.lfx-bub,.auth.lfx .box,.auth.lfx .box .btn::after{animation:none!important}
+  .lfx-art h2 span,.lfx-art p,.lfx-pills{opacity:1;transform:none;animation:none}
+}
+
+/* admin: the login card sits in the same split screen; the dashboard shell is hidden until logged in */
+body.adm-out .shell,body.adm-out > .scrim{display:none!important}
+body.adm-out #adm-auth{display:grid}
+body:not(.adm-out) #adm-auth{display:none}
+#adm-auth .box{max-width:460px}
+#adm-auth .box #conn{box-shadow:none;border:0;padding:0;margin:0;background:transparent}
+.auth.lfx[hidden]{display:none}
+
+/* base card styles for pages that do not load portal.css (admin) */
+.auth.lfx .box{width:100%;background:#fff;border-radius:20px;padding:26px 24px;color:#243030}
+.auth.lfx .brand2{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.auth.lfx .brand2 img{border-radius:10px}
+.auth.lfx .brand2 h1{margin:0;font-size:1.3rem;line-height:1.2}
+.auth.lfx .brand2 .note{font-size:.9rem;color:#566264}
+#adm-auth #lh{display:none}
+#adm-auth .box #conn .help{font-size:.9rem;color:#566264}
+#adm-auth .box #conn input{width:100%;box-sizing:border-box;border:1px solid #dbe4e4;border-radius:12px;padding:12px 14px;font:inherit;background:#fff}
+#adm-auth .box #conn .f label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+#adm-auth .box #conn .btn{border:0;border-radius:999px;padding:13px 26px;background:#3f7b82;color:#fff;font:inherit;font-weight:600;cursor:pointer;width:100%}
+#adm-auth .box #conn .row{display:flex;flex-direction:column;gap:8px}
+@media(max-width:900px){.lfx-art h2{max-width:none}}
