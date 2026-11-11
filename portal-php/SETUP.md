@@ -40,7 +40,7 @@ All of them read and write the same database, so a booking made on the website, 
 
 ## WhatsApp OTP (optional, recommended)
 
-OTP is sent on WhatsApp only. It is required for new accounts, login on a new device, password reset and website booking verification once switched on.
+OTP is sent on WhatsApp only. Once switched on it is required for new customer accounts, login on a new device and password reset. Website bookings never need an OTP.
 
 1. Meta Business: WhatsApp Business Cloud API, a phone number, and an approved **authentication** template named `otp_code`.
 2. In Meta > WhatsApp > Configuration > Webhook: callback URL `https://trinetridiagnostics.com/portal-api/wa/webhook`, verify token = `wa_verify_token` from config.php.

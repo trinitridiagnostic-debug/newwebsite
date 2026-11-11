@@ -107,14 +107,8 @@ try {
 
   // ---- website booking needs a verified mobile
   const BK = { name: 'Ravi Kumar', mobile: '9845012345', tests: ['Lipid Profile'], date: '2026-11-02', source: 'home' };
-  ok((await call('POST', '/public/booking', { body: BK })).s === 403, 'booking without proof is refused');
-  ok((await call('POST', '/public/booking', { body: { ...BK, proof: 'a.b' } })).s === 403, 'booking with a fake proof is refused');
-  await call('POST', '/auth/otp/send', { body: { mobile: BK.mobile, purpose: 'booking' } }); const bc = lastCode();
-  ok((await call('POST', '/auth/otp/verify', { body: { mobile: BK.mobile, otp: bc === '777777' ? '888888' : '777777' } })).s === 400, 'wrong booking OTP');
-  r = await call('POST', '/auth/otp/verify', { body: { mobile: BK.mobile, otp: bc } }); ok(r.s === 200 && r.j.verified && r.j.proof, 'right booking OTP gives a proof');
-  const proof = r.j.proof;
-  ok((await call('POST', '/public/booking', { body: { ...BK, proof } })).s === 201, 'booking with the proof is saved');
-  ok((await call('POST', '/public/booking', { body: { ...BK, mobile: '9845099999', proof } })).s === 403, 'a proof only works for the mobile that was verified');
+  ok((await call('POST', '/public/booking', { body: BK })).s === 201, 'website booking needs no OTP, even when OTP is on for accounts');
+
   // ---- a customer whose mobile was proven with an OTP sees the lab's orders automatically (no Order ID / PIN)
   r = await call('POST', '/staff/setup', { body: { name: 'Lab Owner', username: 'owner', password: 'Owner#2026', setup_code: 'k' } });
   const stok = r.j.token; ok(r.s === 201 && stok, 'staff owner created');
