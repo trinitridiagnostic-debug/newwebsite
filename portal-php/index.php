@@ -87,7 +87,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v5';
+  $mark = $dir . '/.schema-v6';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -120,7 +120,7 @@ function migrate($pdo, $mysql) {
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
     "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
-    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0"];
+    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
   foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);
   if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)', 'CREATE INDEX otp_m ON otps(mobile, purpose)', 'CREATE INDEX dev_u ON devices(uid)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
@@ -188,6 +188,10 @@ function checkPassword($pw) {
   if (strlen($pw) < 8 || mb_strlen($pw) > 100) throw bad('Use a password of at least 8 characters.');
   if (preg_match('/^(.)\1+$/su', $pw) || in_array(strtolower($pw), ['password', '12345678', 'qwertyuiop'], true)) throw bad('That password is too easy to guess.');
 }
+/* A customer whose mobile number was proven with an OTP sees every order the lab made for that number, with no Order ID or PIN needed. */
+function autoLink($uid, $mobile) {
+  q('INSERT INTO links (uid, order_id) SELECT ?, o.id FROM orders o WHERE o.mobile=? AND NOT EXISTS (SELECT 1 FROM links l WHERE l.uid=? AND l.order_id=o.id)', [$uid, $mobile, $uid]);
+}
 function register() {
   $b = body();
   $name = clean(field($b, 'name'), 60); $mobile = normMobile(field($b, 'mobile')); $pw = (string)field($b, 'password');
@@ -199,6 +203,7 @@ function register() {
   $id = rnd(9); $created = nowms();
   try { q('INSERT INTO users (id, name, mobile, hash, membership, created) VALUES (?,?,?,?,NULL,?)', [$id, $name, $mobile, password_hash($pw, PASSWORD_DEFAULT), $created]); }
   catch (PDOException $e) { throw bad('This mobile number already has an account. Please log in.'); }
+  if (otpEnabled()) { q('UPDATE users SET verified=1 WHERE id=?', [$id]); autoLink($id, $mobile); }
   $u = one('SELECT * FROM users WHERE id=?', [$id]);
   $r = ['token' => sign(['u' => $id, 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)];
   if (otpEnabled() && !empty($b['remember'])) $r['device'] = deviceMake($id);
@@ -223,6 +228,7 @@ function login() {
     checkOtp($mobile, 'login', field($b, 'otp'));
     if (!empty($b['remember'])) $device = deviceMake($u['id']);
   }
+  if (otpEnabled() && empty($u['verified'])) { q('UPDATE users SET verified=1 WHERE id=?', [$u['id']]); autoLink($u['id'], $mobile); }   // reaching here means the mobile was proven
   if (password_needs_rehash($u['hash'], PASSWORD_DEFAULT)) q('UPDATE users SET hash=? WHERE id=?', [password_hash($pw, PASSWORD_DEFAULT), $u['id']]);
   $r = ['token' => sign(['u' => $u['id'], 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)];
   if ($device) $r['device'] = $device;
@@ -290,6 +296,7 @@ function customer($path, $m, $user) {
   if ($path === '/me' && $m === 'GET') out(['user' => publicUser($user)]);
 
   if ($path === '/orders' && $m === 'GET') {
+    if (!empty($user['verified'])) autoLink($user['id'], $user['mobile']);
     $rows = all('SELECT o.* FROM orders o JOIN links l ON l.order_id=o.id WHERE l.uid=? ORDER BY o.created DESC', [$user['id']]);
     out(['orders' => array_map('orderView', $rows)]);
   }

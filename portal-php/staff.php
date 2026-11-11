@@ -127,6 +127,8 @@ function createOrder($s) {
       break;
     } catch (PDOException $e) { if ($try > 5) throw $e; }
   }
+  $cu = one('SELECT id FROM users WHERE mobile=? AND verified=1', [$mobile]);   // a verified customer account sees the new order straight away
+  if ($cu) autoLink($cu['id'], $mobile);
   $bid = (int)field($b, 'booking_id');
   if ($bid > 0) q("UPDATE bookings SET status='done', order_code=? WHERE id=? AND status='new'", [$code, $bid]);
   out(['order' => sView(sFresh($id)), 'pin' => $pin], 201);

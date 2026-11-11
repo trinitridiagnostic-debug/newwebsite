@@ -115,6 +115,19 @@ try {
   const proof = r.j.proof;
   ok((await call('POST', '/public/booking', { body: { ...BK, proof } })).s === 201, 'booking with the proof is saved');
   ok((await call('POST', '/public/booking', { body: { ...BK, mobile: '9845099999', proof } })).s === 403, 'a proof only works for the mobile that was verified');
+  // ---- a customer whose mobile was proven with an OTP sees the lab's orders automatically (no Order ID / PIN)
+  r = await call('POST', '/staff/setup', { body: { name: 'Lab Owner', username: 'owner', password: 'Owner#2026', setup_code: 'k' } });
+  const stok = r.j.token; ok(r.s === 201 && stok, 'staff owner created');
+  const M5 = '9876500005', M6 = '9876500006', T1 = { name: 'Lipid Profile', price: 600 };
+  const preOrd = await call('POST', '/staff/orders', { token: stok, body: { name: 'Meena Rao', mobile: M5, tests: [T1] } }); ok(preOrd.s === 201, 'order made before the customer signs up');
+  await call('POST', '/staff/orders', { token: stok, body: { name: 'Other Person', mobile: M6, tests: [T1] } });
+  await sleep(1100); await call('POST', '/auth/otp/send', { body: { mobile: M5, purpose: 'register' } });
+  r = await call('POST', '/auth/register', { body: { name: 'Meena Rao', mobile: M5, password: PW, otp: lastCode() } }); const tk = r.j.token; ok(r.s === 201 && tk, 'second customer signs up with OTP');
+  r = await call('GET', '/orders', { token: tk });
+  ok(r.s === 200 && r.j.orders.length === 1 && r.j.orders[0].code === preOrd.j.order.code, 'earlier order is already in the account, no PIN needed');
+  await call('POST', '/staff/orders', { token: stok, body: { name: 'Meena Rao', mobile: M5, tests: [{ name: 'CBC', price: 300 }] } });
+  r = await call('GET', '/orders', { token: tk }); ok(r.j.orders.length === 2, 'a later order appears too');
+  ok(!r.j.orders.some((o) => o.tests.some((t) => /Other/.test(JSON.stringify(t)))) && r.j.orders.length === 2, 'orders of other mobile numbers are never shown');
 } catch (e) { fail++; console.log('ERROR', e); }
 srv.kill(); mock.kill(); rmSync(tmp, { recursive: true, force: true });
 console.log(`${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
