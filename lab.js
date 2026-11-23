@@ -42,7 +42,7 @@
 
   /* ---------- api ---------- */
   function api(method, path, body, opt) {
-    opt = opt || {}; var h = {}; if (TOKEN) h.Authorization = 'Bearer ' + TOKEN; var init = { method: method, headers: h };
+    opt = opt || {}; var h = {}; if (TOKEN) { h.Authorization = 'Bearer ' + TOKEN; h['X-Portal-Token'] = TOKEN; } var init = { method: method, headers: h };
     if (opt.raw) init.body = opt.raw; else if (body !== undefined) { h['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
     return fetch(BASE + path, init).then(function (r) {
       if (r.ok && opt.blob) return r.blob();
@@ -57,7 +57,7 @@
     api('GET', path, undefined, { blob: true }).then(function (b) { var u = URL.createObjectURL(b); if (w) w.location = u; else location.href = u; setTimeout(function () { URL.revokeObjectURL(u); }, 120000); })
       .catch(function (e) { if (w) w.close(); toast(e.message); });
   }
-  Object.assign(LAB, { el: el, add: add, $: $, fld: fld, inr: inr, fdate: fdate, ftime: ftime, fdt: fdt, dayStart: dayStart, toast: toast, say: say, mob: mob, badge: badge, can: can, modal: modal, confirmBox: confirmBox, api: api, openPdf: openPdf, STLAB: STLAB, base: BASE });
+  Object.assign(LAB, { el: el, add: add, $: $, fld: fld, inr: inr, fdate: fdate, ftime: ftime, fdt: fdt, dayStart: dayStart, toast: toast, say: say, mob: mob, badge: badge, can: can, modal: modal, confirmBox: confirmBox, api: api, openPdf: openPdf, me: function () { return ME; }, STLAB: STLAB, base: BASE });
 
   /* ---------- catalog (same data the website and the catalog admin use) ---------- */
   var CATL = window.CATALOG || {}, HID = {}, ED = CATL.editedTests || {};
@@ -337,31 +337,91 @@
     return r.flag || '';
   }
   function resultsCard(o) {
-    var card = el('section', 'card', [el('h2', { text: 'Results and report' })]);
-    var canEnter = can('results'), canApprove = can('approve');
-    if (o.res_status === 'approved') {
-      card.appendChild(el('div', 'row', [el('span', 'badge2 b-completed', 'Approved by ' + (o.approved_by || '-') + (o.approved_at ? ' on ' + fdt(o.approved_at) : '')),
-        el('button', { type: 'button', class: 'btn sm', text: 'View final report (PDF)', onclick: function () { openPdf('/staff/orders/' + encodeURIComponent(o.code) + '/report'); } })]));
-      card.appendChild(el('p', { class: 'note', text: 'The customer can see and download this report in their dashboard once they add the order with the PIN.' }));
-      if (canApprove) card.appendChild(el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Edit results again', onclick: function () { card.textContent = ''; card.appendChild(el('h2', { text: 'Results and report' })); edit(); } }), ' Editing needs approval again before the customer sees the changes.']));
-      if (canApprove) card.appendChild(uploadRow(o));
-      return card;
+    var card = el('section', 'card', [el('h2', { text: 'Lab report' })]);
+    var canEnter = can('results'), canApprove = can('approve'), previewUrl = null, code = encodeURIComponent(o.code);
+    function reset() { if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; } card.textContent = ''; card.appendChild(el('h2', { text: 'Lab report' })); }
+    function readyFile(input, ms) {
+      var f = input.files[0]; if (!f) { say(ms, 'Choose a PDF file first.', 'err'); return null; }
+      if (f.size > 8 * 1024 * 1024) { say(ms, 'The file is over 8 MB.', 'err'); return null; }
+      if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { say(ms, 'Only PDF files can be uploaded.', 'err'); return null; }
+      return f;
     }
-    if (!canEnter && !canApprove) { card.appendChild(el('p', { class: 'note', text: o.res_status === 'entered' ? 'Results entered, waiting for approval.' : 'No results yet.' })); return card; }
-    function edit() {
+    function uploadBox(label) {
+      var file = el('input', { type: 'file', accept: 'application/pdf,.pdf' }), ms = el('span', 'msg');
+      var btn = el('button', { type: 'button', class: 'btn sm', text: label, onclick: function () {
+        var f = readyFile(file, ms); if (!f) return;
+        btn.disabled = true; say(ms, 'Uploading...', 'info');
+        api('PUT', '/staff/orders/' + code + '/source?name=' + encodeURIComponent(f.name), undefined, { raw: f }).then(function () { toast('Report uploaded'); LAB.refreshDash(); route(); })
+          .catch(function (e) { btn.disabled = false; say(ms, e.message, 'err'); });
+      } });
+      return el('div', 'filters', [el('div', 'f', [el('label', { text: 'PDF report from the lab software (max 8 MB)' }), file]), btn, ms]);
+    }
+    function manual() {
+      reset(); card.appendChild(el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Back to PDF upload', onclick: function () { route(); } })]));
       card.appendChild(el('p', { class: 'empty', text: 'Loading templates...' }));
       LAB.templates().then(function () { card.removeChild(card.lastChild); buildEditor(card, o); }).catch(function (e) { card.appendChild(el('p', { class: 'msg err', text: e.message })); });
     }
-    edit();
+    function manualLink() { return el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Enter results by hand instead', onclick: manual })]); }
+
+    /* approved: view, share, replace */
+    if (o.res_status === 'approved') {
+      card.appendChild(el('div', 'row', [el('span', 'badge2 b-completed', 'Approved by ' + (o.approved_by || '-') + (o.approved_at ? ' on ' + fdt(o.approved_at) : '')),
+        el('button', { type: 'button', class: 'btn sm', text: 'View final report (PDF)', onclick: function () { openPdf('/staff/orders/' + code + '/report'); } }),
+        el('button', { type: 'button', class: 'btn sm ghost', text: 'Send on WhatsApp', onclick: function () { window.open(LAB.reportWaLink(o), '_blank'); } })]));
+      card.appendChild(el('p', { class: 'note', text: 'The customer can see and download this report in their account (Order ID with the PIN, or automatically when they log in with this mobile number).' }));
+      if (canApprove) {
+        card.appendChild(el('p', { class: 'note', text: 'Need to correct it? Upload a new PDF. The customer will not see a report until you approve the new one.' }));
+        card.appendChild(uploadBox('Replace report'));
+        if (o.results && o.results.length) card.appendChild(el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Edit typed results again', onclick: manual }), ' Needs approval again before the customer sees the changes.']));
+      }
+      return card;
+    }
+
+    /* uploaded, waiting for the doctor */
+    if (o.res_status === 'uploaded' && o.src) {
+      card.appendChild(el('div', 'row', [el('span', 'badge2 b-processing', 'Waiting for doctor approval'), el('span', { class: 'note', text: o.src.name + ' - uploaded by ' + (o.src.by || '-') + (o.src.at ? ' on ' + fdt(o.src.at) : '') })]));
+      var cT = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from top (mm)' }), cB = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from bottom (mm)' });
+      var frame = el('iframe', { title: 'Report preview', style: 'width:100%;height:620px;border:1px solid #cfd8dc;border-radius:8px;background:#f4f6f7' }), ms = el('span', 'msg'), srcBuf = null, busy = false;
+      function build(draft) {
+        var opt = { cropTop: cT.value, cropBottom: cB.value, draft: draft, by: ME && ME.name, title: ME && ME.title, at: Date.now() };
+        var get = srcBuf ? Promise.resolve(srcBuf) : api('GET', '/staff/orders/' + code + '/source', undefined, { blob: true }).then(function (b) { return b.arrayBuffer(); }).then(function (ab) { srcBuf = ab; return ab; });
+        return get.then(function (ab) { return LAB.brandReport(o, ab, opt); });
+      }
+      function preview() {
+        say(ms, 'Preparing preview...', 'info');
+        build(true).then(function (bytes) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = previewUrl; say(ms, '', ''); })
+          .catch(function (e) { say(ms, e.message, 'err'); });
+      }
+      card.appendChild(el('p', { class: 'note', text: 'This is how the customer will receive it, with the Trinetri letterhead and your lab software\'s pages inside. If the software prints its own header or footer, trim it here.' }));
+      card.appendChild(el('div', 'filters', [el('div', 'f', [el('label', { text: 'Trim from top (mm)' }), cT]), el('div', 'f', [el('label', { text: 'Trim from bottom (mm)' }), cB]), el('button', { type: 'button', class: 'btn sm ghost', text: 'Update preview', onclick: preview }), ms]));
+      card.appendChild(frame);
+      if (canApprove) {
+        var ab = el('button', { type: 'button', class: 'btn', text: 'Approve and send to customer', onclick: function () {
+          if (busy) return; busy = true; ab.disabled = true; say(ms, 'Approving...', 'info');
+          build(false).then(function (bytes) {
+            if (bytes.length > 8 * 1024 * 1024) throw new Error('The finished report is over 8 MB. Export a smaller PDF from the lab software.');
+            return api('PUT', '/staff/orders/' + code + '/upload?name=' + encodeURIComponent(o.code + '-report.pdf'), undefined, { raw: new Blob([bytes], { type: 'application/pdf' }) });
+          }).then(function () { toast('Approved. The customer can now see the report.'); LAB.refreshDash(); route(); }).catch(function (e) { busy = false; ab.disabled = false; say(ms, e.message, 'err'); });
+        } });
+        card.appendChild(el('div', 'row', [ab, el('span', { class: 'note', text: 'Your name and title go in the footer of every page.' })]));
+      } else card.appendChild(el('p', { class: 'note', text: 'A doctor or admin needs to approve this report before the customer can see it.' }));
+      if (canEnter) { card.appendChild(el('hr')); card.appendChild(el('p', { class: 'note', text: 'Wrong file? Upload the correct PDF.' })); card.appendChild(uploadBox('Replace PDF')); }
+      preview();
+      return card;
+    }
+
+    /* nothing uploaded yet */
+    if (!canEnter && !canApprove) { card.appendChild(el('p', { class: 'note', text: o.res_status === 'entered' ? 'Results entered, waiting for approval.' : 'No report yet.' })); return card; }
+    if (o.res_status === 'entered') { manual(); return card; }
+    card.appendChild(el('p', { class: 'note', text: 'Export the report from your lab software as a PDF and upload it here. It gets the Trinetri letterhead, the doctor checks it, and then it goes to the customer.' }));
+    card.appendChild(uploadBox('Upload report'));
+    card.appendChild(manualLink());
     return card;
   }
-  function uploadRow(o) {
-    var file = el('input', { type: 'file', accept: 'application/pdf,.pdf', style: 'max-width:280px' }), ms = el('span', 'msg');
-    return el('div', 'filters', [el('div', 'f', [el('label', { text: 'Or attach a ready PDF (from your analyser or other software), max 3 MB' }), file]), el('button', { type: 'button', class: 'btn sm ghost', text: 'Upload and publish PDF', onclick: function () {
-      var f = file.files[0]; if (!f) return say(ms, 'Choose a PDF file first.', 'err'); if (f.size > 3 * 1024 * 1024) return say(ms, 'The file is over 3 MB.', 'err');
-      say(ms, 'Uploading...', 'info'); api('PUT', '/staff/orders/' + encodeURIComponent(o.code) + '/upload?name=' + encodeURIComponent(f.name), undefined, { raw: f }).then(function () { toast('Report published to the customer'); LAB.refreshDash(); route(); }).catch(function (e) { say(ms, e.message, 'err'); });
-    } }), ms]);
-  }
+  LAB.reportWaLink = function (o) {
+    var msg = 'Hello ' + o.name + ', your Trinetri Diagnostics report for order ' + o.code + ' is ready.\nDownload it here: ' + SITE() + '\nOrder ID: ' + o.code + '\nLogin with this mobile number, then add the Order ID and the PIN from your receipt.';
+    return 'https://wa.me/91' + o.mobile + '?text=' + encodeURIComponent(msg);
+  };
   function buildEditor(card, o) {
     var secs = (o.results && o.results.length) ? JSON.parse(JSON.stringify(o.results)) : o.tests.map(function (t) { var tp = findTpl(t); return { key: tp ? tp.key : (t.key || ''), title: tp ? tp.name : t.name, rows: tp ? rowsFrom(tp, o.sex) : [], comment: '' }; });
     var wrap = el('div'), ms = el('span', 'msg'), dirty = false;

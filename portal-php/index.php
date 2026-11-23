@@ -87,7 +87,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v6';
+  $mark = $dir . '/.schema-v7';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -120,7 +120,7 @@ function migrate($pdo, $mysql) {
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
     "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
-    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0"];
+    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
   foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);
   if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)', 'CREATE INDEX otp_m ON otps(mobile, purpose)', 'CREATE INDEX dev_u ON devices(uid)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
@@ -164,6 +164,7 @@ function verify($token) {
 function authHeader() {
   foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION'] as $k) if (!empty($_SERVER[$k])) return $_SERVER[$k];
   if (function_exists('getallheaders')) foreach (getallheaders() as $k => $v) if (strtolower($k) === 'authorization') return $v;
+  if (!empty($_SERVER['HTTP_X_PORTAL_TOKEN'])) return 'Bearer ' . $_SERVER['HTTP_X_PORTAL_TOKEN'];
   return '';
 }
 function authed() {
@@ -482,7 +483,7 @@ function route() {
     if (!in_array($origin, $allowed, true) && $origin !== $self) out(['error' => 'Origin not allowed'], 403);
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Vary: Origin');
-    header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Lab-Key');
+    header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Lab-Key, X-Portal-Token');
     header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
     header('Access-Control-Max-Age: 600');
   }

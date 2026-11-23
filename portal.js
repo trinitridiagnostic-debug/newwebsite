@@ -24,7 +24,7 @@
 
   /* ======================= live API ======================= */
   function http(method, path, body) {
-    var h = {}; if (TOKEN) h.Authorization = 'Bearer ' + TOKEN;
+    var h = {}; if (TOKEN) { h.Authorization = 'Bearer ' + TOKEN; h['X-Portal-Token'] = TOKEN; }
     if (body !== undefined) h['Content-Type'] = 'application/json';
     return fetch(BASE + path, { method: method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
@@ -43,7 +43,7 @@
     orders: function () { return http('GET', '/orders').then(function (j) { return j.orders; }); },
     link: function (code, pin) { return http('POST', '/orders/link', { code: code, pin: pin }).then(function (j) { return j.order; }); },
     report: function (code) {
-      return fetch(BASE + '/orders/' + encodeURIComponent(code) + '/report', { headers: { Authorization: 'Bearer ' + TOKEN } }).then(function (r) {
+      return fetch(BASE + '/orders/' + encodeURIComponent(code) + '/report', { headers: { Authorization: 'Bearer ' + TOKEN, 'X-Portal-Token': TOKEN } }).then(function (r) {
         if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || 'Could not load the report.'); });
         return r.blob();
       });

@@ -219,7 +219,7 @@
   function utf8b64(b64){var s=atob(b64.replace(/\s/g,'')),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return new TextDecoder().decode(a);}
   function api(path,method,data){
     if(!SERVER)return Promise.reject(Object.assign(new Error('The lab server is not connected. Set the server address in portal-config.js.'),{status:0}));
-    var h={'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;
+    var h={'Content-Type':'application/json'};if(token){h.Authorization='Bearer '+token;h['X-Portal-Token']=token;}
     return fetch(SERVER+path,{method:method||'GET',headers:h,body:data===undefined?undefined:JSON.stringify(data),cache:'no-store'}).then(function(r){
       return r.json().catch(function(){return {};}).then(function(j){
         if(!r.ok){var e=new Error(j.error||j.message||('Server error '+r.status));e.status=r.status;throw e;}

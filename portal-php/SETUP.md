@@ -57,3 +57,13 @@ OTP is sent on WhatsApp only. Once switched on it is required for new customer a
 
 - Forgot the owner password: in phpMyAdmin open table `staff`, delete the owner row, then run the owner INSERT line from `trinetri-database.sql` again with a new hash, or ask me to generate a new one.
 - Membership prices are in `PLANS` near the top of `portal-api/index.php`.
+
+## Uploading lab reports (from the standalone lab software)
+
+1. Export the patient's report as a PDF from the lab software.
+2. Lab console > open the order > **Lab report** > choose the PDF > **Upload report**.
+3. The Trinetri letterhead (logo, patient details, pathologist footer, page numbers) is added automatically. If the lab software prints its own header or footer, use "Trim from top / bottom (mm)" and press Update preview.
+4. The doctor or admin presses **Approve and send to customer**. Only then does the customer see it (in their account, and via the WhatsApp button).
+5. To correct a report, upload a new PDF. The old one is hidden from the customer until the new one is approved.
+
+Files involved: `lab.js`, `lab-report.js`, `pdf-lib.min.js` (website folder) and `portal-api/index.php`, `portal-api/staff.php`.

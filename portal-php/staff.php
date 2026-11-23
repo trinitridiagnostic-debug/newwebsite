@@ -90,7 +90,8 @@ function sView($o, $full = true) {
     'ref_doctor' => $o['ref_doctor'], 'kind' => $o['kind'], 'notes' => $o['notes'], 'tests' => $tests, 'subtotal' => $sub, 'discount' => (int)$o['discount'], 'amount' => (int)$o['amount'],
     'paid' => (int)$o['paid'], 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'pay_mode' => $o['pay_mode'], 'status' => $o['status'], 'res_status' => $o['res_status'],
     'times' => json_decode($o['times'], true) ?: new stdClass, 'created' => (int)$o['created'], 'hasReport' => !empty($o['report_file']), 'approved_by' => $o['approved_by'],
-    'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by']];
+    'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by'],
+    'src' => empty($o['src_file']) ? null : ['name' => $o['src_name'], 'by' => $o['src_by'], 'at' => $o['src_at'] === null ? null : (int)$o['src_at']]];
   if ($full) $v['results'] = $o['results'] ? json_decode($o['results'], true) : [];
   return $v;
 }
@@ -333,7 +334,7 @@ function staff($path, $m) {
   if ($path === '/staff/orders' && $m === 'GET') {
     $w = []; $a = [];
     $st = isset($q['status']) ? (string)$q['status'] : '';
-    if ($st === 'awaiting') $w[] = "res_status='entered'"; elseif (in_array($st, STATUSES, true)) { $w[] = 'status=?'; $a[] = $st; }
+    if ($st === 'awaiting') $w[] = "res_status IN ('entered','uploaded')"; elseif (in_array($st, STATUSES, true)) { $w[] = 'status=?'; $a[] = $st; }
     $qq = trim(isset($q['q']) ? (string)$q['q'] : '');
     if ($qq !== '') { $w[] = '(code LIKE ? OR name LIKE ? OR mobile LIKE ?)'; $like = '%' . str_replace(['%', '_'], ['', ''], $qq) . '%'; array_push($a, $like, $like, $like); }
     if (!empty($q['from'])) { $w[] = 'created>=?'; $a[] = (int)$q['from']; } if (!empty($q['to'])) { $w[] = 'created<?'; $a[] = (int)$q['to']; }
@@ -365,10 +366,30 @@ function staff($path, $m) {
       need($s, 'billing'); $pin = (string)random_int(100000, 999999);
       q('UPDATE orders SET pin_hash=? WHERE id=?', [pinHash($o['code'], $pin), $o['id']]); out(['pin' => $pin, 'order' => sView(sFresh($o['id']), false)]);
     }
+    if ($act === 'source' && $m === 'GET') {
+      need($s, 'view'); $f = $o['src_file'];
+      if (empty($f) || !is_file(cfg()['storage_dir'] . '/reports/' . $f)) throw new HttpErr(404, 'No lab report has been uploaded for this order yet.');
+      $bytes = file_get_contents(cfg()['storage_dir'] . '/reports/' . $f);
+      http_response_code(200); header('Content-Type: application/pdf'); header('Content-Length: ' . strlen($bytes)); echo $bytes; exit;
+    }
+    if ($act === 'source' && ($m === 'PUT' || $m === 'POST')) {
+      need($s, 'results'); if ($o['res_status'] === 'approved') need($s, 'approve');
+      $raw = (string)file_get_contents('php://input');
+      if (strlen($raw) > 8 * 1024 * 1024) throw new HttpErr(413, 'The PDF must be under 8 MB.');
+      if (substr($raw, 0, 5) !== '%PDF-') throw bad('Only PDF files are accepted.');
+      db(); $file = $o['id'] . '-src.pdf'; $now = nowms();
+      if (@file_put_contents(cfg()['storage_dir'] . '/reports/' . $file, $raw, LOCK_EX) === false) throw new Exception('Cannot write the report file.');
+      $name = clean(isset($q['name']) ? $q['name'] : '', 120) ?: 'lab-report.pdf';
+      $t = json_decode($o['times'], true) ?: []; if (empty($t['processing'])) $t['processing'] = $now;
+      /* a replaced report must be approved again, so the customer never keeps seeing an old version */
+      q("UPDATE orders SET src_file=?, src_name=?, src_by=?, src_at=?, res_status='uploaded', report_file=NULL, report_name=NULL, report_size=0, status='processing', times=? WHERE id=?",
+        [$file, $name, $s['name'], $now, json_encode($t), $o['id']]);
+      out(['order' => sView(sFresh($o['id']))]);
+    }
     if ($act === 'upload' && ($m === 'PUT' || $m === 'POST')) {
       need($s, 'approve');
       $raw = (string)file_get_contents('php://input');
-      if (strlen($raw) > 3 * 1024 * 1024) throw new HttpErr(413, 'Report must be under 3 MB.');
+      if (strlen($raw) > 8 * 1024 * 1024) throw new HttpErr(413, 'Report must be under 8 MB.');
       if (substr($raw, 0, 5) !== '%PDF-') throw bad('Only PDF files are accepted.');
       db(); $file = $o['id'] . '.pdf'; $now = nowms();
       if (@file_put_contents(cfg()['storage_dir'] . '/reports/' . $file, $raw, LOCK_EX) === false) throw new Exception('Cannot write the report file.');
@@ -521,8 +542,8 @@ function staff($path, $m) {
     $unread = 0; foreach (all('SELECT uid, staff_seen FROM chat_state') as $r) { $lc = one("SELECT MAX(ts) AS m FROM chat WHERE uid=? AND sender='customer'", [$r['uid']]); if ($lc && $lc['m'] && (int)$lc['m'] > (int)$r['staff_seen']) $unread++; }
     $reqs = 0; foreach (all('SELECT membership FROM users WHERE membership IS NOT NULL') as $r) { $mm = json_decode($r['membership'], true); if ($mm && ($mm['status'] ?? '') === 'requested') $reqs++; }
     out(['today' => ['orders' => $today['orders'], 'billed' => $today['billed'], 'paid' => $today['paid']],
-      'pipeline' => ['booked' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='booked'"), 'collected' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='collected'"), 'processing' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='processing' AND res_status<>'entered'"),
-        'awaiting' => $c("SELECT COUNT(*) AS n FROM orders WHERE res_status='entered'")],
+      'pipeline' => ['booked' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='booked'"), 'collected' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='collected'"), 'processing' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='processing' AND res_status NOT IN ('entered','uploaded')"),
+        'awaiting' => $c("SELECT COUNT(*) AS n FROM orders WHERE res_status IN ('entered','uploaded')")],
       'dues' => ['orders' => $c('SELECT COUNT(*) AS n FROM orders WHERE amount>paid'), 'amount' => $c('SELECT COALESCE(SUM(amount-paid),0) AS n FROM orders WHERE amount>paid')],
       'stock' => ['low' => $c('SELECT COUNT(*) AS n FROM stock_items WHERE active=1 AND qty<=min_qty')],
       'inbox' => ['tickets' => $c("SELECT COUNT(*) AS n FROM tickets WHERE status='open'"), 'chats' => $unread, 'members' => $reqs],
