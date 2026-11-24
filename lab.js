@@ -86,7 +86,6 @@
     ['inbox', 'Inbox', 'inbox', 'M4 5h16v11H8l-4 4V5z'],
     ['reports', 'Reports', 'billing', 'M5 20V10M12 20V4M19 20v-7'],
     ['stock', 'Stock', 'stock', 'M4 8l8-4 8 4v8l-8 4-8-4V8zM4 8l8 4 8-4M12 12v8'],
-    ['templates', 'Result templates', 'results', 'M6 3h9l4 4v14H6V3zM9 12h7M9 16h7'],
     ['staff', 'Staff', 'staff', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z'],
     ['acct', 'My account', null, 'M12 8m-4 0a4 4 0 108 0 4 4 0 10-8 0M5 21c1-4 4-6 7-6s6 2 7 6']
   ];
@@ -111,7 +110,7 @@
   function refreshDash() {
     api('GET', '/staff/dashboard?since=' + dayStart(0) + '&tz=' + (-new Date().getTimezoneOffset()), undefined, { quiet: true }).then(function (d) {
       DASH = d; LAB.dash = d;
-      var n = { bookings: d.bookings || 0, inbox: d.inbox.tickets + d.inbox.chats + d.inbox.members, stock: d.stock ? d.stock.low : 0, orders: d.pipeline.awaiting };
+      var n = { bookings: d.bookings || 0, inbox: d.inbox.tickets + d.inbox.chats + d.inbox.members, stock: d.stock ? d.stock.low : 0, orders: 0 };
       $$('#menu .nv').forEach(function (b) { var c = n[b.getAttribute('data-v')], dot = $('.dot', b); if (dot) { dot.hidden = !c; dot.textContent = c || ''; } });
     }).catch(function () { });
   }
@@ -171,7 +170,7 @@
         kpi(inr(d.dues.amount), 'Pending dues', d.dues.orders + ' orders', function () { go('orders', '?due'); }, d.dues.orders > 0)]));
       page.appendChild(el('h2', { text: 'Work in progress' }));
       var g = el('div', 'grid4');
-      [['booked', 'Waiting for sample', p.booked], ['collected', 'Sample collected', p.collected], ['processing', 'Testing in progress', p.processing], ['awaiting', 'Awaiting approval', p.awaiting]].forEach(function (x) { g.appendChild(kpi(String(x[2]), x[1], null, function () { go('orders', '?s=' + x[0]); }, x[0] === 'awaiting' && x[2] > 0)); });
+      [['booked', 'Waiting for sample', p.booked], ['collected', 'Sample collected', p.collected], ['processing', 'Testing in progress', p.processing], ['completed', 'Report sent', p.completed || 0]].forEach(function (x) { g.appendChild(kpi(String(x[2]), x[1], null, function () { go('orders', '?s=' + x[0]); }, false)); });
       page.appendChild(g);
       if (can('inbox') || can('stock')) {
         page.appendChild(el('h2', { text: 'Needs attention' })); var g2 = el('div', 'grid4');
@@ -187,7 +186,7 @@
   };
 
   /* ---------- orders list ---------- */
-  function resBadge(o) { return o.res_status === 'approved' ? el('span', 'tag', 'Report approved') : o.res_status === 'entered' ? el('span', 'badge2 b-requested', 'Awaiting approval') : null; }
+  function resBadge(o) { return o.res_status === 'approved' ? el('span', 'tag', 'Report sent') : null; }
   function ordersTable(list) {
     if (!list.length) return el('p', { class: 'empty', text: 'No orders found.' });
     var tb = el('tbody');
@@ -207,7 +206,7 @@
     var st = { q: '', s: '', due: false, range: '', off: 0 }, m = /^\?(.*)$/.exec(arg || '');
     if (m) { if (m[1] === 'due') st.due = true; else { var mm = /^s=(\w+)$/.exec(m[1]); if (mm) st.s = mm[1]; var qq = /^q=(\d+)$/.exec(m[1]); if (qq) st.q = qq[1]; } }
     var q = el('input', { type: 'search', placeholder: 'Order ID, name or mobile', value: st.q });
-    var s = el('select', null, [['', 'All statuses'], ['booked', 'Booked'], ['collected', 'Sample collected'], ['processing', 'In progress'], ['awaiting', 'Awaiting approval'], ['completed', 'Completed']].map(function (o) { return el('option', { value: o[0], text: o[1], selected: o[0] === st.s }); }));
+    var s = el('select', null, [['', 'All statuses'], ['booked', 'Booked'], ['collected', 'Sample collected'], ['processing', 'In progress'], ['completed', 'Completed']].map(function (o) { return el('option', { value: o[0], text: o[1], selected: o[0] === st.s }); }));
     var r = el('select', null, [['', 'Any date'], ['0', 'Today'], ['-6', 'Last 7 days'], ['-29', 'Last 30 days']].map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
     var d = el('input', { type: 'checkbox', checked: st.due, style: 'width:auto' });
     var body = el('div'), pager = el('div', 'row');
@@ -274,7 +273,7 @@
       if (can('status') && o.status !== 'completed') {
         var r = el('div', 'row'); if (o.status === 'booked') r.appendChild(el('button', { type: 'button', class: 'btn sm', text: 'Mark sample collected', onclick: function () { setStatus('collected'); } }));
         if (o.status !== 'processing') r.appendChild(el('button', { type: 'button', class: 'btn sm', text: 'Mark in progress', onclick: function () { setStatus('processing'); } }));
-        r.appendChild(el('span', { class: 'upd', text: 'Completed is set automatically when the report is approved.' })); pc.appendChild(r);
+        r.appendChild(el('span', { class: 'upd', text: 'Completed is set automatically when the report is sent.' })); pc.appendChild(r);
       }
       page.appendChild(pc);
       function setStatus(s) { api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/status', { status: s }).then(function () { toast('Updated'); LAB.refreshDash(); route(); }).catch(function (e) { toast(e.message); }); }
@@ -337,132 +336,48 @@
     return r.flag || '';
   }
   function resultsCard(o) {
-    var card = el('section', 'card', [el('h2', { text: 'Lab report' })]);
-    var canEnter = can('results'), canApprove = can('approve'), previewUrl = null, code = encodeURIComponent(o.code);
-    function reset() { if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; } card.textContent = ''; card.appendChild(el('h2', { text: 'Lab report' })); }
-    function readyFile(input, ms) {
-      var f = input.files[0]; if (!f) { say(ms, 'Choose a PDF file first.', 'err'); return null; }
-      if (f.size > 8 * 1024 * 1024) { say(ms, 'The file is over 8 MB.', 'err'); return null; }
-      if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { say(ms, 'Only PDF files can be uploaded.', 'err'); return null; }
-      return f;
-    }
-    function uploadBox(label) {
-      var file = el('input', { type: 'file', accept: 'application/pdf,.pdf' }), ms = el('span', 'msg');
-      var btn = el('button', { type: 'button', class: 'btn sm', text: label, onclick: function () {
-        var f = readyFile(file, ms); if (!f) return;
-        btn.disabled = true; say(ms, 'Uploading...', 'info');
-        api('PUT', '/staff/orders/' + code + '/source?name=' + encodeURIComponent(f.name), undefined, { raw: f }).then(function () { toast('Report uploaded'); LAB.refreshDash(); route(); })
-          .catch(function (e) { btn.disabled = false; say(ms, e.message, 'err'); });
-      } });
-      return el('div', 'filters', [el('div', 'f', [el('label', { text: 'PDF report from the lab software (max 8 MB)' }), file]), btn, ms]);
-    }
-    function manual() {
-      reset(); card.appendChild(el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Back to PDF upload', onclick: function () { route(); } })]));
-      card.appendChild(el('p', { class: 'empty', text: 'Loading templates...' }));
-      LAB.templates().then(function () { card.removeChild(card.lastChild); buildEditor(card, o); }).catch(function (e) { card.appendChild(el('p', { class: 'msg err', text: e.message })); });
-    }
-    function manualLink() { return el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Enter results by hand instead', onclick: manual })]); }
-
-    /* approved: view, share, replace */
-    if (o.res_status === 'approved') {
-      card.appendChild(el('div', 'row', [el('span', 'badge2 b-completed', 'Approved by ' + (o.approved_by || '-') + (o.approved_at ? ' on ' + fdt(o.approved_at) : '')),
-        el('button', { type: 'button', class: 'btn sm', text: 'View final report (PDF)', onclick: function () { openPdf('/staff/orders/' + code + '/report'); } }),
+    var card = el('section', 'card', [el('h2', { text: 'Lab report' })]), code = encodeURIComponent(o.code), previewUrl = null;
+    if (o.res_status === 'approved' && o.hasReport) {
+      card.appendChild(el('div', 'row', [el('span', 'badge2 b-completed', 'Report sent' + (o.approved_at ? ' on ' + fdt(o.approved_at) : '')),
+        el('button', { type: 'button', class: 'btn sm', text: 'View report (PDF)', onclick: function () { openPdf('/staff/orders/' + code + '/report'); } }),
         el('button', { type: 'button', class: 'btn sm ghost', text: 'Send on WhatsApp', onclick: function () { window.open(LAB.reportWaLink(o), '_blank'); } })]));
       card.appendChild(el('p', { class: 'note', text: 'The customer can see and download this report in their account (Order ID with the PIN, or automatically when they log in with this mobile number).' }));
-      if (canApprove) {
-        card.appendChild(el('p', { class: 'note', text: 'Need to correct it? Upload a new PDF. The customer will not see a report until you approve the new one.' }));
-        card.appendChild(uploadBox('Replace report'));
-        if (o.results && o.results.length) card.appendChild(el('p', null, [el('button', { type: 'button', class: 'btn sm ghost', text: 'Edit typed results again', onclick: manual }), ' Needs approval again before the customer sees the changes.']));
-      }
-      return card;
     }
-
-    /* uploaded, waiting for the doctor */
-    if (o.res_status === 'uploaded' && o.src) {
-      card.appendChild(el('div', 'row', [el('span', 'badge2 b-processing', 'Waiting for doctor approval'), el('span', { class: 'note', text: o.src.name + ' - uploaded by ' + (o.src.by || '-') + (o.src.at ? ' on ' + fdt(o.src.at) : '') })]));
-      var cT = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from top (mm)' }), cB = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from bottom (mm)' });
-      var frame = el('iframe', { title: 'Report preview', style: 'width:100%;height:620px;border:1px solid #cfd8dc;border-radius:8px;background:#f4f6f7' }), ms = el('span', 'msg'), srcBuf = null, busy = false;
-      function build(draft) {
-        var opt = { cropTop: cT.value, cropBottom: cB.value, draft: draft, by: ME && ME.name, title: ME && ME.title, at: Date.now() };
-        var get = srcBuf ? Promise.resolve(srcBuf) : api('GET', '/staff/orders/' + code + '/source', undefined, { blob: true }).then(function (b) { return b.arrayBuffer(); }).then(function (ab) { srcBuf = ab; return ab; });
-        return get.then(function (ab) { return LAB.brandReport(o, ab, opt); });
-      }
-      function preview() {
-        say(ms, 'Preparing preview...', 'info');
-        build(true).then(function (bytes) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = previewUrl; say(ms, '', ''); })
-          .catch(function (e) { say(ms, e.message, 'err'); });
-      }
-      card.appendChild(el('p', { class: 'note', text: 'This is how the customer will receive it, with the Trinetri letterhead and your lab software\'s pages inside. If the software prints its own header or footer, trim it here.' }));
-      card.appendChild(el('div', 'filters', [el('div', 'f', [el('label', { text: 'Trim from top (mm)' }), cT]), el('div', 'f', [el('label', { text: 'Trim from bottom (mm)' }), cB]), el('button', { type: 'button', class: 'btn sm ghost', text: 'Update preview', onclick: preview }), ms]));
-      card.appendChild(frame);
-      if (canApprove) {
-        var ab = el('button', { type: 'button', class: 'btn', text: 'Approve and send to customer', onclick: function () {
-          if (busy) return; busy = true; ab.disabled = true; say(ms, 'Approving...', 'info');
-          build(false).then(function (bytes) {
-            if (bytes.length > 8 * 1024 * 1024) throw new Error('The finished report is over 8 MB. Export a smaller PDF from the lab software.');
-            return api('PUT', '/staff/orders/' + code + '/upload?name=' + encodeURIComponent(o.code + '-report.pdf'), undefined, { raw: new Blob([bytes], { type: 'application/pdf' }) });
-          }).then(function () { toast('Approved. The customer can now see the report.'); LAB.refreshDash(); route(); }).catch(function (e) { busy = false; ab.disabled = false; say(ms, e.message, 'err'); });
-        } });
-        card.appendChild(el('div', 'row', [ab, el('span', { class: 'note', text: 'Your name and title go in the footer of every page.' })]));
-      } else card.appendChild(el('p', { class: 'note', text: 'A doctor or admin needs to approve this report before the customer can see it.' }));
-      if (canEnter) { card.appendChild(el('hr')); card.appendChild(el('p', { class: 'note', text: 'Wrong file? Upload the correct PDF.' })); card.appendChild(uploadBox('Replace PDF')); }
-      preview();
-      return card;
+    if (!can('results')) { if (!o.hasReport) card.appendChild(el('p', { class: 'note', text: 'No report yet.' })); return card; }
+    var file = el('input', { type: 'file', accept: 'application/pdf,.pdf' }), ms = el('span', 'msg'), srcBuf = null, busy = false;
+    var cT = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from top (mm)' }), cB = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from bottom (mm)' });
+    var frame = el('iframe', { title: 'Report preview', style: 'width:100%;height:620px;border:1px solid #cfd8dc;border-radius:8px;background:#f4f6f7' });
+    var prev = el('div', { hidden: true }), send = el('button', { type: 'button', class: 'btn', text: 'Send to customer' });
+    function build() { return LAB.brandReport(o, srcBuf, { cropTop: cT.value, cropBottom: cB.value, at: Date.now() }); }
+    function preview() {
+      say(ms, 'Preparing preview...', 'info');
+      build().then(function (bytes) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = previewUrl; say(ms, '', ''); }).catch(function (e) { say(ms, e.message, 'err'); });
     }
-
-    /* nothing uploaded yet */
-    if (!canEnter && !canApprove) { card.appendChild(el('p', { class: 'note', text: o.res_status === 'entered' ? 'Results entered, waiting for approval.' : 'No report yet.' })); return card; }
-    if (o.res_status === 'entered') { manual(); return card; }
-    card.appendChild(el('p', { class: 'note', text: 'Export the report from your lab software as a PDF and upload it here. It gets the Trinetri letterhead, the doctor checks it, and then it goes to the customer.' }));
-    card.appendChild(uploadBox('Upload report'));
-    card.appendChild(manualLink());
+    file.addEventListener('change', function () {
+      var f = file.files[0]; srcBuf = null; prev.hidden = true; if (!f) return;
+      if (f.size > 8 * 1024 * 1024) return say(ms, 'The file is over 8 MB.', 'err');
+      if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') return say(ms, 'Only PDF files can be uploaded.', 'err');
+      f.arrayBuffer().then(function (ab) { srcBuf = ab; prev.hidden = false; preview(); });
+    });
+    send.addEventListener('click', function () {
+      if (busy || !srcBuf) return; busy = true; send.disabled = true; say(ms, 'Sending...', 'info');
+      build().then(function (bytes) {
+        if (bytes.length > 8 * 1024 * 1024) throw new Error('The finished report is over 8 MB. Export a smaller PDF from the lab software.');
+        return api('PUT', '/staff/orders/' + code + '/upload?name=' + encodeURIComponent(o.code + '-report.pdf'), undefined, { raw: new Blob([bytes], { type: 'application/pdf' }) });
+      }).then(function () { toast('Report sent. The customer can now see it.'); LAB.refreshDash(); route(); }).catch(function (e) { busy = false; send.disabled = false; say(ms, e.message, 'err'); });
+    });
+    card.appendChild(el('p', { class: 'note', text: o.hasReport ? 'To correct the report, choose a new PDF. It replaces the old one for the customer.' : 'Export the report from your lab software as a PDF and choose it here. The Trinetri letterhead is added automatically, then you send it to the customer.' }));
+    card.appendChild(el('div', 'filters', [el('div', 'f', [el('label', { text: 'PDF report from the lab software (max 8 MB)' }), file])]));
+    add(prev, [el('p', { class: 'note', text: 'This is how the customer will receive it. If the software prints its own header or footer, trim it here and press Update preview.' }),
+      el('div', 'filters', [el('div', 'f', [el('label', { text: 'Trim from top (mm)' }), cT]), el('div', 'f', [el('label', { text: 'Trim from bottom (mm)' }), cB]), el('button', { type: 'button', class: 'btn sm ghost', text: 'Update preview', onclick: preview })]),
+      frame, el('div', 'row', [send])]);
+    card.appendChild(prev); card.appendChild(ms);
     return card;
   }
   LAB.reportWaLink = function (o) {
     var msg = 'Hello ' + o.name + ', your Trinetri Diagnostics report for order ' + o.code + ' is ready.\nDownload it here: ' + SITE() + '\nOrder ID: ' + o.code + '\nLogin with this mobile number, then add the Order ID and the PIN from your receipt.';
     return 'https://wa.me/91' + o.mobile + '?text=' + encodeURIComponent(msg);
   };
-  function buildEditor(card, o) {
-    var secs = (o.results && o.results.length) ? JSON.parse(JSON.stringify(o.results)) : o.tests.map(function (t) { var tp = findTpl(t); return { key: tp ? tp.key : (t.key || ''), title: tp ? tp.name : t.name, rows: tp ? rowsFrom(tp, o.sex) : [], comment: '' }; });
-    var wrap = el('div'), ms = el('span', 'msg'), dirty = false;
-    function rowEl(sec, r, i) {
-      var fl = el('select', { 'aria-label': 'Flag' }, [['', '-'], ['H', 'H'], ['L', 'L'], ['A', 'A']].map(function (x) { return el('option', { value: x[0], text: x[1], selected: x[0] === (r.flag || '') }); }));
-      var flv = el('span', { class: 'fl ' + calcFlag(r), text: calcFlag(r) });
-      function inp(k, ph, cls, type) { var e = el('input', { value: r[k] == null ? '' : r[k], placeholder: ph, 'aria-label': ph, class: cls || '', type: type || 'text', step: 'any' }); e.addEventListener('input', function () { r[k] = e.value; dirty = true; var c = calcFlag(r); flv.textContent = c; flv.className = 'fl ' + c; if (k !== 'name' && k !== 'unit' && k !== 'ref') fl.value = c; }); return e; }
-      fl.addEventListener('change', function () { r.flag = fl.value; dirty = true; var c = calcFlag(r); flv.textContent = c; flv.className = 'fl ' + c; });
-      var nm = inp('name', 'Parameter'); var row = el('div', 'rrow', [el('div', 'nm', nm), inp('value', 'Result', 'val'), inp('unit', 'Unit'), inp('low', 'Low', '', 'number'), inp('high', 'High', '', 'number'), inp('ref', 'Reference text'), fl, el('button', { type: 'button', class: 'x', 'aria-label': 'Remove row', text: '×', onclick: function () { sec.rows.splice(i, 1); dirty = true; draw(); } })]);
-      return row;
-    }
-    function draw() {
-      wrap.textContent = '';
-      secs.forEach(function (sec, si) {
-        var title = el('input', { value: sec.title, 'aria-label': 'Section title' }); title.addEventListener('input', function () { sec.title = title.value; dirty = true; });
-        var s = el('div', 'sec', [el('div', 'hd', [title, el('button', { type: 'button', class: 'x', title: 'Remove this section', 'aria-label': 'Remove section', text: '×', onclick: function () { secs.splice(si, 1); dirty = true; draw(); } })]),
-          el('div', 'rrow h', [el('span', { text: 'Parameter' }), el('span', { text: 'Result' }), el('span', { text: 'Unit' }), el('span', { text: 'Low' }), el('span', { text: 'High' }), el('span', { text: 'Reference text' }), el('span', { text: 'Flag' }), el('span')])]);
-        sec.rows.forEach(function (r, i) { s.appendChild(rowEl(sec, r, i)); });
-        var cm = el('input', { value: sec.comment || '', placeholder: 'Comment / interpretation (optional)', style: 'margin-top:8px' }); cm.addEventListener('input', function () { sec.comment = cm.value; dirty = true; });
-        s.appendChild(el('div', 'row', [el('button', { type: 'button', class: 'btn sm ghost', text: '+ Add row', onclick: function () { sec.rows.push({ name: '', value: '', unit: '', low: '', high: '', ref: '', flag: '' }); dirty = true; draw(); } })])); s.appendChild(cm);
-        wrap.appendChild(s);
-      });
-      var sel = el('select', null, [el('option', { value: '', text: 'Add a panel from template...' })].concat(TPL.map(function (t) { return el('option', { value: t.key, text: t.name }); })));
-      sel.addEventListener('change', function () { var t = TPL.filter(function (x) { return x.key === sel.value; })[0]; if (t) { secs.push({ key: t.key, title: t.name, rows: rowsFrom(t, o.sex), comment: '' }); dirty = true; draw(); } });
-      wrap.appendChild(el('div', 'filters', [el('div', 'f', sel), el('button', { type: 'button', class: 'btn sm ghost', text: '+ Blank section', onclick: function () { secs.push({ key: '', title: 'Result', rows: [{ name: '', value: '', unit: '', low: '', high: '', ref: '', flag: '' }], comment: '' }); draw(); } })]));
-    }
-    function save() { return api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/results', { sections: secs }).then(function (r) { dirty = false; return r.order; }); }
-    function btn(text, cls, fn) { return el('button', { type: 'button', class: 'btn sm ' + cls, text: text, onclick: function (e) { var b = e.currentTarget; b.disabled = true; say(ms, 'Please wait...', 'info'); Promise.resolve().then(fn).then(function () { b.disabled = false; }, function (er) { b.disabled = false; say(ms, er.message, 'err'); }); } }); }
-    var actions = el('div', 'row', [
-      btn('Save draft', '', function () { return save().then(function () { say(ms, 'Saved. Customers see "In progress" until you approve.', 'ok'); LAB.refreshDash(); }); }),
-      btn('Preview PDF', 'ghost', function () { return save().then(function () { openPdf('/staff/orders/' + encodeURIComponent(o.code) + '/report?draft=1'); say(ms, 'Draft saved. Preview opened in a new tab.', 'ok'); }); })]);
-    if (can('approve')) actions.appendChild(btn('Approve and publish to customer', 'danger', function () {
-      return save().then(function () { return api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/approve'); }).then(function () { toast('Report approved and published'); LAB.refreshDash(); route(); });
-    }));
-    else actions.appendChild(el('span', { class: 'upd', text: 'A doctor or admin approves the report before customers can see it.' }));
-    card.appendChild(el('p', { class: 'note', text: 'Enter the values. Low/High come from the template and drive the H / L flags. Customers cannot see anything until the report is approved.' }));
-    draw(); card.appendChild(wrap); card.appendChild(actions); card.appendChild(ms);
-    if (can('approve')) card.appendChild(uploadRow(o));
-    LAB.onLeave(function () { window.onbeforeunload = null; });
-    window.onbeforeunload = function () { return dirty ? 'You have unsaved results.' : undefined; };
-  }
 
   boot();
 })();

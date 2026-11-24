@@ -49,7 +49,7 @@
         page.drawRectangle({ x: 40, y: by - bh, width: A4W - 80, height: bh, borderColor: line, borderWidth: 0.8, color: P.rgb(0.97, 0.985, 0.985) });
         var ageSex = [o.age != null ? o.age + ' Y' : '', o.sex ? ({ M: 'Male', F: 'Female', male: 'Male', female: 'Female' }[o.sex] || o.sex) : ''].filter(Boolean).join(' / ') || '-';
         var L = [['Patient', o.name || '-'], ['Age / Sex', ageSex], ['Referred by', o.ref_doctor || 'Self']];
-        var R = [['Order ID', o.code], ['Registered', dt(o.created, true)], ['Reported', opt.draft ? 'Pending approval' : dt(opt.at || Date.now(), true)]];
+        var R = [['Order ID', o.code], ['Registered', dt(o.created, true)], ['Reported', dt(opt.at || Date.now(), true)]];
         L.forEach(function (x, k) { var y = by - 16 - k * 16; page.drawText(x[0] + ':', { x: 50, y: y, size: 8.5, font: F, color: grey }); page.drawText(fitText(FB, x[1], 10, 190), { x: 112, y: y, size: 10, font: FB, color: ink }); });
         R.forEach(function (x, k) { var y = by - 16 - k * 16; page.drawText(x[0] + ':', { x: 322, y: y, size: 8.5, font: F, color: grey }); page.drawText(fitText(FB, x[1], 10, 150), { x: 388, y: y, size: 10, font: FB, color: ink }); });
       } else {
@@ -61,11 +61,9 @@
     var total = pages.length;
     pages.forEach(function (page, i) {
       page.drawLine({ start: { x: 40, y: FOOT - 4 }, end: { x: A4W - 40, y: FOOT - 4 }, thickness: 0.8, color: line });
-      var left = opt.draft ? 'DRAFT - awaiting pathologist approval' : 'Verified by: ' + latin(opt.by || '') + (opt.title ? ' (' + latin(opt.title) + ')' : '');
-      page.drawText(fitText(FB, left, 9, 360), { x: 40, y: FOOT - 18, size: 9, font: FB, color: opt.draft ? P.rgb(0.75, 0.2, 0.1) : ink });
+      page.drawText('Trinetri Diagnostics', { x: 40, y: FOOT - 18, size: 9, font: FB, color: ink });
       var pg = 'Page ' + (i + 1) + ' of ' + total; page.drawText(pg, { x: A4W - 40 - F.widthOfTextAtSize(pg, 9), y: FOOT - 18, size: 9, font: F, color: grey });
       var l2 = 'This is an electronically generated report from Trinetri Diagnostics. ' + ADDR + '.'; page.drawText(fitText(F, l2, 7, A4W - 80), { x: 40, y: FOOT - 31, size: 7, font: F, color: grey });
-      if (opt.draft) { var wm = 'DRAFT - NOT APPROVED'; page.drawText(wm, { x: 120, y: 250, size: 44, font: FB, color: P.rgb(0.85, 0.2, 0.15), opacity: 0.13, rotate: P.degrees(40) }); }
     });
     out.setTitle('Lab report ' + o.code + ' - Trinetri Diagnostics'); out.setAuthor('Trinetri Diagnostics'); out.setCreator('Trinetri Diagnostics');
     return out.save();

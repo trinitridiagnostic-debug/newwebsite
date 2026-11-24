@@ -90,8 +90,7 @@ function sView($o, $full = true) {
     'ref_doctor' => $o['ref_doctor'], 'kind' => $o['kind'], 'notes' => $o['notes'], 'tests' => $tests, 'subtotal' => $sub, 'discount' => (int)$o['discount'], 'amount' => (int)$o['amount'],
     'paid' => (int)$o['paid'], 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'pay_mode' => $o['pay_mode'], 'status' => $o['status'], 'res_status' => $o['res_status'],
     'times' => json_decode($o['times'], true) ?: new stdClass, 'created' => (int)$o['created'], 'hasReport' => !empty($o['report_file']), 'approved_by' => $o['approved_by'],
-    'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by'],
-    'src' => empty($o['src_file']) ? null : ['name' => $o['src_name'], 'by' => $o['src_by'], 'at' => $o['src_at'] === null ? null : (int)$o['src_at']]];
+    'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by']];
   if ($full) $v['results'] = $o['results'] ? json_decode($o['results'], true) : [];
   return $v;
 }
@@ -208,21 +207,6 @@ function reportFor($o, $draft, $meta = null) {
   $secs = $o['results'] ? json_decode($o['results'], true) : [];
   $meta = $meta ?: ['draft' => $draft, 'by' => $o['approved_by'], 'title' => $o['approved_title'], 'at' => $o['approved_at']];
   return buildReportPdf($o, $secs, $meta);
-}
-function approveOrder($s, $o) {
-  need($s, 'approve');
-  $secs = $o['results'] ? json_decode($o['results'], true) : [];
-  if ($o['res_status'] === 'none' || !hasValues($secs)) throw bad('Enter at least one result before approving.');
-  require_once __DIR__ . '/pdf.php';
-  $now = nowms();
-  $bytes = buildReportPdf($o, $secs, ['draft' => false, 'by' => $s['name'], 'title' => $s['title'], 'at' => $now]);
-  db();
-  $file = $o['id'] . '.pdf';
-  if (@file_put_contents(cfg()['storage_dir'] . '/reports/' . $file, $bytes, LOCK_EX) === false) throw new Exception('Cannot write the report file.');
-  $t = json_decode($o['times'], true) ?: []; if (empty($t['completed'])) $t['completed'] = $now;
-  q("UPDATE orders SET report_name=?, report_size=?, report_file=?, status='completed', res_status='approved', approved_by=?, approved_title=?, approved_at=?, times=? WHERE id=?",
-    [$o['code'] . '-report.pdf', strlen($bytes), $file, $s['name'], $s['title'], $now, json_encode($t), $o['id']]);
-  out(['order' => sView(sFresh($o['id']))]);
 }
 
 /* ---------- templates ---------- */
@@ -350,7 +334,6 @@ function staff($path, $m) {
     if ($act === '' && $m === 'GET') out(['order' => sView($o)]);
     if ($act === 'update' && $m === 'POST') updateOrder($s, $o);
     if ($act === 'results' && $m === 'POST') saveResults($s, $o);
-    if ($act === 'approve' && $m === 'POST') approveOrder($s, $o);
     if ($act === 'status' && $m === 'POST') {
       need($s, 'status'); $st = strtolower(clean(field(body(), 'status'), 20));
       if (!in_array($st, ['booked', 'collected', 'processing'], true)) throw bad('Completed is set when the report is approved.');
@@ -366,28 +349,8 @@ function staff($path, $m) {
       need($s, 'billing'); $pin = (string)random_int(100000, 999999);
       q('UPDATE orders SET pin_hash=? WHERE id=?', [pinHash($o['code'], $pin), $o['id']]); out(['pin' => $pin, 'order' => sView(sFresh($o['id']), false)]);
     }
-    if ($act === 'source' && $m === 'GET') {
-      need($s, 'view'); $f = $o['src_file'];
-      if (empty($f) || !is_file(cfg()['storage_dir'] . '/reports/' . $f)) throw new HttpErr(404, 'No lab report has been uploaded for this order yet.');
-      $bytes = file_get_contents(cfg()['storage_dir'] . '/reports/' . $f);
-      http_response_code(200); header('Content-Type: application/pdf'); header('Content-Length: ' . strlen($bytes)); echo $bytes; exit;
-    }
-    if ($act === 'source' && ($m === 'PUT' || $m === 'POST')) {
-      need($s, 'results'); if ($o['res_status'] === 'approved') need($s, 'approve');
-      $raw = (string)file_get_contents('php://input');
-      if (strlen($raw) > 8 * 1024 * 1024) throw new HttpErr(413, 'The PDF must be under 8 MB.');
-      if (substr($raw, 0, 5) !== '%PDF-') throw bad('Only PDF files are accepted.');
-      db(); $file = $o['id'] . '-src.pdf'; $now = nowms();
-      if (@file_put_contents(cfg()['storage_dir'] . '/reports/' . $file, $raw, LOCK_EX) === false) throw new Exception('Cannot write the report file.');
-      $name = clean(isset($q['name']) ? $q['name'] : '', 120) ?: 'lab-report.pdf';
-      $t = json_decode($o['times'], true) ?: []; if (empty($t['processing'])) $t['processing'] = $now;
-      /* a replaced report must be approved again, so the customer never keeps seeing an old version */
-      q("UPDATE orders SET src_file=?, src_name=?, src_by=?, src_at=?, res_status='uploaded', report_file=NULL, report_name=NULL, report_size=0, status='processing', times=? WHERE id=?",
-        [$file, $name, $s['name'], $now, json_encode($t), $o['id']]);
-      out(['order' => sView(sFresh($o['id']))]);
-    }
     if ($act === 'upload' && ($m === 'PUT' || $m === 'POST')) {
-      need($s, 'approve');
+      need($s, 'results');
       $raw = (string)file_get_contents('php://input');
       if (strlen($raw) > 8 * 1024 * 1024) throw new HttpErr(413, 'Report must be under 8 MB.');
       if (substr($raw, 0, 5) !== '%PDF-') throw bad('Only PDF files are accepted.');
@@ -542,8 +505,8 @@ function staff($path, $m) {
     $unread = 0; foreach (all('SELECT uid, staff_seen FROM chat_state') as $r) { $lc = one("SELECT MAX(ts) AS m FROM chat WHERE uid=? AND sender='customer'", [$r['uid']]); if ($lc && $lc['m'] && (int)$lc['m'] > (int)$r['staff_seen']) $unread++; }
     $reqs = 0; foreach (all('SELECT membership FROM users WHERE membership IS NOT NULL') as $r) { $mm = json_decode($r['membership'], true); if ($mm && ($mm['status'] ?? '') === 'requested') $reqs++; }
     out(['today' => ['orders' => $today['orders'], 'billed' => $today['billed'], 'paid' => $today['paid']],
-      'pipeline' => ['booked' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='booked'"), 'collected' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='collected'"), 'processing' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='processing' AND res_status NOT IN ('entered','uploaded')"),
-        'awaiting' => $c("SELECT COUNT(*) AS n FROM orders WHERE res_status IN ('entered','uploaded')")],
+      'pipeline' => ['booked' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='booked'"), 'collected' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='collected'"), 'processing' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='processing' AND res_status<>'approved'"),
+        'awaiting' => 0, 'completed' => $c("SELECT COUNT(*) AS n FROM orders WHERE status='completed'")],
       'dues' => ['orders' => $c('SELECT COUNT(*) AS n FROM orders WHERE amount>paid'), 'amount' => $c('SELECT COALESCE(SUM(amount-paid),0) AS n FROM orders WHERE amount>paid')],
       'stock' => ['low' => $c('SELECT COUNT(*) AS n FROM stock_items WHERE active=1 AND qty<=min_qty')],
       'inbox' => ['tickets' => $c("SELECT COUNT(*) AS n FROM tickets WHERE status='open'"), 'chats' => $unread, 'members' => $reqs],

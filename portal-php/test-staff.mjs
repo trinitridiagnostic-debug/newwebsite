@@ -84,30 +84,17 @@ try {
   const saved = r.j.order; ok(saved.res_status === 'entered' && saved.status === 'processing', 'results saved, status moves to processing');
   const flags = saved.results[0].rows.map((x) => x.flag).join(','); ok(flags === 'L,,H', 'flags computed on server: ' + flags);
   ok(saved.results[1].rows[0].flag === '', 'normal value not flagged');
-  ok((await call('POST', `/staff/orders/${code}/approve`, { token: TECH })).s === 403, 'technician cannot approve');
   // customer must not see it yet
   r = await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '9876543210', password: 'Strong#123' } }); const C = r.j.token;
   r = await call('POST', '/orders/link', { token: C, body: { code, pin } }); ok(r.s === 200 && !r.j.order.hasReport && r.j.order.status === 'processing', 'customer links by PIN and sees live status');
   ok((await call('GET', `/orders/${code}/report`, { token: C })).s === 404, 'customer cannot get an unapproved report');
-  // draft
-  r = await call('GET', `/staff/orders/${code}/report?draft=1`, { token: TECH }); ok(r.s === 200 && r.buf.slice(0, 5).toString() === '%PDF-', 'draft PDF is available to staff');
-  writeFileSync(path.join(store, 'draft.pdf'), r.buf);
-  let txt = execFileSync('pdftotext', ['-layout', path.join(store, 'draft.pdf'), '-']).toString(); ok(/DRAFT - NOT APPROVED/.test(txt), 'draft is watermarked in text');
-  // approve
-  r = await call('POST', `/staff/orders/${code}/approve`, { token: DOC });
-  ok(r.s === 200 && r.j.order.status === 'completed' && r.j.order.res_status === 'approved' && r.j.order.hasReport && r.j.order.approved_by === 'Dr Meera Rao', 'doctor approves and publishes');
-  r = await call('GET', `/orders/${code}/report`, { token: C }); ok(r.s === 200 && r.buf.slice(0, 5).toString() === '%PDF-', 'customer downloads the approved report');
-  writeFileSync(path.join(store, 'final.pdf'), r.buf);
-  txt = execFileSync('pdftotext', ['-layout', path.join(store, 'final.pdf'), '-']).toString();
-  ok(/TRINETRI DIAGNOSTICS/.test(txt) && /Asha Rao/.test(txt) && /Hemoglobin/.test(txt) && /9\.8/.test(txt) && /Dr Meera Rao/.test(txt) && /MD Pathology/.test(txt), 'PDF text has patient, results and signatory');
-  ok(!/DRAFT/.test(txt) && !/Total Cholesterol/.test(txt), 'final PDF has no draft mark and skips empty rows');
-  ok(/12\.0 - 15\.0/.test(txt) && /Microcytic/.test(txt), 'reference range and comment printed');
-  r = await call('GET', `/staff/orders/${code}/report`, { token: REC }); ok(r.s === 200 && Buffer.compare(r.buf, Buffer.from(await (await fetch('data:application/pdf;base64,' + r.buf.toString('base64'))).arrayBuffer())) === 0, 'staff downloads the stored report');
-  // amend after approval
-  ok((await call('POST', `/staff/orders/${code}/results`, { token: TECH, body: { sections } })).s === 403, 'technician cannot edit approved results');
-  r = await call('POST', `/staff/orders/${code}/results`, { token: DOC, body: { sections } }); ok(r.j.order.res_status === 'entered' && r.j.order.status === 'completed', 'doctor reopens approved report for amendment');
-  ok((await call('GET', `/orders/${code}/report`, { token: C })).s === 200, 'customer keeps old report until re-approved');
-  ok((await call('POST', `/staff/orders/${code}/approve`, { token: DOC })).j.order.res_status === 'approved', 're-approve');
+  // lab software PDF is published straight to the customer (no approval step)
+  const pdf1 = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(1500, 5), Buffer.from('\n%%EOF')]);
+  r = await fetch(B + `/staff/orders/${code}/upload?name=lab.pdf`, { method: 'PUT', headers: { Origin: ORIGIN, Authorization: 'Bearer ' + REC }, body: pdf1 }); ok(r.status === 403, 'reception cannot upload reports');
+  r = await fetch(B + `/staff/orders/${code}/upload?name=lab.pdf`, { method: 'PUT', headers: { Origin: ORIGIN, Authorization: 'Bearer ' + TECH }, body: pdf1 }); const uj = await r.json();
+  ok(r.status === 200 && uj.order.status === 'completed' && uj.order.hasReport, 'technician uploads the report -> completed');
+  ok((await call('POST', `/staff/orders/${code}/approve`, { token: DOC })).s === 404, 'approval step no longer exists');
+  r = await call('GET', `/orders/${code}/report`, { token: C }); ok(r.s === 200 && Buffer.compare(r.buf, pdf1) === 0, 'customer downloads the uploaded report');
 
   // PIN reset
   r = await call('POST', `/staff/orders/${code}/pin`, { token: REC }); const pin2 = r.j.pin; ok(/^\d{6}$/.test(pin2) && pin2 !== pin, 'pin reset');
@@ -156,7 +143,7 @@ try {
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Ravi Kumar', mobile: '9123456780', tests: [{ name: 'LIPID PROFILE', price: 250 }], paid: 250 } }); const c2 = r.j.order.code;
   const up = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(2000, 7), Buffer.from('\n%%EOF')]);
   const putPdf = (token, body, name) => fetch(B + `/staff/orders/${c2}/upload` + (name ? '?name=' + name : ''), { method: 'PUT', headers: { Origin: ORIGIN, ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body }).then(async (x) => ({ s: x.status, j: await x.json().catch(() => ({})) }));
-  ok((await putPdf(TECH, up)).s === 403, 'technician cannot upload final report');
+  ok((await putPdf(null, up)).s === 401, 'upload needs login');
   ok((await putPdf(DOC, Buffer.from('nope'))).s === 400, 'upload must be a PDF');
   r = await putPdf(DOC, up, 'analyser.pdf'); ok(r.s === 200 && r.j.order.status === 'completed' && r.j.order.res_status === 'approved' && r.j.order.hasReport, 'doctor uploads PDF -> completed');
   r = await call('POST', '/auth/register', { body: { name: 'Ravi Kumar', mobile: '9123456780', password: 'Ravi#2026x' } }); const C3 = r.j.token;

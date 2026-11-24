@@ -61,9 +61,9 @@ OTP is sent on WhatsApp only. Once switched on it is required for new customer a
 ## Uploading lab reports (from the standalone lab software)
 
 1. Export the patient's report as a PDF from the lab software.
-2. Lab console > open the order > **Lab report** > choose the PDF > **Upload report**.
-3. The Trinetri letterhead (logo, patient details, pathologist footer, page numbers) is added automatically. If the lab software prints its own header or footer, use "Trim from top / bottom (mm)" and press Update preview.
-4. The doctor or admin presses **Approve and send to customer**. Only then does the customer see it (in their account, and via the WhatsApp button).
-5. To correct a report, upload a new PDF. The old one is hidden from the customer until the new one is approved.
+2. Lab console > open the order > **Lab report** > choose the PDF. A preview shows it with the Trinetri letterhead (logo, patient details, page numbers).
+3. If the lab software prints its own header or footer, use "Trim from top / bottom (mm)" and press Update preview.
+4. Press **Send to customer**. There is no approval step. The customer sees the report straight away in their account, and the WhatsApp button messages them.
+5. To correct a report, choose a new PDF and send it. It replaces the old one.
 
 Files involved: `lab.js`, `lab-report.js`, `pdf-lib.min.js` (website folder) and `portal-api/index.php`, `portal-api/staff.php`.
