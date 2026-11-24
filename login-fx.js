@@ -9,7 +9,7 @@
   var A = [['Haematology', 'Complete Blood Count', 92], ['Biochemistry', 'Lipid Profile', 74], ['Hormones', 'Thyroid Profile', 83], ['Diabetes', 'HbA1c', 66], ['Vitamins', 'Vitamin D, B12', 58], ['Liver', 'Liver Function Test', 88],
     ['Kidney', 'Renal Function Test', 71], ['Infection', 'Dengue and Malaria', 63], ['Cardiac', 'CRP and Troponin', 79], ['Urine', 'Urine Routine', 95]];
   var B = [['Home collection', 'Sample at your door', 80], ['Reports', 'Digital PDF reports', 90], ['Tracking', 'Collected, in process, ready', 68], ['Packages', 'Advance Health Package', 77], ['Allergy', 'Allergy Panel', 55], ['Fertility', 'Hormone Profile', 61],
-    ['Coagulation', 'PT, INR and APTT', 72], ['Serology', 'Widal and Typhoid', 84], ['Pathologist', 'Reviewed and approved', 93], ['Support', 'Chat with the lab', 87]];
+    ['Coagulation', 'PT, INR and APTT', 72], ['Serology', 'Widal and Typhoid', 84], ['Reports', 'Sent to your WhatsApp', 93], ['Support', 'Chat with the lab', 87]];
   function cards(list) { var h = ''; list.concat(list).forEach(function (c) { h += '<div class="lfx-card"><em>' + c[0] + '</em><b>' + c[1] + '</b><u style="--w:' + c[2] + '%"></u></div>'; }); return h; }
   function art() {
     var a = document.createElement('aside'); a.className = 'lfx-art'; a.setAttribute('aria-hidden', 'false');

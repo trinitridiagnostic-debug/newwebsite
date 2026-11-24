@@ -7,7 +7,7 @@ import path from 'node:path';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const store = mkdtempSync(path.join(tmpdir(), 'portal-'));
 const PORT = process.env.PORT || 8790, B = `http://127.0.0.1:${PORT}`, LAB = 'test-lab-key', ORIGIN = 'http://localhost:8765';
-const srv = spawn('php', ['-S', `127.0.0.1:${PORT}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: LAB, PORTAL_ORIGINS: ORIGIN } });
+const srv = spawn('php', ['-S', `127.0.0.1:${PORT}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: LAB, PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'dev', PORTAL_OTP_COOLDOWN: '0' } });
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
 async function call(method, p, { body, token, lab, raw, headers } = {}) {
@@ -17,6 +17,10 @@ async function call(method, p, { body, token, lab, raw, headers } = {}) {
   const r = await fetch(B + p, { method, headers: h, body: b });
   const buf = Buffer.from(await r.arrayBuffer()); let j = {}; try { j = JSON.parse(buf.toString()); } catch (e) {}
   return { s: r.status, j, buf, h: r.headers };
+}
+async function otpIn(mobile, name) {   // log in / sign up with a WhatsApp OTP (test mode returns the code)
+  const s = await call('POST', '/auth/otp/send', { body: { mobile, purpose: 'login' } });
+  return call('POST', '/auth/otp/login', { body: { mobile, otp: s.j.devCode, name } });
 }
 try {
   for (let i = 0; i < 40; i++) { try { await fetch(B + '/'); break; } catch (e) { await new Promise((r) => setTimeout(r, 150)); } }
@@ -28,21 +32,19 @@ try {
   ok((await call('GET', '/me')).s === 401, 'me needs login');
   ok((await call('GET', '/orders', { token: 'x.y' })).s === 401, 'bad token rejected');
 
-  // register / login
-  ok((await call('POST', '/auth/register', { body: { name: 'A', mobile: '9876543210', password: 'Strong#123' } })).s === 400, 'short name');
-  ok((await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '1234567890', password: 'Strong#123' } })).s === 400, 'bad mobile');
-  ok((await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '9876543210', password: 'short' } })).s === 400, 'short password');
-  ok((await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '9876543210', password: '11111111' } })).s === 400, 'weak password');
-  r = await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '+91 98765 43210', password: 'Strong#123' } });
-  ok(r.s === 201 && r.j.token && r.j.user.mobile === '9876543210' && !r.j.user.hash, 'register ok, no hash leaked');
+  // OTP login / sign-up (no password anywhere)
+  for (const p of ['register', 'login', 'reset']) { const x = await call('POST', '/auth/' + p, { body: { mobile: '9876543210', password: 'Strong#123' } }); ok(x.s >= 400 && !x.j.token, 'password route /auth/' + p + ' is gone'); }
+  ok((await call('POST', '/auth/otp/send', { body: { mobile: '1234567890', purpose: 'login' } })).s === 400, 'bad mobile refused');
+  ok((await call('POST', '/auth/otp/login', { body: { mobile: '9876543210', otp: '123456' } })).s === 400, 'login without a sent OTP fails');
+  r = await otpIn('+91 98765 43210', 'Asha Rao');
+  ok(r.s === 200 && r.j.token && r.j.user.mobile === '9876543210' && r.j.user.name === 'Asha Rao' && !r.j.user.hash, 'first OTP login creates the account');
   const tok = r.j.token;
-  ok((await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '9876543210', password: 'Strong#123' } })).s === 400, 'duplicate mobile');
-  r = await call('POST', '/auth/login', { body: { mobile: '9876543210', password: 'Strong#123' } }); ok(r.s === 200 && r.j.token, 'login ok');
+  r = await call('POST', '/auth/otp/send', { body: { mobile: '9876543210', purpose: 'login' } });
+  ok((await call('POST', '/auth/otp/login', { body: { mobile: '9876543210', otp: r.j.devCode === '000000' ? '111111' : '000000' } })).s === 400, 'wrong OTP refused');
+  r = await otpIn('9876543210', ''); ok(r.s === 200 && r.j.user.name === 'Asha Rao', 'second login uses the same account');
+  for (let i = 0; i < 6; i++) { const s2 = await call('POST', '/auth/otp/send', { body: { mobile: '9000000001', purpose: 'login' } }); r = await call('POST', '/auth/otp/login', { body: { mobile: '9000000001', otp: s2.j.devCode === '555555' ? '444444' : '555555' } }); }
+  ok(r.s === 400 || r.s === 429, 'wrong OTPs never log in');
   ok((await call('GET', '/me', { token: tok })).j.user.name === 'Asha Rao', 'me');
-  // lockout
-  for (let i = 0; i < 5; i++) r = await call('POST', '/auth/login', { body: { mobile: '9000000001', password: 'nope-nope' } });
-  ok(r.s === 401, 'wrong login 401');
-  r = await call('POST', '/auth/login', { body: { mobile: '9000000001', password: 'nope-nope' } }); ok(r.s === 429, 'lockout after 5');
 
   // lab auth
   ok((await call('POST', '/lab/orders', { body: {} })).s === 401, 'lab needs key');
@@ -58,7 +60,7 @@ try {
   const otherCode = r.j.order.code, otherPin = r.j.pin;
 
   // link orders
-  ok((await call('GET', '/orders', { token: tok })).j.orders.length === 0, 'no orders before link');
+  ok((await call('GET', '/orders', { token: tok })).j.orders.length === 1, 'orders for the OTP-verified mobile appear automatically, no PIN needed');
   ok((await call('POST', '/orders/link', { token: tok, body: { code, pin: '000000' } })).s === 404, 'wrong pin');
   ok((await call('POST', '/orders/link', { token: tok, body: { code: otherCode, pin: otherPin } })).s === 404, 'cannot link another mobile\'s order');
   ok((await call('POST', '/orders/link', { token: tok, body: { code, pin: '12' } })).s === 400, 'short pin');
@@ -81,7 +83,7 @@ try {
   ok((await call('PUT', `/lab/orders/${code}/report`, { lab: LAB, raw: Buffer.concat([Buffer.from('%PDF-'), Buffer.alloc(3 * 1024 * 1024)]) })).s === 413, 'over 3 MB rejected');
   r = await call('PUT', `/lab/orders/${code}/report?name=Asha-CBC.pdf`, { lab: LAB, raw: pdf }); ok(r.s === 200 && r.j.order.hasReport && r.j.order.status === 'completed' && r.j.order.reportName === 'Asha-CBC.pdf' && r.j.order.reportSize === pdf.length, 'report uploaded, order completed');
   r = await call('GET', `/orders/${code}/report`, { token: tok }); ok(r.s === 200 && r.h.get('content-type') === 'application/pdf' && Buffer.compare(r.buf, pdf) === 0, 'report downloads byte-identical');
-  r = await call('POST', '/auth/register', { body: { name: 'Other Person', mobile: '9123456789', password: 'Another#456' } });
+  r = await otpIn('9123456789', 'Other Person');
   ok((await call('GET', `/orders/${code}/report`, { token: r.j.token })).s === 404, 'other customer cannot read report');
 
   // tickets
@@ -93,7 +95,7 @@ try {
   r = await call('POST', `/lab/tickets/${tid}/reply`, { lab: LAB, body: { message: 'Doctor will call you today' } }); ok(r.s === 200 && r.j.ticket.status === 'answered' && r.j.ticket.msgs[1].from === 'staff', 'lab replies');
   r = await call('POST', `/tickets/${tid}/reply`, { token: tok, body: { message: 'Thanks!' } }); ok(r.s === 200 && r.j.ticket.status === 'open' && r.j.ticket.msgs.length === 3, 'customer replies, reopens');
   r = await call('GET', '/tickets', { token: tok }); ok(r.j.tickets.length === 1 && r.j.tickets[0].msgs[2].body === 'Thanks!', 'tickets list');
-  const t2 = (await call('POST', '/auth/login', { body: { mobile: '9123456789', password: 'Another#456' } })).j.token;
+  const t2 = (await otpIn('9123456789', '')).j.token;
   ok((await call('POST', `/tickets/${tid}/reply`, { token: t2, body: { message: 'hijack' } })).s === 404, 'cannot reply to others\' ticket');
   ok((await call('GET', '/tickets', { token: t2 })).j.tickets.length === 0, 'tickets are private');
   r = await call('POST', `/lab/tickets/${tid}/reply`, { lab: LAB, body: { message: 'Closing now', close: true } }); ok(r.j.ticket.status === 'closed', 'lab closes ticket');

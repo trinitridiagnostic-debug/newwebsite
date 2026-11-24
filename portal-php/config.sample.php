@@ -21,6 +21,9 @@ return [
   // 'site_dir' => '/home/CPANELUSER/public_html',   // only if catalog.js is NOT in the folder above portal-api
   // 'wa_verify_token' => 'trinetri-wa-7Kq92xPd4Lm8Vz3Tn6',   // any text you choose; paste the same in Meta's Verify token box
 
+  // OTP login (no passwords). Choose ONE way to send the OTP:
+  //  A) Meta WhatsApp Cloud API:  'otp_provider' => 'whatsapp', 'wa_phone_id' => '...', 'wa_token' => '...', 'wa_template' => 'your_otp_template_name', 'wa_lang' => 'en',
+  //  B) AiSensy:                  'otp_provider' => 'aisensy', 'aisensy_otp_campaign' => 'your_otp_campaign_name',   (uses aisensy_key below; add 'aisensy_otp_button' => false, if your OTP template has no button)
   // Report-ready WhatsApp message (AiSensy). The key is secret: keep it only in this file, never on GitHub.
   // 'aisensy_key' => 'YOUR NEW AISENSY API KEY', 'aisensy_campaign' => 'report_ready',
 

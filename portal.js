@@ -34,11 +34,9 @@
     }, function () { var e = new Error('Cannot reach the server. Check your internet connection.'); e.net = true; throw e; });
   }
   var live = {
-    register: function (b) { return http('POST', '/auth/register', b); },
-    login: function (b) { return http('POST', '/auth/login', b); },
+    otpLogin: function (b) { return http('POST', '/auth/otp/login', b); },
     config: function () { return http('GET', '/auth/config'); },
     sendOtp: function (mobile, purpose, channel) { return http('POST', '/auth/otp/send', { mobile: mobile, purpose: purpose, channel: channel || '' }); },
-    reset: function (b) { return http('POST', '/auth/reset', b); },
     me: function () { return http('GET', '/me'); },
     orders: function () { return http('GET', '/orders').then(function (j) { return j.orders; }); },
     link: function (code, pin) { return http('POST', '/orders/link', { code: code, pin: pin }).then(function (j) { return j.order; }); },
@@ -59,12 +57,8 @@
 
   /* ======================= auth screens ======================= */
   var authBox = $('#auth'), appBox = $('#app');
-  function sw(t) {
-    $$('#atabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-t') === t ? 'true' : 'false'); });
-    $('#fl').hidden = t !== 'login'; $('#fr').hidden = t !== 'reg'; $('#ff').hidden = true;
-  }
-  $$('#atabs button').forEach(function (b) { b.addEventListener('click', function () { sw(b.getAttribute('data-t')); }); });
-  if (!LIVE) { $('#livenote').hidden = false; $('#lgo').disabled = true; $('#rgo').disabled = true; }
+  function sw() { }
+  if (!LIVE) { $('#livenote').hidden = false; $('#lgo').disabled = true; }
   function store(tok, keep) { try { (keep ? localStorage : sessionStorage).setItem('trin.portal.tok', tok); (keep ? sessionStorage : localStorage).removeItem('trin.portal.tok'); } catch (e) { } }
   function clearTok() { try { sessionStorage.removeItem('trin.portal.tok'); localStorage.removeItem('trin.portal.tok'); } catch (e) { } }
   function enter(user) {
@@ -73,84 +67,36 @@
     $('#wn').textContent = me.name; $('#wm').textContent = '+91 ' + me.mobile;
     buildMenu(); var h = (location.hash || '').replace('#', ''); show(VIEWS[h] ? h : 'home');
   }
-  /* ---- mobile-number OTP (WhatsApp only). Switched on by the server when it is set up. ---- */
-  var OTPON = false;
-  if (LIVE) live.config().then(function (j) { OTPON = !!j.otp; $('#forgotp').hidden = !OTPON; }).catch(function () { });
+  /* ---- login and sign-up are the same thing: mobile number + WhatsApp OTP, no password ---- */
   function chName(c) { return c === 'dev' ? 'test mode' : 'WhatsApp'; }
-  function devGet(mo) { try { return localStorage.getItem('trin.portal.dev.' + mo) || ''; } catch (e) { return ''; } }
-  function devSet(mo, v) { try { if (v) localStorage.setItem('trin.portal.dev.' + mo, v); } catch (e) { } }
-  var timers = {};
-  function otpShow(pre, r) {     // pre: 'l' login, 'r' sign up, 'f' reset
-    $('#' + pre + 'otp').hidden = false; $('#' + pre + 'to').textContent = r.to; $('#' + pre + 'ch').textContent = chName(r.channel);
-    var btn = $('#' + pre + 're'), cd = $('#' + pre + 'cd'), left = r.resendIn || 30; clearInterval(timers[pre]); btn.disabled = true;
-    function tick() { if (left <= 0) { clearInterval(timers[pre]); btn.disabled = false; cd.textContent = ''; return; } cd.textContent = 'in ' + left + 's'; left--; }
-    tick(); timers[pre] = setInterval(tick, 1000); $('#' + pre + 'o').value = ''; $('#' + pre + 'o').focus();
+  var timer = null, sentTo = '';
+  function otpShow(r) {
+    $('#lotp').hidden = false; $('#lto').textContent = r.to; $('#lch').textContent = chName(r.channel);
+    var btn = $('#lre'), cd = $('#lcd'), left = r.resendIn || 30; clearInterval(timer); btn.disabled = true;
+    function tick() { if (left <= 0) { clearInterval(timer); btn.disabled = false; cd.textContent = ''; return; } cd.textContent = 'in ' + left + 's'; left--; }
+    tick(); timer = setInterval(tick, 1000); $('#lo').value = ''; $('#lo').focus();
+    $('#lgo').textContent = 'Verify and log in';
   }
-  function otpHide(pre) { clearInterval(timers[pre]); $('#' + pre + 'otp').hidden = true; $('#' + pre + 'o').value = ''; }
-  function finishLogin(j, mo, m, b) {
-    TOKEN = j.token; store(TOKEN, $('#keep').checked); if (j.device) devSet(mo, j.device);
-    $('#lpw').value = ''; otpHide('l'); b.textContent = 'Log in'; say(m, '', ''); enter(j.user);
+  function otpReset() { clearInterval(timer); $('#lotp').hidden = true; $('#lo').value = ''; $('#lgo').textContent = 'Send OTP on WhatsApp'; sentTo = ''; }
+  function sendCode() {
+    var m = $('#lmsg'), mo = mob($('#lm').value), b = $('#lgo');
+    if (!/^[6-9]\d{9}$/.test(mo)) { say(m, 'Enter your 10-digit mobile number.', 'err'); return; }
+    b.disabled = true; say(m, 'Sending the OTP...', 'info');
+    live.sendOtp(mo, 'login', 'whatsapp').then(function (r) { sentTo = mo; otpShow(r); say(m, 'We sent an OTP to ' + r.to + ' on ' + chName(r.channel) + '. Enter it below.', 'ok'); })
+      .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
   }
-  function login(channel) {
-    var m = $('#lmsg'), mo = mob($('#lm').value), pw = $('#lpw').value, otpOpen = !$('#lotp').hidden;
-    if (!mo) { say(m, 'Enter your 10-digit mobile number.', 'err'); return; } if (!pw) { say(m, 'Enter your password.', 'err'); return; }
-    var body = { mobile: mo, password: pw, remember: $('#keep').checked }, dev = devGet(mo); if (dev) body.device = dev;
-    if (channel) body.channel = channel; else if (otpOpen) { var o = $('#lo').value.replace(/\D/g, ''); if (o.length !== 6) { say(m, 'Enter the 6-digit OTP.', 'err'); return; } body.otp = o; }
-    var b = $('#lgo'); b.disabled = true; say(m, otpOpen && !channel ? 'Checking the OTP...' : 'Logging in...', 'info');
-    live.login(body).then(function (j) {
-      if (j.otpRequired) { otpShow('l', j); b.textContent = 'Verify and log in'; say(m, 'We sent an OTP to ' + j.to + ' on ' + chName(j.channel) + '. Enter it below.', 'ok'); return; }
-      finishLogin(j, mo, m, b);
+  $('#fl').addEventListener('submit', function (e) {
+    e.preventDefault(); var m = $('#lmsg'), mo = mob($('#lm').value);
+    if ($('#lotp').hidden || sentTo !== mo) { sendCode(); return; }
+    var o = $('#lo').value.replace(/\D/g, ''); if (o.length !== 6) { say(m, 'Enter the 6-digit OTP.', 'err'); return; }
+    var b = $('#lgo'); b.disabled = true; say(m, 'Checking the OTP...', 'info');
+    live.otpLogin({ mobile: mo, otp: o, name: $('#ln').value.trim() }).then(function (j) {
+      TOKEN = j.token; store(TOKEN, $('#keep').checked); otpReset(); say(m, '', ''); $('#ln').value = ''; enter(j.user);
     }).catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
-  }
-  $('#fl').addEventListener('submit', function (e) { e.preventDefault(); login(''); });
-  $('#lre').addEventListener('click', function () { login('whatsapp'); });
-  ['#lm', '#lpw'].forEach(function (s) { $(s).addEventListener('input', function () { if (!$('#lotp').hidden) { otpHide('l'); $('#lgo').textContent = 'Log in'; } }); });
-
-  function regInputs() {
-    var m = $('#rmsg'), n = $('#rn').value.trim(), mo = mob($('#rm').value), p = $('#rp').value;
-    if (n.length < 2) { say(m, 'Enter your name.', 'err'); return null; } if (!/^[6-9]\d{9}$/.test(mo)) { say(m, 'Enter a valid 10-digit mobile number.', 'err'); return null; }
-    if (p.length < 8) { say(m, 'Use a password of at least 8 characters.', 'err'); return null; } if (p !== $('#rp2').value) { say(m, 'The two passwords do not match.', 'err'); return null; }
-    return { name: n, mobile: mo, password: p };
-  }
-  function regSend(channel) {
-    var v = regInputs(); if (!v) return; var m = $('#rmsg'), b = $('#rgo'); b.disabled = true; say(m, 'Sending the OTP...', 'info');
-    live.sendOtp(v.mobile, 'register', channel).then(function (r) { otpShow('r', r); b.textContent = 'Verify and create account'; say(m, 'We sent an OTP to ' + r.to + ' on ' + chName(r.channel) + '. Enter it below.', 'ok'); })
-      .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
-  }
-  $('#fr').addEventListener('submit', function (e) {
-    e.preventDefault(); var v = regInputs(); if (!v) return; var m = $('#rmsg');
-    if (OTPON && $('#rotp').hidden) { regSend(''); return; }
-    if (OTPON) { var o = $('#ro').value.replace(/\D/g, ''); if (o.length !== 6) { say(m, 'Enter the 6-digit OTP.', 'err'); return; } v.otp = o; }
-    var b = $('#rgo'); b.disabled = true; say(m, 'Creating your account...', 'info');
-    live.register(v).then(function (j) { TOKEN = j.token; store(TOKEN, false); $('#rp').value = ''; $('#rp2').value = ''; otpHide('r'); b.textContent = OTPON ? 'Send OTP to verify my mobile' : 'Create account'; say(m, '', ''); enter(j.user); })
-      .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
   });
-  $('#rre').addEventListener('click', function () { regSend('whatsapp'); });
-  ['#rn', '#rm', '#rp', '#rp2'].forEach(function (s) { $(s).addEventListener('input', function () { if (!$('#rotp').hidden && s === '#rm') { otpHide('r'); $('#rgo').textContent = 'Send OTP to verify my mobile'; } }); });
-  if (!LIVE) $('#rgo').textContent = 'Create account';
-  /* when the server has OTP switched off, sign up keeps its old one-step behaviour */
-  if (LIVE) live.config().then(function (j) { if (!j.otp) $('#rgo').textContent = 'Create account'; }).catch(function () { $('#rgo').textContent = 'Create account'; });
-
-  /* forgot password */
-  function showReset() { $('#fl').hidden = true; $('#fr').hidden = true; $('#ff').hidden = false; $$('#atabs button').forEach(function (b) { b.setAttribute('aria-selected', 'false'); }); $('#fm').value = $('#lm').value; $('#fm').focus(); }
-  $('#forgot').addEventListener('click', showReset);
-  $('#fback').addEventListener('click', function () { otpHide('f'); $('#fnew').hidden = true; $('#fgo').textContent = 'Send OTP'; sw('login'); });
-  function resetSend(channel) {
-    var m = $('#fmsg'), mo = mob($('#fm').value); if (!/^[6-9]\d{9}$/.test(mo)) { say(m, 'Enter your 10-digit mobile number.', 'err'); return; }
-    var b = $('#fgo'); b.disabled = true; say(m, 'Sending the OTP...', 'info');
-    live.sendOtp(mo, 'reset', channel).then(function (r) { otpShow('f', r); $('#fnew').hidden = false; b.textContent = 'Reset password'; say(m, 'If this number has an account, an OTP was sent to ' + r.to + ' on ' + chName(r.channel) + '.', 'ok'); })
-      .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
-  }
-  $('#ff').addEventListener('submit', function (e) {
-    e.preventDefault(); var m = $('#fmsg'), mo = mob($('#fm').value);
-    if ($('#fotp').hidden) { resetSend(''); return; }
-    var o = $('#fo').value.replace(/\D/g, ''), p = $('#fp').value;
-    if (o.length !== 6) { say(m, 'Enter the 6-digit OTP.', 'err'); return; } if (p.length < 8) { say(m, 'Use a password of at least 8 characters.', 'err'); return; } if (p !== $('#fp2').value) { say(m, 'The two passwords do not match.', 'err'); return; }
-    var b = $('#fgo'); b.disabled = true; say(m, 'Saving your new password...', 'info');
-    live.reset({ mobile: mo, otp: o, password: p }).then(function (j) { TOKEN = j.token; store(TOKEN, false); $('#fp').value = ''; $('#fp2').value = ''; otpHide('f'); $('#fnew').hidden = true; b.textContent = 'Send OTP'; say(m, '', ''); enter(j.user); })
-      .catch(function (err) { say(m, err.message, 'err'); }).then(function () { b.disabled = !LIVE; });
-  });
-  $('#fre').addEventListener('click', function () { resetSend('whatsapp'); });
+  $('#lre').addEventListener('click', sendCode);
+  $('#lchg').addEventListener('click', function () { otpReset(); say($('#lmsg'), '', ''); $('#lm').focus(); });
+  $('#lm').addEventListener('input', function () { if (!$('#lotp').hidden && mob($('#lm').value) !== sentTo) otpReset(); });
   $('#out').addEventListener('click', function () {
     clearTok(); TOKEN = ''; me = null; stopTimers(); sw('login'); appBox.hidden = true; authBox.hidden = false; $('#page').textContent = ''; try { history.replaceState(null, '', location.pathname); } catch (e) { }
   });

@@ -7,11 +7,15 @@ import path from 'node:path';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const store = mkdtempSync(path.join(tmpdir(), 'portal-'));
 const PORT = process.env.PORT || 8791, B = `http://127.0.0.1:${PORT}`, ORIGIN = 'http://localhost:8765';
-const srv = spawn('php', ['-S', `127.0.0.1:${PORT}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN } });
+const srv = spawn('php', ['-S', `127.0.0.1:${PORT}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'dev', PORTAL_OTP_COOLDOWN: '0' } });
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
 async function call(method, p, { body, token } = {}) {
   const h = { Origin: ORIGIN }; if (token) h.Authorization = 'Bearer ' + token; let b; if (body !== undefined) { b = JSON.stringify(body); h['Content-Type'] = 'application/json'; }
   const r = await fetch(B + p, { method, headers: h, body: b }); const buf = Buffer.from(await r.arrayBuffer()); let j = {}; try { j = JSON.parse(buf.toString()); } catch (e) {} return { s: r.status, j, buf, h: r.headers };
+}
+async function otpIn(mobile, name) {   // log in / sign up with a WhatsApp OTP (test mode returns the code)
+  const s = await call('POST', '/auth/otp/send', { body: { mobile, purpose: 'login' } });
+  return call('POST', '/auth/otp/login', { body: { mobile, otp: s.j.devCode, name } });
 }
 try {
   for (let i = 0; i < 40; i++) { try { await fetch(B + '/'); break; } catch (e) { await new Promise((r) => setTimeout(r, 150)); } }
@@ -85,7 +89,7 @@ try {
   const flags = saved.results[0].rows.map((x) => x.flag).join(','); ok(flags === 'L,,H', 'flags computed on server: ' + flags);
   ok(saved.results[1].rows[0].flag === '', 'normal value not flagged');
   // customer must not see it yet
-  r = await call('POST', '/auth/register', { body: { name: 'Asha Rao', mobile: '9876543210', password: 'Strong#123' } }); const C = r.j.token;
+  r = await otpIn('9876543210', 'Asha Rao'); const C = r.j.token;
   r = await call('POST', '/orders/link', { token: C, body: { code, pin } }); ok(r.s === 200 && !r.j.order.hasReport && r.j.order.status === 'processing', 'customer links by PIN and sees live status');
   ok((await call('GET', `/orders/${code}/report`, { token: C })).s === 404, 'customer cannot get an unapproved report');
   // lab software PDF is published straight to the customer (no approval step)
@@ -105,7 +109,7 @@ try {
 
   // PIN reset
   r = await call('POST', `/staff/orders/${code}/pin`, { token: REC }); const pin2 = r.j.pin; ok(/^\d{6}$/.test(pin2) && pin2 !== pin, 'pin reset');
-  const C2 = (await call('POST', '/auth/register', { body: { name: 'Asha Two', mobile: '9876543210'.replace('3210', '3299'), password: 'Strong#123' } })).j.token;
+  const C2 = (await otpIn('9876543299', 'Asha Two')).j.token;
   ok((await call('POST', '/orders/link', { token: C2, body: { code, pin: pin2 } })).s === 404, 'new PIN still needs the right mobile');
 
   // lists
@@ -153,7 +157,7 @@ try {
   ok((await putPdf(null, up)).s === 401, 'upload needs login');
   ok((await putPdf(DOC, Buffer.from('nope'))).s === 400, 'upload must be a PDF');
   r = await putPdf(DOC, up, 'analyser.pdf'); ok(r.s === 200 && r.j.order.status === 'completed' && r.j.order.res_status === 'approved' && r.j.order.hasReport, 'doctor uploads PDF -> completed');
-  r = await call('POST', '/auth/register', { body: { name: 'Ravi Kumar', mobile: '9123456780', password: 'Ravi#2026x' } }); const C3 = r.j.token;
+  r = await otpIn('9123456780', 'Ravi Kumar'); const C3 = r.j.token;
   r = await call('POST', '/staff/orders/' + c2 + '/pin', { token: A }); await call('POST', '/orders/link', { token: C3, body: { code: c2, pin: r.j.pin } });
   r = await call('GET', `/orders/${c2}/report`, { token: C3 }); ok(r.s === 200 && Buffer.compare(r.buf, up) === 0, 'customer downloads the uploaded PDF unchanged');
   // patients

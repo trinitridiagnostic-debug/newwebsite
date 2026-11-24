@@ -50,12 +50,21 @@ function sendReportWhatsApp($o) {
   $payload = ['apiKey' => $c['aisensy_key'], 'campaignName' => $c['aisensy_campaign'], 'destination' => '91' . $o['mobile'], 'userName' => $c['aisensy_name'],
     'templateParams' => [$name, $name, waText($o['code'], 30), waText(implode(', ', $names), 120), $date], 'source' => 'trinetri-lab',
     'media' => ['url' => reportLink($o), 'filename' => preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-report.pdf']];
-  list($st, $res) = httpPost('https://backend.aisensy.com/campaign/t1/api/v2', ['Content-Type: application/json'], json_encode($payload));
+  list($st, $res) = httpPost(rtrim($c['aisensy_base'], '/') . '/campaign/t1/api/v2', ['Content-Type: application/json'], json_encode($payload));
   if ($st < 200 || $st >= 300) {
     error_log('[trinetri-portal] aisensy ' . $st . ' ' . substr($res, 0, 300));
     $j = json_decode($res, true); $why = is_array($j) ? (string)($j['message'] ?? ($j['error'] ?? '')) : '';
     throw new HttpErr(502, 'WhatsApp could not send the message (' . $st . ')' . ($why !== '' ? ': ' . substr($why, 0, 160) : '. Check the campaign name and that it is live.'));
   }
+}
+/* OTP through the AiSensy account (an approved authentication template as an API campaign, named in aisensy_otp_campaign). */
+function sendAisensyOtp($mobile, $code) {
+  $c = cfg();
+  if ($c['aisensy_key'] === '' || $c['aisensy_otp_campaign'] === '') throw new Exception('AiSensy OTP is not set up (aisensy_key / aisensy_otp_campaign).');
+  $payload = ['apiKey' => $c['aisensy_key'], 'campaignName' => $c['aisensy_otp_campaign'], 'destination' => '91' . $mobile, 'userName' => $c['aisensy_name'], 'templateParams' => [$code], 'source' => 'trinetri-otp'];
+  if (!empty($c['aisensy_otp_button'])) $payload['buttons'] = [['type' => 'button', 'sub_type' => 'url', 'index' => 0, 'parameters' => [['type' => 'text', 'text' => $code]]]];   // the "copy code" button of authentication templates
+  list($st, $res) = httpPost(rtrim($c['aisensy_base'], '/') . '/campaign/t1/api/v2', ['Content-Type: application/json'], json_encode($payload));
+  if ($st < 200 || $st >= 300) throw new Exception('AiSensy OTP failed (' . $st . '): ' . substr($res, 0, 250));
 }
 /* Sends the code on WhatsApp and returns 'whatsapp' ('dev' = local test mode). Any other channel a client asks for is ignored. */
 function deliverOtp($mobile, $code, $want) {
@@ -66,7 +75,7 @@ function deliverOtp($mobile, $code, $want) {
     @file_put_contents($c['storage_dir'] . '/otp-dev.log', date('c') . " $mobile $code\n", FILE_APPEND | LOCK_EX);
     return 'dev';
   }
-  try { sendWhatsAppOtp($mobile, $code); return 'whatsapp'; }
+  try { if ($c['otp_provider'] === 'aisensy') sendAisensyOtp($mobile, $code); else sendWhatsAppOtp($mobile, $code); return 'whatsapp'; }
   catch (Exception $e) {
     error_log('[trinetri-portal] WhatsApp OTP delivery failed for ' . maskMobile($mobile) . ' | ' . $e->getMessage());
     throw new HttpErr(502, 'We could not send the OTP on WhatsApp. Please check that this number has WhatsApp, then try again in a minute, or call the lab.');
@@ -124,7 +133,7 @@ function devicesRevoke($uid) { q('DELETE FROM devices WHERE uid=?', [$uid]); }
 function bookingProof($mobile) { return sign(['b' => $mobile, 'e' => nowms() + 30 * 60000]); }
 function proofOk($proof, $mobile) { $d = verify((string)$proof); return $d && isset($d['b']) && $d['b'] === $mobile; }
 
-/* ---------- routes: /auth/config, /auth/otp/send, /auth/otp/verify, /auth/reset ---------- */
+/* ---------- routes: /auth/config, /auth/otp/send, /auth/otp/send, /auth/otp/login, /auth/otp/verify ---------- */
 function otpRoute($path, $m) {
   if ($path === '/auth/config' && $m === 'GET') {
     $c = cfg();
@@ -134,10 +143,7 @@ function otpRoute($path, $m) {
     if (!otpEnabled()) throw new HttpErr(503, 'OTP is not switched on yet.');
     $b = body(); $mobile = normMobile(field($b, 'mobile')); $purpose = (string)field($b, 'purpose');
     if (!preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter a valid 10-digit mobile number.');
-    if (!in_array($purpose, ['register', 'reset', 'booking'], true)) throw bad('Unknown request.');
-    $exists = (bool)one('SELECT 1 AS x FROM users WHERE mobile=?', [$mobile]);
-    if ($purpose === 'register' && $exists) throw bad('This mobile number already has an account. Please log in.');
-    if ($purpose === 'reset' && !$exists) out(['sent' => true, 'channel' => 'whatsapp', 'to' => maskMobile($mobile), 'expiresIn' => (int)(OTP_TTL / 1000), 'resendIn' => (int)(otpCooldown() / 1000)]);   // same reply either way
+    if (!in_array($purpose, ['login', 'booking'], true)) throw bad('Unknown request.');
     out(sendOtp($mobile, $purpose, (string)field($b, 'channel')));
   }
   if ($path === '/auth/otp/verify' && $m === 'POST') {       // used by the website booking forms
@@ -147,15 +153,22 @@ function otpRoute($path, $m) {
     checkOtp($mobile, 'booking', field($b, 'otp'));
     out(['verified' => true, 'proof' => bookingProof($mobile), 'validFor' => 1800]);
   }
-  if ($path === '/auth/reset' && $m === 'POST') {
-    if (!otpEnabled()) throw new HttpErr(503, 'Password reset by OTP is not switched on yet. Please contact the lab.');
-    $b = body(); $mobile = normMobile(field($b, 'mobile')); $pw = (string)field($b, 'password');
-    $u = $mobile ? one('SELECT * FROM users WHERE mobile=?', [$mobile]) : null;
-    if (!$u) throw new HttpErr(400, 'That OTP is not correct.');                  // do not reveal whether the number has an account
-    checkPassword($pw);
-    checkOtp($mobile, 'reset', field($b, 'otp'));
-    q('UPDATE users SET hash=? WHERE id=?', [password_hash($pw, PASSWORD_DEFAULT), $u['id']]);
-    devicesRevoke($u['id']); clearAttempt('a:' . $mobile);
+  if ($path === '/auth/otp/login' && $m === 'POST') {       /* log in or sign up: mobile number + WhatsApp OTP only, no password */
+    if (!otpEnabled()) throw new HttpErr(503, 'Login by OTP is not switched on yet. Please contact the lab.');
+    $b = body(); $mobile = normMobile(field($b, 'mobile'));
+    if (!preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter a valid 10-digit mobile number.');
+    checkOtp($mobile, 'login', field($b, 'otp'));
+    $u = one('SELECT * FROM users WHERE mobile=?', [$mobile]);
+    if (!$u) {
+      $name = clean(field($b, 'name'), 60);
+      if (mb_strlen($name) < 2) { $o = one('SELECT name FROM orders WHERE mobile=? ORDER BY created DESC LIMIT 1', [$mobile]); $name = $o ? clean($o['name'], 60) : ''; }
+      if (mb_strlen($name) < 2) $name = 'Customer';
+      $id = rnd(9);
+      try { q('INSERT INTO users (id, name, mobile, hash, membership, created) VALUES (?,?,?,?,NULL,?)', [$id, $name, $mobile, password_hash(rnd(24), PASSWORD_DEFAULT), nowms()]); } catch (PDOException $e) { /* raced */ }
+      $u = one('SELECT * FROM users WHERE mobile=?', [$mobile]);
+    }
+    if (empty($u['verified'])) q('UPDATE users SET verified=1 WHERE id=?', [$u['id']]);
+    autoLink($u['id'], $mobile);      /* every order the lab or website made for this number appears */
     out(['token' => sign(['u' => $u['id'], 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)]);
   }
 }

@@ -74,3 +74,8 @@ Files involved: `lab.js`, `lab-report.js`, `pdf-lib.min.js` (website folder) and
 2. In cPanel File Manager open `public_html/portal-api/config.php` (Edit) and add before the closing `];`:
    `'aisensy_key' => 'YOUR API KEY',` and `'aisensy_campaign' => 'YOUR CAMPAIGN NAME',`
 3. After **Send to customer** the customer is messaged automatically. The link in the message works without login and expires after 14 days. The "Send on WhatsApp" button on the order sends it again.
+
+## Customer login (mobile number + WhatsApp OTP, no passwords)
+
+Customers log in or sign up with only their mobile number and a one-time code sent on WhatsApp. If the lab or the website already made an order for that number, it appears in their account straight after the OTP. Forgot-password no longer exists, because there is no password.
+In `config.php` set `otp_provider` and the matching template details (see `config.sample.php`, options A and B).

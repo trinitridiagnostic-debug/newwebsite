@@ -1,6 +1,6 @@
 <?php
 /* Trinetri Diagnostics customer portal server (PHP 7.4+ / 8.x, MySQL or SQLite).
-   - Customers register with mobile + password, then link their lab orders with Order ID + report PIN.
+   - Customers log in with mobile number + WhatsApp OTP (no passwords); their orders link automatically.
    - The lab software uses the /lab/* routes with the secret lab_api_key (header X-Lab-Key).
    - Same routes and replies as the Cloudflare version in ../portal-server, so the website needs no change.
    Setup: see SETUP.md. Copy config.sample.php to config.php and fill it in. */
@@ -30,7 +30,7 @@ function cfg() {
   $c = ['db_dsn' => '', 'db_user' => '', 'db_pass' => '', 'lab_api_key' => '', 'secret' => '',
         'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com', 'storage_dir' => __DIR__ . '/storage',
         // OTP on WhatsApp only (Meta Cloud API). Leave otp_provider empty to keep OTP switched off.
-        'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
+        'aisensy_otp_campaign' => '', 'aisensy_otp_button' => true, 'aisensy_base' => 'https://backend.aisensy.com', 'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
         'wa_api_base' => 'https://graph.facebook.com/v21.0',
         // Report-ready WhatsApp message through AiSensy (key stays in config.php only)
         'aisensy_key' => '', 'aisensy_campaign' => '', 'aisensy_name' => 'Trinetri Diagnostics', 'public_url' => 'https://trinetridiagnostics.com'];
@@ -38,7 +38,7 @@ function cfg() {
   if (is_file($f)) { $x = require $f; if (is_array($x)) $c = array_merge($c, $x); }
   foreach (['db_dsn' => 'PORTAL_DB_DSN', 'db_user' => 'PORTAL_DB_USER', 'db_pass' => 'PORTAL_DB_PASS', 'lab_api_key' => 'PORTAL_LAB_KEY',
             'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE', 'otp_provider' => 'PORTAL_OTP_PROVIDER', 'otp_cooldown' => 'PORTAL_OTP_COOLDOWN',
-            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
+            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_otp_campaign' => 'PORTAL_AISENSY_OTP', 'aisensy_base' => 'PORTAL_AISENSY_BASE', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
     $v = getenv($e); if ($v !== false && $v !== '') $c[$k] = $v;
   }
   return $c;
@@ -187,57 +187,10 @@ function saveAttempt($k, $a) {
 }
 function clearAttempt($k) { q('DELETE FROM attempts WHERE k=?', [$k]); }
 
-function checkPassword($pw) {
-  if (strlen($pw) < 8 || mb_strlen($pw) > 100) throw bad('Use a password of at least 8 characters.');
-  if (preg_match('/^(.)\1+$/su', $pw) || in_array(strtolower($pw), ['password', '12345678', 'qwertyuiop'], true)) throw bad('That password is too easy to guess.');
-}
 /* A customer whose mobile number was proven with an OTP sees every order the lab made for that number, with no Order ID or PIN needed. */
 function autoLink($uid, $mobile) {
   q('INSERT INTO links (uid, order_id) SELECT ?, o.id FROM orders o WHERE o.mobile=? AND NOT EXISTS (SELECT 1 FROM links l WHERE l.uid=? AND l.order_id=o.id)', [$uid, $mobile, $uid]);
 }
-function register() {
-  $b = body();
-  $name = clean(field($b, 'name'), 60); $mobile = normMobile(field($b, 'mobile')); $pw = (string)field($b, 'password');
-  if (mb_strlen($name) < 2) throw bad('Enter your name.');
-  if (!preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter a valid 10-digit mobile number.');
-  checkPassword($pw);
-  if (one('SELECT id FROM users WHERE mobile=?', [$mobile])) throw bad('This mobile number already has an account. Please log in.');
-  if (otpEnabled()) checkOtp($mobile, 'register', field($b, 'otp'));      // the mobile number must be proven with an OTP
-  $id = rnd(9); $created = nowms();
-  try { q('INSERT INTO users (id, name, mobile, hash, membership, created) VALUES (?,?,?,?,NULL,?)', [$id, $name, $mobile, password_hash($pw, PASSWORD_DEFAULT), $created]); }
-  catch (PDOException $e) { throw bad('This mobile number already has an account. Please log in.'); }
-  if (otpEnabled()) { q('UPDATE users SET verified=1 WHERE id=?', [$id]); autoLink($id, $mobile); }
-  $u = one('SELECT * FROM users WHERE id=?', [$id]);
-  $r = ['token' => sign(['u' => $id, 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)];
-  if (otpEnabled() && !empty($b['remember'])) $r['device'] = deviceMake($id);
-  out($r, 201);
-}
-function login() {
-  $b = body();
-  $mobile = normMobile(field($b, 'mobile')); $pw = (string)field($b, 'password');
-  $key = 'a:' . ($mobile ?: 'x'); $a = attempt($key);
-  if ($a['until'] > nowms()) throw new HttpErr(429, 'Too many wrong attempts. Try again in a few minutes.');
-  $u = $mobile ? one('SELECT * FROM users WHERE mobile=?', [$mobile]) : null;
-  $ok = $u ? password_verify($pw, $u['hash']) : (password_verify($pw, '$2y$10$ErKK8JRXzbgQ4C32zE6/..xdQa2nbN7mg4FYi/NHpmq8xsd1Wdiay') && false)   /* dummy check keeps timing similar */;
-  if (!$ok) {
-    $a['n']++; if ($a['n'] >= 5) { $a['until'] = nowms() + 15 * 60000; $a['n'] = 0; }
-    saveAttempt($key, $a);
-    throw new HttpErr(401, 'Wrong mobile number or password.');
-  }
-  if ($a['n'] || $a['until']) clearAttempt($key);
-  $device = null;
-  if (otpEnabled() && !deviceOk($u['id'], field($b, 'device'))) {             // password is right, now prove the mobile number
-    if (field($b, 'otp') === '') { $r = sendOtp($mobile, 'login', (string)field($b, 'channel')); $r['otpRequired'] = true; out($r, 202); }
-    checkOtp($mobile, 'login', field($b, 'otp'));
-    if (!empty($b['remember'])) $device = deviceMake($u['id']);
-  }
-  if (otpEnabled() && empty($u['verified'])) { q('UPDATE users SET verified=1 WHERE id=?', [$u['id']]); autoLink($u['id'], $mobile); }   // reaching here means the mobile was proven
-  if (password_needs_rehash($u['hash'], PASSWORD_DEFAULT)) q('UPDATE users SET hash=? WHERE id=?', [password_hash($pw, PASSWORD_DEFAULT), $u['id']]);
-  $r = ['token' => sign(['u' => $u['id'], 'e' => nowms() + 7 * 864e5]), 'user' => publicUser($u)];
-  if ($device) $r['device'] = $device;
-  out($r);
-}
-
 /* ---------- orders ---------- */
 function orderView($o) {
   $t = json_decode($o['times'], true);
@@ -527,8 +480,6 @@ function route() {
   if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
   if (strpos($path, '/lab/') === 0) lab($path, $m);
   if (strpos($path, '/auth/') === 0) otpRoute($path, $m);
-  if ($path === '/auth/register' && $m === 'POST') register();
-  if ($path === '/auth/login' && $m === 'POST') login();
   customer($path, $m, authed());
 }
 
