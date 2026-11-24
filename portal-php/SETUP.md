@@ -21,7 +21,7 @@ The first request creates anything the SQL file did not (the app checks its own 
 |---|---|---|
 | `/` | public | website, test and package list, booking form (bookings land in Lab console > Bookings) |
 | `/customer.html` | customers | account, order tracking, reports (PDF), tickets, chat, membership |
-| `/lab.html` | staff | lab console with roles: admin, reception, technician, doctor |
+| `/lab.html` | staff | lab console with roles: admin, reception, technician (technicians upload and send reports; there is no doctor role) |
 | `/admin.html` | admin | edit packages, tests and prices (saved straight to the site) |
 
 All of them read and write the same database, so a booking made on the website, an order made at reception and what the customer sees in their account are always the same record.

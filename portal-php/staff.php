@@ -6,7 +6,6 @@ const ROLE_CAN = [
   'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock'],
   'reception'  => ['view', 'billing', 'status', 'inbox', 'members'],
   'technician' => ['view', 'status', 'results', 'stock'],
-  'doctor'     => ['view', 'status', 'results', 'approve', 'templates', 'stock'],
 ];
 
 function staff_can($s, $perm) { return in_array($perm, ROLE_CAN[$s['role']] ?? [], true); }
@@ -24,7 +23,7 @@ function validPassword($pw) {
   if (strlen($pw) < 8 || mb_strlen($pw) > 100) throw bad('Use a password of at least 8 characters.');
   if (preg_match('/^(.)\1+$/su', $pw) || in_array(strtolower($pw), ['password', '12345678', 'qwertyuiop'], true)) throw bad('That password is too easy to guess.');
 }
-function cleanRole($r) { $r = strtolower((string)$r); if (!isset(ROLE_CAN[$r])) throw bad('Role must be admin, reception, technician or doctor.'); return $r; }
+function cleanRole($r) { $r = strtolower((string)$r); if (!isset(ROLE_CAN[$r])) throw bad('Role must be admin, reception or technician.'); return $r; }
 function cleanUser($u) { $u = strtolower(trim((string)$u)); if (!preg_match('/^[a-z0-9._-]{3,30}$/', $u)) throw bad('Username: 3 to 30 letters, numbers, dot, dash or underscore.'); return $u; }
 
 

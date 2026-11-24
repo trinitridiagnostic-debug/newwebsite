@@ -306,7 +306,7 @@
         }))]))); done();
       }).catch(function (e) { L.fail($('#page'), e); });
     }
-    function roleSel(v) { return el('select', null, opts([['reception', 'Reception: register, bill, inbox, memberships'], ['technician', 'Technician: samples, enter results, stock'], ['doctor', 'Doctor / Pathologist: results, approve reports, templates'], ['admin', 'Admin: everything incl. staff']], v)); }
+    function roleSel(v) { return el('select', null, opts([['reception', 'Reception: register, bill, inbox, memberships'], ['technician', 'Technician: samples, upload and send reports, stock'], ['admin', 'Admin: everything incl. staff']], v)); }
     function edit(u) {
       var n = el('input', { value: u.name }), t = el('input', { value: u.title || '' }), r = roleSel(u.role), a = el('select', null, opts([['1', 'Active'], ['0', 'Disabled (cannot log in)']], u.active ? '1' : '0')), pw = el('input', { type: 'password', placeholder: 'Leave empty to keep', autocomplete: 'new-password' }), ms = el('span', 'msg');
       modal('Edit ' + u.username, el('div', 'form2', [fld('Name', n), fld('Title on reports', t), fld('Role', r, 'full'), fld('Status', a), fld('New password', pw), ms]), [{ text: 'Cancel', cls: 'ghost' }, { text: 'Save', keep: true, fn: function (close) {
@@ -315,7 +315,7 @@
       } }]);
     }
     var un = el('input', { autocapitalize: 'none', autocomplete: 'off' }), nn = el('input'), tt = el('input', { placeholder: 'e.g. MD Pathology, KMC Reg. No. 12345' }), rr = roleSel('reception'), pp = el('input', { type: 'password', autocomplete: 'new-password' }), ms = el('span', 'msg');
-    page.appendChild(el('div', 'card', [el('h2', { text: 'Add a staff login' }), el('div', 'form2', [fld('Name', nn), fld('Username', un), fld('Role', rr, 'full'), fld('Title on reports (doctors)', tt), fld('Password (8+ characters)', pp)]),
+    page.appendChild(el('div', 'card', [el('h2', { text: 'Add a staff login' }), el('div', 'form2', [fld('Name', nn), fld('Username', un), fld('Role', rr, 'full'), fld('Password (8+ characters)', pp)]),
       el('div', 'row', [btn('Create login', '', function () { api('POST', '/staff/users', { name: nn.value, username: un.value, role: rr.value, title: tt.value, password: pp.value }).then(function () { nn.value = un.value = tt.value = pp.value = ''; say(ms, 'Login created.', 'ok'); load(); }).catch(function (e) { say(ms, e.message, 'err'); }); }), ms])]));
     page.appendChild(el('div', 'card', [el('h2', { text: 'Staff' }), body])); load();
   };

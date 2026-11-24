@@ -34,11 +34,12 @@ try {
   const mk = async (username, role, name, title) => (await call('POST', '/staff/users', { token: A, body: { username, role, name, title, password: 'Staff#2026' } }));
   ok((await mk('rec1', 'reception', 'Reena Reception')).s === 201, 'create reception');
   ok((await mk('tech1', 'technician', 'Tarun Tech')).s === 201, 'create technician');
-  r = await mk('doc1', 'doctor', 'Dr Meera Rao', 'MD Pathology, KMC Reg. 12345'); ok(r.s === 201, 'create doctor');
+  r = await mk('doc1', 'doctor', 'Dr Meera Rao', 'MD'); ok(r.s === 400, 'the doctor role no longer exists');
+  ok((await mk('adm2', 'admin', 'Second Admin')).s === 201, 'create second admin');
   ok((await mk('rec1', 'reception', 'Dup')).s === 400, 'duplicate username');
   ok((await mk('bad', 'wizard', 'Bad Role')).s === 400, 'bad role');
   const login = async (u) => (await call('POST', '/staff/login', { body: { username: u, password: 'Staff#2026' } })).j.token;
-  const REC = await login('rec1'), TECH = await login('tech1'), DOC = await login('doc1');
+  const REC = await login('rec1'), TECH = await login('tech1'), DOC = await login('adm2');
   ok(REC && TECH && DOC, 'staff can log in');
   ok((await call('GET', '/staff/users', { token: REC })).s === 403, 'reception cannot list staff');
   r = await call('GET', '/staff/users', { token: A }); ok(r.j.users.length === 4, 'admin lists staff');
@@ -150,7 +151,7 @@ try {
   // setup code
   // (setup already done above; a wrong code on a fresh server is covered by the 403 for repeat setup)
   // upload a ready-made PDF
-  r = await call('POST', '/staff/orders', { token: DOC, body: { name: 'Ravi Kumar', mobile: '9123456780', tests: [{ name: 'LIPID PROFILE', price: 250 }] } }); ok(r.s === 403, 'doctor cannot bill');
+  r = await call('POST', '/staff/orders', { token: TECH, body: { name: 'Ravi Kumar', mobile: '9123456780', tests: [{ name: 'LIPID PROFILE', price: 250 }] } }); ok(r.s === 403, 'technician cannot bill');
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Ravi Kumar', mobile: '9123456780', tests: [{ name: 'LIPID PROFILE', price: 250 }], paid: 250 } }); const c2 = r.j.order.code;
   const up = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(2000, 7), Buffer.from('\n%%EOF')]);
   const putPdf = (token, body, name) => fetch(B + `/staff/orders/${c2}/upload` + (name ? '?name=' + name : ''), { method: 'PUT', headers: { Origin: ORIGIN, ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body }).then(async (x) => ({ s: x.status, j: await x.json().catch(() => ({})) }));
