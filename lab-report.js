@@ -33,7 +33,7 @@
       var sp = srcDoc.getPage(i), sz = sp.getSize(), bbH = sz.height - cT - cB; if (bbH < 40) bbH = sz.height, cT = 0, cB = 0;
       var emb = await out.embedPage(sp, { left: 0, bottom: cB, right: sz.width, top: sz.height - cT });
       var page = out.addPage([A4W, A4H]); pages.push(page);
-      var HEAD = i === 0 ? 156 : 58, aw = A4W - 40, ah = A4H - HEAD - FOOT - 8, s = Math.min(aw / sz.width, ah / bbH);
+      var HEAD = i === 0 ? (opt.patient ? 156 : 84) : 58, aw = A4W - 40, ah = A4H - HEAD - FOOT - 8, s = Math.min(aw / sz.width, ah / bbH);
       page.drawPage(emb, { x: (A4W - sz.width * s) / 2, y: A4H - HEAD - 4 - bbH * s, xScale: s, yScale: s });
       /* header */
       var top = A4H - 28;
@@ -45,6 +45,7 @@
         page.drawText(latin(CONTACT), { x: tx, y: top - 39, size: 8, font: F, color: grey });
         var tag = 'LABORATORY REPORT'; page.drawText(tag, { x: A4W - 40 - FB.widthOfTextAtSize(tag, 10.5), y: top - 14, size: 10.5, font: FB, color: ink });
         page.drawLine({ start: { x: 40, y: top - 48 }, end: { x: A4W - 40, y: top - 48 }, thickness: 1.4, color: teal });
+        if (opt.patient) {
         var by = top - 54, bh = 58;
         page.drawRectangle({ x: 40, y: by - bh, width: A4W - 80, height: bh, borderColor: line, borderWidth: 0.8, color: P.rgb(0.97, 0.985, 0.985) });
         var ageSex = [o.age != null ? o.age + ' Y' : '', o.sex ? ({ M: 'Male', F: 'Female', male: 'Male', female: 'Female' }[o.sex] || o.sex) : ''].filter(Boolean).join(' / ') || '-';
@@ -52,6 +53,7 @@
         var R = [['Order ID', o.code], ['Registered', dt(o.created, true)], ['Reported', dt(opt.at || Date.now(), true)]];
         L.forEach(function (x, k) { var y = by - 16 - k * 16; page.drawText(x[0] + ':', { x: 50, y: y, size: 8.5, font: F, color: grey }); page.drawText(fitText(FB, x[1], 10, 190), { x: 112, y: y, size: 10, font: FB, color: ink }); });
         R.forEach(function (x, k) { var y = by - 16 - k * 16; page.drawText(x[0] + ':', { x: 322, y: y, size: 8.5, font: F, color: grey }); page.drawText(fitText(FB, x[1], 10, 150), { x: 388, y: y, size: 10, font: FB, color: ink }); });
+        }
       } else {
         page.drawText(LAB_NAME, { x: tx, y: top - 14, size: 13, font: FB, color: teal });
         var sub = latin((o.name || '') + '   |   Order ' + o.code); page.drawText(fitText(F, sub, 9, 380), { x: tx, y: top - 28, size: 9, font: F, color: grey });
