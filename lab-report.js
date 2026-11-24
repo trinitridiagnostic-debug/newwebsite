@@ -27,7 +27,7 @@
     var F = await out.embedFont(P.StandardFonts.Helvetica), FB = await out.embedFont(P.StandardFonts.HelveticaBold);
     var logo = null; try { var r = await fetch('icon.png'); if (r.ok) logo = await out.embedPng(await r.arrayBuffer()); } catch (e) { logo = null; }
     var teal = P.rgb(0.05, 0.45, 0.45), ink = P.rgb(0.1, 0.12, 0.14), grey = P.rgb(0.4, 0.43, 0.46), line = P.rgb(0.8, 0.85, 0.86);
-    var cT = Math.max(0, Number(opt.cropTop) || 0) * MM, cB = Math.max(0, Number(opt.cropBottom) || 0) * MM, FOOT = 56;
+    var cT = Math.max(0, Number(opt.cropTop) || 0) * MM, cB = Math.max(0, Number(opt.cropBottom) || 0) * MM, FOOT = 72;
     var pages = [];
     for (var i = 0; i < n; i++) {
       var sp = srcDoc.getPage(i), sz = sp.getSize(), bbH = sz.height - cT - cB; if (bbH < 40) bbH = sz.height, cT = 0, cB = 0;
@@ -66,6 +66,8 @@
       page.drawText('Trinetri Diagnostics', { x: 40, y: FOOT - 18, size: 9, font: FB, color: ink });
       var pg = 'Page ' + (i + 1) + ' of ' + total; page.drawText(pg, { x: A4W - 40 - F.widthOfTextAtSize(pg, 9), y: FOOT - 18, size: 9, font: F, color: grey });
       var l2 = 'This is an electronically generated report from Trinetri Diagnostics. ' + ADDR + '.'; page.drawText(fitText(F, l2, 7, A4W - 80), { x: 40, y: FOOT - 31, size: 7, font: F, color: grey });
+      var q1 = 'Participating in EQAS with CMC Vellore (ISO 13528:2015) and ISHTM-AIIMS, New Delhi - EQAP', q2 = 'as per ISO/IEC 17043:2023 Standard.';
+      page.drawText(q1, { x: 40, y: FOOT - 43, size: 7.5, font: FB, color: teal }); page.drawText(q2, { x: 40, y: FOOT - 53, size: 7.5, font: FB, color: teal });
     });
     out.setTitle('Lab report ' + o.code + ' - Trinetri Diagnostics'); out.setAuthor('Trinetri Diagnostics'); out.setCreator('Trinetri Diagnostics');
     return out.save();
