@@ -515,7 +515,7 @@ function route() {
     catch (Throwable $e) { error_log('[trinetri-portal] health: ' . $e->getMessage()); $code = preg_match('/SQLSTATE\[(\w+)\]\s*(?:\[(\d+)\])?/', $e->getMessage(), $mm) ? ' (error ' . $mm[1] . (isset($mm[2]) ? '/' . $mm[2] : '') . ')' : ' (' . get_class($e) . ')'; out(['ok' => false, 'problem' => (dbHint($e) ?: 'The database could not be opened. Check portal-api/config.php.') . $code], 500); }
   }
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
-  if ($m === 'GET' && preg_match('#^/public/report/([^/]+)$#', $path, $r)) {   /* signed link sent on WhatsApp: no login, expires */
+  if ($m === 'GET' && preg_match('#^/public/report/([^/]+)(?:/[^/]+)?$#', $path, $r)) {   /* signed link sent on WhatsApp: no login, expires */
     $code = rawurldecode($r[1]); $e = (int)($_GET['e'] ?? 0); $sg = (string)($_GET['s'] ?? '');
     $ok = $e > nowms() && hash_equals(b64u(hash_hmac('sha256', 'rep|' . $code . '|' . $e, secret(), true)), $sg);
     $o = $ok ? one('SELECT * FROM orders WHERE code=?', [$code]) : null;

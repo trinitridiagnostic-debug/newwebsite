@@ -99,6 +99,7 @@ try {
     const mkl = (e, c = code) => `/portal-api-unused`; const e = Date.now() + 100000; const sg = (ee) => createHmac('sha256', sec).update(`rep|${code}|${ee}`).digest('base64url');
     r = await call('GET', `/public/report/${code}?e=${e}&s=${sg(e)}`); ok(r.s === 200 && Buffer.compare(r.buf, pdf1) === 0, 'signed report link downloads without login');
     r = await call('GET', `/public/report/${code}?e=${e}&s=bad`); ok(r.s === 404, 'bad signature is refused');
+    r = await call('GET', `/public/report/${code}/${code}-report.pdf?e=${e}&s=${sg(e)}`); ok(r.s === 200 && r.buf.slice(0,5).toString() === '%PDF-', 'link with a .pdf file name works too');
     const old = Date.now() - 5; r = await call('GET', `/public/report/${code}?e=${old}&s=${sg(old)}`); ok(r.s === 404, 'expired link is refused'); }
   r = await call('GET', `/orders/${code}/report`, { token: C }); ok(r.s === 200 && Buffer.compare(r.buf, pdf1) === 0, 'customer downloads the uploaded report');
 

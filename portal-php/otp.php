@@ -35,15 +35,27 @@ function sendWhatsAppOtp($mobile, $code) {
 function reportLink($o) {
   $e = nowms() + 14 * 86400000;
   $sg = b64u(hash_hmac('sha256', 'rep|' . $o['code'] . '|' . $e, secret(), true));
-  return rtrim(cfg()['public_url'], '/') . '/portal-api/public/report/' . rawurlencode($o['code']) . '?e=' . $e . '&s=' . $sg;
+  $fn = preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-report.pdf';
+  return rtrim(cfg()['public_url'], '/') . '/portal-api/public/report/' . rawurlencode($o['code']) . '/' . $fn . '?e=' . $e . '&s=' . $sg;
 }
+function waText($s, $max) { $s = trim(preg_replace('/\s+/', ' ', (string)$s)); return mb_strlen($s) > $max ? mb_substr($s, 0, $max - 1) . '.' : ($s === '' ? '-' : $s); }
 function sendReportWhatsApp($o) {
   $c = cfg();
   if ($c['aisensy_key'] === '' || $c['aisensy_campaign'] === '') throw new HttpErr(503, 'WhatsApp sending is not set up yet (aisensy_key and aisensy_campaign in config.php).');
+  $names = array_column(json_decode($o['tests'], true) ?: [], 'name');
+  $when = $o['approved_at'] ? (int)$o['approved_at'] : nowms();
+  $date = (new DateTime('@' . intdiv($when, 1000)))->setTimezone(new DateTimeZone('Asia/Kolkata'))->format('d-m-Y');
+  $name = waText($o['name'] ?: 'Customer', 60);
+  /* Template "Dear {{1}} ... Patient Name {{2}} / Patient ID {{3}} / Test Name {{4}} / Report Date {{5}}" with the report PDF as the header file */
   $payload = ['apiKey' => $c['aisensy_key'], 'campaignName' => $c['aisensy_campaign'], 'destination' => '91' . $o['mobile'], 'userName' => $c['aisensy_name'],
-    'templateParams' => [(string)($o['name'] ?: 'Customer'), (string)$o['code'], reportLink($o)], 'source' => 'trinetri-lab'];
+    'templateParams' => [$name, $name, waText($o['code'], 30), waText(implode(', ', $names), 120), $date], 'source' => 'trinetri-lab',
+    'media' => ['url' => reportLink($o), 'filename' => preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-report.pdf']];
   list($st, $res) = httpPost('https://backend.aisensy.com/campaign/t1/api/v2', ['Content-Type: application/json'], json_encode($payload));
-  if ($st < 200 || $st >= 300) { error_log('[trinetri-portal] aisensy ' . $st . ' ' . substr($res, 0, 300)); throw new HttpErr(502, 'WhatsApp could not send the message (' . $st . '). Check the AiSensy campaign name and that it is live.'); }
+  if ($st < 200 || $st >= 300) {
+    error_log('[trinetri-portal] aisensy ' . $st . ' ' . substr($res, 0, 300));
+    $j = json_decode($res, true); $why = is_array($j) ? (string)($j['message'] ?? ($j['error'] ?? '')) : '';
+    throw new HttpErr(502, 'WhatsApp could not send the message (' . $st . ')' . ($why !== '' ? ': ' . substr($why, 0, 160) : '. Check the campaign name and that it is live.'));
+  }
 }
 /* Sends the code on WhatsApp and returns 'whatsapp' ('dev' = local test mode). Any other channel a client asks for is ignored. */
 function deliverOtp($mobile, $code, $want) {
