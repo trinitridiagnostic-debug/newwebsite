@@ -31,12 +31,14 @@ function cfg() {
         'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com', 'storage_dir' => __DIR__ . '/storage',
         // OTP on WhatsApp only (Meta Cloud API). Leave otp_provider empty to keep OTP switched off.
         'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
-        'wa_api_base' => 'https://graph.facebook.com/v21.0'];
+        'wa_api_base' => 'https://graph.facebook.com/v21.0',
+        // Report-ready WhatsApp message through AiSensy (key stays in config.php only)
+        'aisensy_key' => '', 'aisensy_campaign' => '', 'aisensy_name' => 'Trinetri Diagnostics', 'public_url' => 'https://trinetridiagnostics.com'];
   $f = __DIR__ . '/config.php';
   if (is_file($f)) { $x = require $f; if (is_array($x)) $c = array_merge($c, $x); }
   foreach (['db_dsn' => 'PORTAL_DB_DSN', 'db_user' => 'PORTAL_DB_USER', 'db_pass' => 'PORTAL_DB_PASS', 'lab_api_key' => 'PORTAL_LAB_KEY',
             'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE', 'otp_provider' => 'PORTAL_OTP_PROVIDER', 'otp_cooldown' => 'PORTAL_OTP_COOLDOWN',
-            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE'] as $k => $e) {
+            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
     $v = getenv($e); if ($v !== false && $v !== '') $c[$k] = $v;
   }
   return $c;
@@ -513,6 +515,14 @@ function route() {
     catch (Throwable $e) { error_log('[trinetri-portal] health: ' . $e->getMessage()); $code = preg_match('/SQLSTATE\[(\w+)\]\s*(?:\[(\d+)\])?/', $e->getMessage(), $mm) ? ' (error ' . $mm[1] . (isset($mm[2]) ? '/' . $mm[2] : '') . ')' : ' (' . get_class($e) . ')'; out(['ok' => false, 'problem' => (dbHint($e) ?: 'The database could not be opened. Check portal-api/config.php.') . $code], 500); }
   }
   if ($path === '/plans' && $m === 'GET') out(['plans' => PLANS, 'placeholder' => true]);
+  if ($m === 'GET' && preg_match('#^/public/report/([^/]+)$#', $path, $r)) {   /* signed link sent on WhatsApp: no login, expires */
+    $code = rawurldecode($r[1]); $e = (int)($_GET['e'] ?? 0); $sg = (string)($_GET['s'] ?? '');
+    $ok = $e > nowms() && hash_equals(b64u(hash_hmac('sha256', 'rep|' . $code . '|' . $e, secret(), true)), $sg);
+    $o = $ok ? one('SELECT * FROM orders WHERE code=?', [$code]) : null;
+    if (!$o || empty($o['report_file']) || !is_file(reportPath($o))) throw new HttpErr(404, 'This report link has expired or is not valid. Please log in to your account or contact the lab.');
+    http_response_code(200); header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="' . preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-report.pdf"');
+    header('Content-Length: ' . filesize(reportPath($o))); readfile(reportPath($o)); exit;
+  }
   if ($path === '/public/booking' && $m === 'POST') { require_once __DIR__ . '/staff.php'; publicBooking(); }
   if (strpos($path, '/staff') === 0) { require __DIR__ . '/staff.php'; staff($path, $m); }
   if (strpos($path, '/lab/') === 0) lab($path, $m);

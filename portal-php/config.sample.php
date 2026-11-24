@@ -21,6 +21,9 @@ return [
   // 'site_dir' => '/home/CPANELUSER/public_html',   // only if catalog.js is NOT in the folder above portal-api
   // 'wa_verify_token' => 'trinetri-wa-7Kq92xPd4Lm8Vz3Tn6',   // any text you choose; paste the same in Meta's Verify token box
 
+  // Report-ready WhatsApp message (AiSensy). The key is secret: keep it only in this file, never on GitHub.
+  // 'aisensy_key' => 'YOUR NEW AISENSY API KEY', 'aisensy_campaign' => 'report_ready',
+
   // Website addresses allowed to call this API (comma separated, no trailing slash).
   'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com',
 ];

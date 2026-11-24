@@ -362,6 +362,11 @@ function staff($path, $m) {
         [$name, strlen($raw), $file, $s['name'], $s['title'], $now, json_encode($t), $o['id']]);
       out(['order' => sView(sFresh($o['id']))]);
     }
+    if ($act === 'notify' && $m === 'POST') {
+      need($s, 'results');
+      if (empty($o['report_file'])) throw bad('Send the report first.');
+      require_once __DIR__ . '/otp.php'; sendReportWhatsApp($o); out(['ok' => true]);
+    }
     if ($act === 'report' && $m === 'GET') {
       $draft = !empty($q['draft']) || $o['res_status'] !== 'approved' || empty($o['report_file']);
       if ($draft && !$o['results']) throw new HttpErr(404, 'No results have been entered yet.');

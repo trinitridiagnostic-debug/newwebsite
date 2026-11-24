@@ -67,3 +67,10 @@ OTP is sent on WhatsApp only. Once switched on it is required for new customer a
 5. To correct a report, choose a new PDF and send it. It replaces the old one.
 
 Files involved: `lab.js`, `lab-report.js`, `pdf-lib.min.js` (website folder) and `portal-api/index.php`, `portal-api/staff.php`.
+
+## WhatsApp message when a report is sent (AiSensy)
+
+1. In AiSensy create an API campaign with an approved template: `Hello {{1}}, your Trinetri Diagnostics report for order {{2}} is ready. Download it here: {{3}}`
+2. In cPanel File Manager open `public_html/portal-api/config.php` (Edit) and add before the closing `];`:
+   `'aisensy_key' => 'YOUR API KEY',` and `'aisensy_campaign' => 'YOUR CAMPAIGN NAME',`
+3. After **Send to customer** the customer is messaged automatically. The link in the message works without login and expires after 14 days. The "Send on WhatsApp" button on the order sends it again.

@@ -340,7 +340,7 @@
     if (o.res_status === 'approved' && o.hasReport) {
       card.appendChild(el('div', 'row', [el('span', 'badge2 b-completed', 'Report sent' + (o.approved_at ? ' on ' + fdt(o.approved_at) : '')),
         el('button', { type: 'button', class: 'btn sm', text: 'View report (PDF)', onclick: function () { openPdf('/staff/orders/' + code + '/report'); } }),
-        el('button', { type: 'button', class: 'btn sm ghost', text: 'Send on WhatsApp', onclick: function () { window.open(LAB.reportWaLink(o), '_blank'); } })]));
+        el('button', { type: 'button', class: 'btn sm ghost', text: 'Send on WhatsApp', onclick: function () { LAB.notifyReport(o, true); } })]));
       card.appendChild(el('p', { class: 'note', text: 'The customer can see and download this report in their account (Order ID with the PIN, or automatically when they log in with this mobile number).' }));
     }
     if (!can('results')) { if (!o.hasReport) card.appendChild(el('p', { class: 'note', text: 'No report yet.' })); return card; }
@@ -364,7 +364,7 @@
       build().then(function (bytes) {
         if (bytes.length > 8 * 1024 * 1024) throw new Error('The finished report is over 8 MB. Export a smaller PDF from the lab software.');
         return api('PUT', '/staff/orders/' + code + '/upload?name=' + encodeURIComponent(o.code + '-report.pdf'), undefined, { raw: new Blob([bytes], { type: 'application/pdf' }) });
-      }).then(function () { toast('Report sent. The customer can now see it.'); LAB.refreshDash(); route(); }).catch(function (e) { busy = false; send.disabled = false; say(ms, e.message, 'err'); });
+      }).then(function () { return LAB.notifyReport(o, false); }).then(function () { LAB.refreshDash(); route(); }).catch(function (e) { busy = false; send.disabled = false; say(ms, e.message, 'err'); });
     });
     card.appendChild(el('p', { class: 'note', text: o.hasReport ? 'To correct the report, choose a new PDF. It replaces the old one for the customer.' : 'Export the report from your lab software as a PDF and choose it here. The Trinetri letterhead is added automatically, then you send it to the customer.' }));
     card.appendChild(el('div', 'filters', [el('div', 'f', [el('label', { text: 'PDF report from the lab software (max 8 MB)' }), file])]));
@@ -374,6 +374,13 @@
     card.appendChild(prev); card.appendChild(ms);
     return card;
   }
+  /* Messages the customer on WhatsApp (AiSensy). Falls back to a wa.me chat if it is not set up and the lab pressed the button. */
+  LAB.notifyReport = function (o, manual) {
+    return api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/notify').then(function () { toast('Report sent. The customer was messaged on WhatsApp.'); }, function (e) {
+      if (e.status === 503) { if (manual) window.open(LAB.reportWaLink(o), '_blank'); else toast('Report sent. It is in the customer account (WhatsApp sending is not set up yet).'); }
+      else toast('Report sent, but WhatsApp failed: ' + e.message);
+    });
+  };
   LAB.reportWaLink = function (o) {
     var msg = 'Hello ' + o.name + ', your Trinetri Diagnostics report for order ' + o.code + ' is ready.\nDownload it here: ' + SITE() + '\nOrder ID: ' + o.code + '\nLogin with this mobile number, then add the Order ID and the PIN from your receipt.';
     return 'https://wa.me/91' + o.mobile + '?text=' + encodeURIComponent(msg);

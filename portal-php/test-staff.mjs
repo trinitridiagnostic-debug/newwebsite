@@ -94,6 +94,12 @@ try {
   r = await fetch(B + `/staff/orders/${code}/upload?name=lab.pdf`, { method: 'PUT', headers: { Origin: ORIGIN, Authorization: 'Bearer ' + TECH }, body: pdf1 }); const uj = await r.json();
   ok(r.status === 200 && uj.order.status === 'completed' && uj.order.hasReport, 'technician uploads the report -> completed');
   ok((await call('POST', `/staff/orders/${code}/approve`, { token: DOC })).s === 404, 'approval step no longer exists');
+  r = await call('POST', `/staff/orders/${code}/notify`, { token: TECH }); ok(r.s === 503, 'WhatsApp send says not set up when the AiSensy key is missing');
+  { const { createHmac } = await import('node:crypto'); const sec = (await import('node:fs')).readFileSync(path.join(store, 'secret.key'), 'utf8').trim();
+    const mkl = (e, c = code) => `/portal-api-unused`; const e = Date.now() + 100000; const sg = (ee) => createHmac('sha256', sec).update(`rep|${code}|${ee}`).digest('base64url');
+    r = await call('GET', `/public/report/${code}?e=${e}&s=${sg(e)}`); ok(r.s === 200 && Buffer.compare(r.buf, pdf1) === 0, 'signed report link downloads without login');
+    r = await call('GET', `/public/report/${code}?e=${e}&s=bad`); ok(r.s === 404, 'bad signature is refused');
+    const old = Date.now() - 5; r = await call('GET', `/public/report/${code}?e=${old}&s=${sg(old)}`); ok(r.s === 404, 'expired link is refused'); }
   r = await call('GET', `/orders/${code}/report`, { token: C }); ok(r.s === 200 && Buffer.compare(r.buf, pdf1) === 0, 'customer downloads the uploaded report');
 
   // PIN reset
