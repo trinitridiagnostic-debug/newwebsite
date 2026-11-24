@@ -345,11 +345,10 @@
     }
     if (!can('results')) { if (!o.hasReport) card.appendChild(el('p', { class: 'note', text: 'No report yet.' })); return card; }
     var file = el('input', { type: 'file', accept: 'application/pdf,.pdf' }), ms = el('span', 'msg'), srcBuf = null, busy = false;
-    var cT = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from top (mm)' }), cB = el('input', { type: 'number', min: '0', max: '80', step: '1', value: '0', style: 'width:80px', 'aria-label': 'Trim from bottom (mm)' });
     var pt = el('input', { type: 'checkbox', id: 'ptbox', style: 'width:auto', onchange: function () { if (srcBuf) preview(); } });
     var frame = el('iframe', { title: 'Report preview', style: 'width:100%;height:620px;border:1px solid #cfd8dc;border-radius:8px;background:#f4f6f7' });
     var prev = el('div', { hidden: true }), send = el('button', { type: 'button', class: 'btn', text: 'Send to customer' });
-    function build() { return LAB.brandReport(o, srcBuf, { cropTop: cT.value, cropBottom: cB.value, patient: pt.checked, at: Date.now() }); }
+    function build() { return LAB.brandReport(o, srcBuf, { patient: pt.checked, at: Date.now() }); }
     function preview() {
       say(ms, 'Preparing preview...', 'info');
       build().then(function (bytes) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = previewUrl; say(ms, '', ''); }).catch(function (e) { say(ms, e.message, 'err'); });
@@ -369,8 +368,7 @@
     });
     card.appendChild(el('p', { class: 'note', text: o.hasReport ? 'To correct the report, choose a new PDF. It replaces the old one for the customer.' : 'Export the report from your lab software as a PDF and choose it here. The Trinetri letterhead is added automatically, then you send it to the customer.' }));
     card.appendChild(el('div', 'filters', [el('div', 'f', [el('label', { text: 'PDF report from the lab software (max 8 MB)' }), file])]));
-    add(prev, [el('p', { class: 'note', text: 'This is how the customer will receive it. If the software prints its own header or footer, trim it here and press Update preview.' }),
-      el('div', 'filters', [el('div', 'f', [el('label', { text: 'Trim from top (mm)' }), cT]), el('div', 'f', [el('label', { text: 'Trim from bottom (mm)' }), cB]), el('button', { type: 'button', class: 'btn sm ghost', text: 'Update preview', onclick: preview })]),
+    add(prev, [el('p', { class: 'note', text: 'This is how the customer will receive it. The blank space at the top of your lab software PDF is removed automatically.' }),
       el('label', 'row note', [pt, ' Also print the patient details box from the order (tick this only if your lab software PDF does not already show them)']),
       frame, el('div', 'row', [send])]);
     card.appendChild(prev); card.appendChild(ms);

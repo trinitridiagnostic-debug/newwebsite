@@ -16,6 +16,31 @@
   }
   function fitText(font, text, size, maxW) { text = latin(text); while (text.length > 3 && font.widthOfTextAtSize(text, size) > maxW) text = text.slice(0, -2); return text; }
 
+
+  /* Finds the blank space above and below the lab software's content on each page (pdf.js draws the page, we look for ink),
+     so the patient details sit right under the letterhead. If pdf.js cannot load, the pages are used as they are. */
+  var pdfjsP = null;
+  function loadPdfjs() {
+    if (!pdfjsP) pdfjsP = import('./pdfjs.min.js?v=1').then(function (m) { m.GlobalWorkerOptions.workerSrc = 'pdfjs.worker.min.js?v=1'; return m; });
+    return pdfjsP;
+  }
+  async function inkBounds(src) {
+    var res = [];
+    try {
+      var lib = await loadPdfjs(), doc = await lib.getDocument({ data: new Uint8Array(src.slice(0)) }).promise, SC = 0.7;
+      for (var i = 1; i <= doc.numPages; i++) {
+        var pg = await doc.getPage(i), vp = pg.getViewport({ scale: SC }), cv = document.createElement('canvas'); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+        var cx = cv.getContext('2d', { willReadFrequently: true }); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+        await pg.render({ canvasContext: cx, viewport: vp }).promise;
+        var d = cx.getImageData(0, 0, cv.width, cv.height).data, w = cv.width, h = cv.height, first = -1, last = -1;
+        for (var y = 0; y < h && first < 0; y++) for (var x = 0; x < w; x++) { var k = (y * w + x) * 4; if (d[k + 3] > 0 && (d[k] < 235 || d[k + 1] < 235 || d[k + 2] < 235)) { first = y; break; } }
+        for (var y2 = h - 1; y2 >= 0 && last < 0; y2--) for (var x2 = 0; x2 < w; x2++) { var k2 = (y2 * w + x2) * 4; if (d[k2 + 3] > 0 && (d[k2] < 235 || d[k2 + 1] < 235 || d[k2 + 2] < 235)) { last = y2; break; } }
+        res.push(first < 0 || pg.rotate ? null : { top: first / SC, bottom: (h - 1 - last) / SC });
+      }
+    } catch (e) { return []; }
+    return res;
+  }
+
   /* o = order (from the server), src = ArrayBuffer of the lab software's PDF,
      opt = { cropTop, cropBottom (mm), draft (bool), by, title, at (ms) } -> Uint8Array */
   async function compose(o, src, opt) {
@@ -27,10 +52,10 @@
     var F = await out.embedFont(P.StandardFonts.Helvetica), FB = await out.embedFont(P.StandardFonts.HelveticaBold);
     var logo = null; try { var r = await fetch('icon.png'); if (r.ok) logo = await out.embedPng(await r.arrayBuffer()); } catch (e) { logo = null; }
     var teal = P.rgb(0.05, 0.45, 0.45), ink = P.rgb(0.1, 0.12, 0.14), grey = P.rgb(0.4, 0.43, 0.46), line = P.rgb(0.8, 0.85, 0.86);
-    var cT = Math.max(0, Number(opt.cropTop) || 0) * MM, cB = Math.max(0, Number(opt.cropBottom) || 0) * MM, FOOT = 72;
+    var bounds = await inkBounds(src), PAD = 6, FOOT = 72;
     var pages = [];
     for (var i = 0; i < n; i++) {
-      var sp = srcDoc.getPage(i), sz = sp.getSize(), bbH = sz.height - cT - cB; if (bbH < 40) bbH = sz.height, cT = 0, cB = 0;
+      var sp = srcDoc.getPage(i), sz = sp.getSize(), ib = bounds[i] || null, cT = ib ? Math.max(0, ib.top - PAD) : 0, cB = ib ? Math.max(0, ib.bottom - PAD) : 0, bbH = sz.height - cT - cB; if (bbH < 40) { bbH = sz.height; cT = 0; cB = 0; }
       var emb = await out.embedPage(sp, { left: 0, bottom: cB, right: sz.width, top: sz.height - cT });
       var page = out.addPage([A4W, A4H]); pages.push(page);
       var HEAD = i === 0 ? (opt.patient ? 156 : 84) : 58, aw = A4W - 40, ah = A4H - HEAD - FOOT - 8, s = Math.min(aw / sz.width, ah / bbH);
