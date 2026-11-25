@@ -13,7 +13,7 @@
     var items = [], pct = 0, discTouched = false;
     var mobile = el('input', { inputmode: 'tel', placeholder: '10-digit mobile', autocomplete: 'off' }), name = el('input', { autocomplete: 'off' }), age = el('input', { type: 'number', min: 0, max: 120 });
     var sex = el('select', null, opts([['', 'Select'], ['M', 'Male'], ['F', 'Female'], ['O', 'Other']], '')), doc = el('input', { placeholder: 'Doctor name (optional)' }), kind = el('select', null, opts([['walk-in', 'Walk-in'], ['home', 'Home collection']], 'walk-in')), notes = el('input', { placeholder: 'Optional' });
-    var addr = el('textarea', { placeholder: 'Full address with landmark' }), vtime = el('input', { type: 'datetime-local' });
+    var phsel = el('select', null, [el('option', { value: '', text: 'Assign later' })]), addr = el('textarea', { placeholder: 'Full address with landmark' }), vtime = el('input', { type: 'datetime-local' });
     var info = el('div', 'note');
     function lookup() {
       var m = L.mob(mobile.value); info.textContent = ''; pct = 0; if (m.length !== 10) return;
@@ -58,7 +58,7 @@
     function create() {
       var m = L.mob(mobile.value); if (m.length !== 10) return say(ms, 'Enter a valid 10-digit mobile number.', 'err'); if (name.value.trim().length < 2) return say(ms, 'Enter the patient name.', 'err'); if (!items.length) return say(ms, 'Add at least one test.', 'err');
       var t = totals(); go.disabled = true; say(ms, 'Creating...', 'info');
-      api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: doc.value, kind: kind.value, address: kind.value === 'home' ? addr.value : '', slot: kind.value === 'home' ? L.fromLocalInput(vtime.value) : '', notes: notes.value, booking_id: bookingId, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
+      api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: doc.value, kind: kind.value, address: kind.value === 'home' ? addr.value : '', slot: kind.value === 'home' ? L.fromLocalInput(vtime.value) : '', phleb: kind.value === 'home' ? phsel.value : '', notes: notes.value, booking_id: bookingId, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
         .then(function (r) { L.refreshDash(); success(r.order, r.pin); }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); });
     }
     function success(o, pin) {
@@ -80,7 +80,7 @@
         el('p', { class: 'note', text: 'Check the details below, add or change tests, then create the order. The booking is marked done automatically.' + (left.length ? ' Not matched to the price list, add them yourself: ' + left.join(', ') + '.' : '') })]));
       lookup();
     }
-    page.appendChild(el('div', 'card', [el('h2', { text: '1. Patient' }), el('div', 'form2', [fld('Mobile number', mobile), fld('Patient name', name), fld('Age', age), fld('Sex', sex), fld('Referred by', doc), fld('Collection', kind), (function () { var a = fld('Home collection address', addr, 'full'), t = fld('Visit date and time', vtime, 'full'); function sh() { a.hidden = t.hidden = kind.value !== 'home'; } kind.addEventListener('change', sh); sh(); L.homeFields = sh; return el('div', 'full', [a, t]); })(), fld('Notes', notes, 'full'), info])]));
+    page.appendChild(el('div', 'card', [el('h2', { text: '1. Patient' }), el('div', 'form2', [fld('Mobile number', mobile), fld('Patient name', name), fld('Age', age), fld('Sex', sex), fld('Referred by', doc), fld('Collection', kind), (function () { var a = fld('Home collection address', addr, 'full'), t = fld('Visit date and time', vtime, 'full'), pf = fld('Assign to phlebotomist', phsel, 'full'); pf.hidden = true; function sh() { a.hidden = t.hidden = kind.value !== 'home'; pf.hidden = kind.value !== 'home' || !can('assign') || phsel.options.length < 2; } kind.addEventListener('change', sh); sh(); L.homeFields = sh; if (can('assign')) api('GET', '/staff/phlebs').then(function (d) { (d.phlebs || []).forEach(function (p) { phsel.appendChild(el('option', { value: p.id, text: p.name })); }); sh(); }).catch(function () { }); return el('div', 'full', [a, t, pf]); })(), fld('Notes', notes, 'full'), info])]));
     page.appendChild(el('div', 'card', [el('h2', { text: '2. Tests' }), fld('Add test or package', q), sugg, el('p', { class: 'upd', text: 'Quick packages:' }), chips, custom,
       el('div', 'tbl-wrap', el('table', 'tbl', [el('thead', null, el('tr', null, [el('th', { text: 'Test' }), el('th', { class: 'num', text: 'Price' }), el('th')])), tbody]))]));
     page.appendChild(el('div', 'card', [el('h2', { text: '3. Billing' }), el('div', 'filters', [fld('Discount (₹)', disc), memBtn, fld('Paid now (₹)', paid), fld('Payment mode', mode), btn('Paid in full', 'ghost', function () { paid.value = totals().t; draw(); })]), sum, el('div', 'row', [go, ms])]));

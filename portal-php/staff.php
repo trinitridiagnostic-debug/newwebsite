@@ -117,6 +117,7 @@ function createOrder($s) {
   if (mb_strlen($name) < 2) throw bad('Enter the patient name.');
   if (!preg_match('/^[6-9]\d{9}$/', $mobile)) throw bad('Enter a valid 10-digit mobile number.');
   $tests = sTests(field($b, 'tests')); list($age, $sex, $doc, $kind, $notes) = demographics($b);
+  $pid = ''; if ($kind === 'home' && staff_can($s, 'assign')) { $pid = clean(field($b, 'phleb'), 32); if ($pid !== '' && !one("SELECT id FROM staff WHERE id=? AND role='phlebotomist' AND active=1", [$pid])) throw bad('Choose a phlebotomist.'); }
   $sub = array_sum(array_column($tests, 'price')); $disc = min($sub, money($b, 'discount')); $amount = $sub - $disc;
   $paid = min($amount, money($b, 'paid')); $mode = clean(field($b, 'pay_mode'), 12) ?: ($paid ? 'cash' : null);
   $pin = (string)random_int(100000, 999999); $id = rnd(9); $now = nowms();
@@ -131,6 +132,9 @@ function createOrder($s) {
   $cu = one('SELECT id FROM users WHERE mobile=? AND verified=1', [$mobile]);   // a verified customer account sees the new order straight away
   if ($cu) autoLink($cu['id'], $mobile);
   setVisit($id, $b);
+  if ($pid !== '') {
+    q("UPDATE orders SET ph_id=?, ph_status='assigned', ph_at=? WHERE id=?", [$pid, nowms(), $id]);
+  }
   $bid = (int)field($b, 'booking_id');
   if ($bid > 0) q("UPDATE bookings SET status='done', order_code=? WHERE id=? AND status='new'", [$code, $bid]);
   out(['order' => sView(sFresh($id)), 'pin' => $pin], 201);

@@ -36,6 +36,10 @@ try {
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Linga Gouda', mobile: '9811111111', kind: 'home', address: 'Gadag', slot: Date.now() + 3600000, tests: [{ name: 'LIPID PROFILE', price: 250 }, { name: 'CBC', price: 300 }], discount: 50 } });
   const code = r.j.order.code; ok(r.j.order.due === 500, 'order due 500');
   await call('POST', `/staff/orders/${code}/assign`, { token: A, body: { phleb: ph1.id } });
+  r = await call('POST', '/staff/orders', { token: A, body: { name: 'Auto Assign', mobile: '9833333333', kind: 'home', address: 'X', phleb: ph1.id, tests: [{ name: 'CBC', price: 300 }] } }); ok(r.s === 201 && r.j.order.ph_id === ph1.id && r.j.order.ph_status === 'assigned', 'new order created already assigned to the phlebotomist');
+  ok((await call('GET', '/staff/phleb/orders?scope=mine', { token: PH })).j.orders.some((o) => o.code === r.j.order.code), 'it shows in the phlebotomist app');
+  ok((await call('POST', '/staff/orders', { token: A, body: { name: 'Bad Pick', mobile: '9833333334', kind: 'home', phleb: 'nope', tests: [{ name: 'CBC', price: 300 }] } })).s === 400, 'unknown phlebotomist refused');
+  r = await call('POST', '/staff/orders', { token: A, body: { name: 'Walk In', mobile: '9833333335', kind: 'walk-in', phleb: ph1.id, tests: [{ name: 'CBC', price: 300 }] } }); ok(r.s === 201 && !r.j.order.ph_id, 'walk-in order ignores phlebotomist');
   r = await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH }); ok(r.s === 400, 'QR refused before sample collected');
   await call('POST', `/staff/phleb/orders/${code}/accept`, { token: PH }); await call('POST', `/staff/phleb/orders/${code}/collected`, { token: PH });
   ok((await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH2 })).s === 404, 'other phlebotomist cannot take payment');
