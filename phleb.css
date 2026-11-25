@@ -50,3 +50,6 @@ input,textarea{width:100%;border:1px solid #cfd4df;border-radius:10px;padding:12
 .modalbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:30;padding:20px}
 .modal{background:#fff;border-radius:14px;padding:20px;max-width:360px;width:100%}.modal h3{margin:0 0 8px}.modal p{margin:0 0 6px;color:#4a5060}
 .pwwrap{position:relative}.pwwrap input{padding-right:44px}
+
+.pay .qr{display:block;width:230px;max-width:80%;margin:12px auto 4px;border:2px solid var(--yel);border-radius:12px;background:#fff}
+.pay .paid{background:#e6f5ec;color:#14683a;border-radius:10px;padding:12px;font-weight:700;margin-top:10px}

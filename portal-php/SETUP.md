@@ -87,3 +87,14 @@ In `config.php` set `otp_provider` and the matching template details (see `confi
 - **Assign:** Lab console > **Home visits** (or the Home visit card on the order). Choose a phlebotomist, or leave it open so any phlebotomist can pick it under **Pick Order**.
 - **Phlebotomist screens:** Orders (Accept, Start, Sample collected, Order release), Served, Pick Order, Leave, Password, SOS.
 - **Lab sees:** collected samples move the order to "Sample collected" automatically, plus phlebotomist leave and SOS alerts (with location) on the Home visits page. Press Acknowledge on an SOS once handled.
+
+## Online payment for home visits (Razorpay QR) and invoice on WhatsApp
+After the phlebotomist marks the sample collected, the app shows **Show payment QR** for the amount still due. When the patient pays by any UPI app, the order is marked **paid (online)** and an invoice PDF is sent to the patient's WhatsApp.
+
+1. In your Razorpay dashboard: generate API keys (Account & Settings > API Keys) and make sure **UPI QR codes** are enabled for your account.
+2. Razorpay dashboard > Webhooks > Add: URL `https://trinetridiagnostics.com/portal-api/pay/webhook`, choose a secret you invent, tick **qr_code.credited** and **payment.captured**.
+3. In `config.php` (type these yourself, never send them to anyone):
+   `'razorpay_key_id' => 'rzp_live_...', 'razorpay_key_secret' => '...', 'razorpay_webhook_secret' => '...',`
+4. In AiSensy create an approved template with a **document header** and 4 variables ({{1}} name, {{2}} order ID, {{3}} amount paid, {{4}} date), then add `'aisensy_invoice_campaign' => 'your_campaign_name',`.
+5. The lab console order page has **Download invoice** and **Send invoice on WhatsApp** buttons for any order with a payment.
+Without the webhook the app still notices the payment (it checks Razorpay every few seconds while the QR is on screen).

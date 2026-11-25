@@ -295,6 +295,9 @@
         var amt = el('input', { type: 'number', min: 1, max: o.due, value: o.due }), mode = el('select', null, ['cash', 'upi', 'card'].map(function (x) { return el('option', { value: x, text: x.toUpperCase() }); }));
         bc.appendChild(el('div', 'filters', [fld('Amount received', amt), fld('Mode', mode), el('button', { type: 'button', class: 'btn sm', text: 'Collect payment', onclick: function () { api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/payment', { amount: Number(amt.value), mode: mode.value }).then(function () { toast('Payment recorded'); LAB.refreshDash(); route(); }).catch(function (e) { toast(e.message); }); } })]));
       }
+      if (o.paid > 0) bc.appendChild(el('div', 'filters', [
+        el('button', { type: 'button', class: 'btn sm ghost', text: 'Download invoice', onclick: function () { api('GET', '/staff/orders/' + encodeURIComponent(o.code) + '/invoice', undefined, { blob: true }).then(function (b) { window.open(URL.createObjectURL(b), '_blank'); }).catch(function (e) { toast(e.message); }); } }),
+        can('billing') ? el('button', { type: 'button', class: 'btn sm ghost', text: 'Send invoice on WhatsApp', onclick: function () { api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/sendinvoice').then(function () { toast('Invoice sent on WhatsApp.'); }).catch(function (e) { toast(e.status === 503 ? 'WhatsApp invoice is not set up yet (see SETUP).' : e.message); }); } }) : null]));
       page.appendChild(bc);
 
       /* report + results */

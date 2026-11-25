@@ -12,7 +12,7 @@ function phView($o) {
   $tests = json_decode($o['tests'], true) ?: [];
   return ['code' => $o['code'], 'name' => $o['name'], 'mobile' => $o['mobile'], 'age' => $o['age'] === null ? null : (int)$o['age'], 'sex' => $o['sex'],
     'addr' => (string)($o['addr'] ?? ''), 'slot_at' => $o['slot_at'] === null ? null : (int)$o['slot_at'], 'slot_mins' => (int)($o['slot_mins'] ?: 20),
-    'tests' => array_column($tests, 'name'), 'fasting' => phFasting($tests), 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'notes' => (string)$o['notes'],
+    'tests' => array_column($tests, 'name'), 'fasting' => phFasting($tests), 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'amount' => (int)$o['amount'], 'paid' => (int)$o['paid'], 'pay_mode' => $o['pay_mode'], 'notes' => (string)$o['notes'],
     'ph_id' => $o['ph_id'], 'ph_status' => $o['ph_status'], 'ph_at' => $o['ph_at'] === null ? null : (int)$o['ph_at'], 'status' => $o['status'], 'created' => (int)$o['created']];
 }
 /* address + visit time on an order (called after create/update when the form sent them) */
@@ -69,6 +69,15 @@ function phlebRoutes($path, $m, $s) {
         }
       }
       out(['order' => phView(sFresh($o['id']))]);
+    }
+    if (preg_match('#^/staff/phleb/orders/([^/]+)(?:/(payqr|paystatus))?$#', $path, $r) && ($m === 'GET' || ($r[2] ?? '') === 'payqr')) {
+      $act = $r[2] ?? ''; $o = one("SELECT * FROM orders WHERE code=? AND kind='home'", [rawurldecode($r[1])]);
+      if (!$o || $o['ph_id'] !== $me) throw new HttpErr(404, 'Visit not found.');
+      if ($act === '' && $m === 'GET') out(['order' => phView($o)]);
+      if ($o['ph_status'] !== 'collected') throw bad('Mark the sample collected first, then take the payment.');
+      require_once __DIR__ . '/pay.php';
+      if ($act === 'payqr' && $m === 'POST') { $qr = payQrCreate($o); out(['qr' => $qr, 'order' => phView(sFresh($o['id']))]); }
+      if ($act === 'paystatus' && $m === 'GET') { $o = payQrCheck($o); out(['order' => phView($o), 'paid_online' => orderDue($o) < 1 && $o['pay_mode'] === 'online']); }
     }
     if ($path === '/staff/phleb/leaves' && $m === 'GET') {
       out(['leaves' => array_map(function ($x) { return ['id' => (int)$x['id'], 'from' => $x['from_d'], 'to' => $x['to_d'], 'reason' => (string)$x['reason']]; },

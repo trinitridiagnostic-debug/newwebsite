@@ -30,7 +30,7 @@ function cfg() {
   $c = ['db_dsn' => '', 'db_user' => '', 'db_pass' => '', 'lab_api_key' => '', 'secret' => '',
         'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com', 'storage_dir' => __DIR__ . '/storage',
         // OTP on WhatsApp only (Meta Cloud API). Leave otp_provider empty to keep OTP switched off.
-        'aisensy_otp_campaign' => '', 'aisensy_otp_button' => true, 'aisensy_base' => 'https://backend.aisensy.com', 'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
+        'aisensy_otp_campaign' => '', 'aisensy_otp_button' => true, 'aisensy_base' => 'https://backend.aisensy.com', 'aisensy_invoice_campaign' => '', 'razorpay_key_id' => '', 'razorpay_key_secret' => '', 'razorpay_webhook_secret' => '', 'razorpay_base' => 'https://api.razorpay.com/v1', 'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
         'wa_api_base' => 'https://graph.facebook.com/v21.0',
         // Report-ready WhatsApp message through AiSensy (key stays in config.php only)
         'aisensy_key' => '', 'aisensy_campaign' => '', 'aisensy_name' => 'Trinetri Diagnostics', 'public_url' => 'https://trinetridiagnostics.com'];
@@ -38,7 +38,7 @@ function cfg() {
   if (is_file($f)) { $x = require $f; if (is_array($x)) $c = array_merge($c, $x); }
   foreach (['db_dsn' => 'PORTAL_DB_DSN', 'db_user' => 'PORTAL_DB_USER', 'db_pass' => 'PORTAL_DB_PASS', 'lab_api_key' => 'PORTAL_LAB_KEY',
             'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE', 'otp_provider' => 'PORTAL_OTP_PROVIDER', 'otp_cooldown' => 'PORTAL_OTP_COOLDOWN',
-            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_otp_campaign' => 'PORTAL_AISENSY_OTP', 'aisensy_base' => 'PORTAL_AISENSY_BASE', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
+            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_otp_campaign' => 'PORTAL_AISENSY_OTP', 'aisensy_base' => 'PORTAL_AISENSY_BASE', 'aisensy_invoice_campaign' => 'PORTAL_AISENSY_INVOICE', 'razorpay_key_id' => 'PORTAL_RZP_KEY', 'razorpay_key_secret' => 'PORTAL_RZP_SECRET', 'razorpay_webhook_secret' => 'PORTAL_RZP_WEBHOOK', 'razorpay_base' => 'PORTAL_RZP_BASE', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
     $v = getenv($e); if ($v !== false && $v !== '') $c[$k] = $v;
   }
   return $c;
@@ -89,7 +89,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v9';
+  $mark = $dir . '/.schema-v10';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -117,6 +117,7 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_items (id $ai, name VARCHAR(80) NOT NULL, unit VARCHAR(20) NOT NULL, qty INT NOT NULL DEFAULT 0, min_qty INT NOT NULL DEFAULT 0, active INT NOT NULL DEFAULT 1, updated BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS payments (id $ai, order_id VARCHAR(32) NOT NULL, ref VARCHAR(40) NOT NULL UNIQUE, amount BIGINT NOT NULL, mode VARCHAR(12) NOT NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS leaves (id $ai, staff_id VARCHAR(32) NOT NULL, from_d VARCHAR(10) NOT NULL, to_d VARCHAR(10) NOT NULL, reason VARCHAR(200) NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS sos (id $ai, staff_id VARCHAR(32) NOT NULL, staff_name VARCHAR(60) NOT NULL, lat DOUBLE NULL, lng DOUBLE NULL, note VARCHAR(200) NULL, created BIGINT NOT NULL, ack_by VARCHAR(60) NULL, ack_at BIGINT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
@@ -124,7 +125,7 @@ function migrate($pdo, $mysql) {
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
     "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
-    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL", "orders ADD COLUMN addr VARCHAR(300) NULL", "orders ADD COLUMN slot_at BIGINT NULL", "orders ADD COLUMN slot_mins INT NULL", "orders ADD COLUMN ph_id VARCHAR(32) NULL", "orders ADD COLUMN ph_status VARCHAR(10) NULL", "orders ADD COLUMN ph_at BIGINT NULL"];
+    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL", "orders ADD COLUMN addr VARCHAR(300) NULL", "orders ADD COLUMN slot_at BIGINT NULL", "orders ADD COLUMN slot_mins INT NULL", "orders ADD COLUMN ph_id VARCHAR(32) NULL", "orders ADD COLUMN ph_status VARCHAR(10) NULL", "orders ADD COLUMN ph_at BIGINT NULL", "orders ADD COLUMN pay_qr_id VARCHAR(40) NULL", "orders ADD COLUMN pay_qr_url VARCHAR(300) NULL", "orders ADD COLUMN pay_qr_amt BIGINT NULL", "orders ADD COLUMN pay_qr_at BIGINT NULL"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
   try { $pdo->exec("UPDATE staff SET role='technician' WHERE role='doctor'"); } catch (PDOException $e) { }   /* the doctor role was removed */
   foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);
@@ -456,6 +457,8 @@ function route() {
   $path = rtrim($uri, '/') ?: '/';
 
   if ($path === '/' && $m === 'GET') out(['ok' => true, 'service' => 'trinetri-portal']);
+  if ($path === '/pay/webhook' && $m === 'POST') { require_once __DIR__ . '/pay.php'; razorpayWebhook(); }
+  if ($m === 'GET' && preg_match('#^/public/invoice/([^/]+)(?:/[^/]+)?$#', $path, $r)) { require_once __DIR__ . '/pay.php'; publicInvoice(rawurldecode($r[1])); }
   if ($path === '/wa/webhook') {   // Meta WhatsApp webhook: GET = one-time verification, POST = delivery events (acknowledged, not stored)
     if ($m === 'GET') {
       $vt = (string)cfg()['wa_verify_token'];

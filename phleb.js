@@ -94,16 +94,36 @@
     };
   }
   V.orders = listScreen('Visit Orders', 'mine', 'No visits assigned to you right now.', function (o) { return card(o, function () { location.hash = '#order/' + encodeURIComponent(o.code); }); });
-  V.served = listScreen('Served', 'served', 'No collected samples yet.', function (o) { return card(o); });
+  V.served = listScreen('Served', 'served', 'No collected samples yet.', function (o) { return card(o, function () { location.hash = '#order/' + encodeURIComponent(o.code); }, o.due > 0 ? el('div', 'meta', ['Payment due: Rs. ' + o.due]) : (o.pay_mode === 'online' ? el('div', 'meta', ['Paid online']) : null)); });
   V.pool = listScreen('Pick Order', 'pool', 'No unassigned visits right now.', function (o, reload) {
     var b = el('button', { type: 'button', class: 'btn pri', text: 'Pick this visit', onclick: function () {
       b.disabled = true; api('POST', '/staff/phleb/orders/' + encodeURIComponent(o.code) + '/pick').then(function () { toast('Added to your orders'); reload(); }).catch(function (e) { b.disabled = false; toast(e.message); reload(); });
     } });
     return card(o, null, el('div', 'btns', [b]));
   });
+  function payCard(o) {
+    var c = el('div', 'card pay'), area = el('div'), poll = null;
+    function stop() { clearInterval(poll); poll = null; }
+    function done() { stop(); c.textContent = ''; c.appendChild(el('div', 'nm', ['Paid online'])); c.appendChild(el('div', 'paid', ['Payment received. The invoice has been sent to the patient on WhatsApp.'])); }
+    if (o.due < 1) { c.appendChild(el('div', 'nm', [o.pay_mode === 'online' ? 'Paid online' : 'Payment received'])); c.appendChild(el('div', 'meta', ['Rs. ' + o.paid + ' paid for ' + o.code + '.'])); return c; }
+    c.appendChild(el('div', 'nm', ['Payment due: Rs. ' + o.due])); c.appendChild(el('div', 'meta', ['Show the QR to the patient. Any UPI app works. It is marked paid here as soon as the payment arrives.']));
+    var msg = el('p', 'msg'), btn = el('button', { type: 'button', class: 'btn pri', style: 'width:100%', text: 'Show payment QR', onclick: function () {
+      btn.disabled = true; say(msg, 'Making the QR...', '');
+      api('POST', '/staff/phleb/orders/' + encodeURIComponent(o.code) + '/payqr').then(function (r) {
+        say(msg, '', ''); area.textContent = '';
+        area.appendChild(el('img', { class: 'qr', src: r.qr.image_url, alt: 'UPI payment QR for Rs. ' + r.qr.amount })); area.appendChild(el('div', 'meta', ['Scan to pay Rs. ' + r.qr.amount + '. Waiting for the payment...']));
+        area.appendChild(el('button', { type: 'button', class: 'btn', style: 'width:100%;margin-top:8px', text: 'New QR', onclick: function () { stop(); btn.disabled = false; btn.click(); } }));
+        stop(); poll = setInterval(function () {
+          if (!document.body.contains(c)) { stop(); return; }
+          api('GET', '/staff/phleb/orders/' + encodeURIComponent(o.code) + '/paystatus', undefined, true).then(function (s) { if (s.paid_online) done(); else if (s.order.due < 1) { stop(); area.textContent = ''; area.appendChild(el('div', 'paid', ['Payment received.'])); } }).catch(function () { });
+        }, 4000);
+      }).catch(function (e) { btn.disabled = false; say(msg, e.message, 'err'); });
+    } });
+    c.appendChild(btn); c.appendChild(msg); c.appendChild(area); return c;
+  }
   V.order = function (page, code) {
     header('Visit Order', '#orders'); var box = el('div'); page.appendChild(box);
-    function act(a, label) { return function () { var btn = this; btn.disabled = true; api('POST', '/staff/phleb/orders/' + encodeURIComponent(code) + '/' + a).then(function (r) { toast(label); if (a === 'release' || a === 'collected') location.hash = a === 'release' ? '#orders' : '#served'; else draw(r.order); }).catch(function (e) { btn.disabled = false; toast(e.message); }); }; }
+    function act(a, label) { return function () { var btn = this; btn.disabled = true; api('POST', '/staff/phleb/orders/' + encodeURIComponent(code) + '/' + a).then(function (r) { toast(label); if (a === 'release') location.hash = '#orders'; else draw(r.order); }).catch(function (e) { btn.disabled = false; toast(e.message); }); }; }
     function draw(o) {
       box.textContent = '';
       var dt = el('div', 'card dt'), tests = el('ul', 'tests'); o.tests.forEach(function (t) { tests.appendChild(el('li', { text: t })); }); tests.hidden = true;
@@ -122,10 +142,11 @@
       if (o.ph_status === 'assigned' || o.ph_status === 'accepted') b.appendChild(el('button', { type: 'button', class: 'btn pri', text: 'Start', onclick: act('start', 'Started. Safe travels.') }));
       if (o.ph_status === 'started') b.appendChild(el('button', { type: 'button', class: 'btn go', text: 'Sample collected', onclick: function () { var self = this; if (confirm('Confirm that the sample of ' + o.name + ' has been collected?')) act('collected', 'Marked as collected').call(self); } }));
       dt.appendChild(b); box.appendChild(dt);
+      if (o.ph_status === 'collected') box.appendChild(payCard(o));
       if (o.ph_status !== 'collected') box.appendChild(el('button', { type: 'button', class: 'btn', style: 'width:100%', text: 'Order release', onclick: function () { var self = this; if (confirm('Release this visit back to the pool? Another phlebotomist can pick it.')) act('release', 'Released').call(self); } }));
     }
     box.appendChild(el('div', 'empty', ['Loading...']));
-    api('GET', '/staff/phleb/orders?scope=mine').then(function (d) { var o = d.orders.filter(function (x) { return x.code === code; })[0]; if (!o) { box.textContent = ''; box.appendChild(el('div', 'empty', ['This visit is not in your orders any more.'])); return; } draw(o); }).catch(function (e) { box.textContent = ''; box.appendChild(el('div', 'empty', [e.message])); });
+    api('GET', '/staff/phleb/orders/' + encodeURIComponent(code)).then(function (d) { draw(d.order); }).catch(function (e) { box.textContent = ''; box.appendChild(el('div', 'empty', [e.message])); });
   };
   V.leave = function (page) {
     header('Leave'); var today = new Date(); var iso = today.getFullYear() + '-' + p2(today.getMonth() + 1) + '-' + p2(today.getDate());
