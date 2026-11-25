@@ -5,7 +5,7 @@
 const ROLE_CAN = [
   'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock', 'assign'],
   'reception'  => ['view', 'billing', 'status', 'inbox', 'members', 'assign'],
-  'technician' => ['view', 'status', 'results', 'stock'],
+  'technician' => ['view', 'status', 'results', 'stock', 'assign'],
   'phlebotomist' => ['phleb'],   /* home-collection staff: only the phlebotomist app */
 ];
 

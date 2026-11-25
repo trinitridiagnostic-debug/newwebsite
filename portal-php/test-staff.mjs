@@ -200,7 +200,7 @@ try {
   ok((await call('GET', '/staff/phleb/home', { token: TECH })).s === 403 && (await call('GET', '/staff/orders', { token: PH1 })).s === 403, 'roles are separated both ways');
   r = await call('GET', '/staff/dashboard?since=0', { token: REC }); ok(r.j.visits.unassigned === 1, 'dashboard counts unassigned visits');
   r = await call('GET', '/staff/phleb/orders?scope=pool', { token: PH1 }); ok(r.j.orders.length === 1 && r.j.orders[0].code === hc && r.j.orders[0].fasting === true && r.j.orders[0].due === 250, 'pool shows the visit with fasting flag and amount to collect');
-  ok((await call('POST', `/staff/orders/${hc}/assign`, { token: TECH, body: { phleb: 'x' } })).s === 403, 'technician cannot assign');
+  ok((await call('POST', `/staff/orders/${hc}/assign`, { token: TECH, body: { phleb: 'x' } })).s === 400, 'technician can assign (bad phlebotomist is refused)');
   const phl = (await call('GET', '/staff/phlebs', { token: REC })).j.phlebs; ok(phl.length === 2, 'lab lists phlebotomists');
   const p1 = phl.find((x) => x.username === 'ph1').id, p2 = phl.find((x) => x.username === 'ph2').id;
   ok((await call('POST', `/staff/orders/${hc}/assign`, { token: REC, body: { phleb: p1 } })).j.order.ph_status === 'assigned', 'lab assigns the visit');
