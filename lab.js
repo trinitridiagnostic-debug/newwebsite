@@ -277,8 +277,10 @@
       STEPS.forEach(function (k, i) { var cls = i < idx || (i === idx && o.status === 'completed') ? 'done' : i === idx ? 'now' : 'todo'; trk.appendChild(el('div', 'tstep ' + cls, [el('i', { text: cls === 'done' ? '✓' : String(i + 1) }), el('div', null, [el('b', { text: STLAB[k] }), el('small', { text: o.times && o.times[k] ? fdt(o.times[k]) : '-' })])])); });
       var pc = el('section', 'card', [el('h2', { text: 'Sample progress (customers see this live)' }), trk]);
       if (can('status') && o.status !== 'completed') {
-        var r = el('div', 'row'); if (o.status === 'booked') r.appendChild(el('button', { type: 'button', class: 'btn sm', text: 'Mark sample collected', onclick: function () { setStatus('collected'); } }));
-        if (o.status !== 'processing') r.appendChild(el('button', { type: 'button', class: 'btn sm', text: 'Mark in progress', onclick: function () { setStatus('processing'); } }));
+        var homeWait = o.kind === 'home' && o.status === 'booked' && o.ph_status !== 'collected';
+        var r = el('div', 'row'); if (homeWait) r.appendChild(el('span', { class: 'upd', text: 'Home visit: the phlebotomist marks "Sample collected" in their app' + (o.ph_id ? '.' : ' once a phlebotomist is assigned (see Home visit below).') }));
+        else if (o.status === 'booked') r.appendChild(el('button', { type: 'button', class: 'btn sm', text: 'Mark sample collected', onclick: function () { setStatus('collected'); } }));
+        if (o.status !== 'processing' && !homeWait) r.appendChild(el('button', { type: 'button', class: 'btn sm', text: 'Mark in progress', onclick: function () { setStatus('processing'); } }));
         r.appendChild(el('span', { class: 'upd', text: 'Completed is set automatically when the report is sent.' })); pc.appendChild(r);
       }
       page.appendChild(pc);

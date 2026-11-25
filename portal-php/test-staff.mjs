@@ -67,6 +67,8 @@ try {
 
   // status
   ok((await call('POST', `/staff/orders/${code}/status`, { token: TECH, body: { status: 'completed' } })).s === 400, 'cannot complete by status');
+  ok((await call('POST', `/staff/orders/${code}/status`, { token: TECH, body: { status: 'collected' } })).s === 400, 'home order: only the phlebotomist marks collected');
+  await call('POST', `/staff/orders/${code}/update`, { token: REC, body: { name: 'Asha Rao', mobile: '9876543210', age: 35, sex: 'F', ref_doctor: 'Dr Patil', kind: 'walk-in', notes: 'Fasting 12h' } });
   r = await call('POST', `/staff/orders/${code}/status`, { token: TECH, body: { status: 'collected' } }); ok(r.j.order.status === 'collected' && r.j.order.times.collected > 0, 'technician marks collected');
 
   // templates
@@ -213,6 +215,7 @@ try {
   r = await call('POST', '/staff/orders', { token: REC, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: slot + 7200000, tests: [{ name: 'CBC', price: 300 }] } }); const hc2 = r.j.order.code;
   ok((await call('POST', `/staff/phleb/orders/${hc2}/pick`, { token: PH2 })).j.order.ph_status === 'accepted', 'pick from pool');
   ok((await call('POST', `/staff/phleb/orders/${hc2}/pick`, { token: PH1 })).s === 400, 'a picked visit cannot be picked again');
+  ok((await call('POST', `/staff/orders/${hc2}/status`, { token: REC, body: { status: 'collected' } })).s === 400 && (await call('POST', `/staff/orders/${hc2}/status`, { token: TECH, body: { status: 'processing' } })).s === 400, 'lab cannot mark a home visit collected or in progress before the phlebotomist does');
   ok((await call('POST', `/staff/phleb/orders/${hc2}/release`, { token: PH2 })).j.order.ph_id === null, 'release puts it back in the pool');
   const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
   ok((await call('POST', '/staff/phleb/leaves', { token: PH2, body: { from: '2020-01-01', to: '2020-01-02' } })).s === 400, 'past leave refused');

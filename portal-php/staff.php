@@ -342,6 +342,8 @@ function staff($path, $m) {
     if ($act === 'status' && $m === 'POST') {
       need($s, 'status'); $st = strtolower(clean(field(body(), 'status'), 20));
       if (!in_array($st, ['booked', 'collected', 'processing'], true)) throw bad('Completed is set when the report is approved.');
+      /* a home visit's sample is marked collected by the phlebotomist only */
+      if ($o['kind'] === 'home' && $o['status'] === 'booked' && $o['ph_status'] !== 'collected' && $st !== 'booked') throw bad('For a home visit, the phlebotomist marks the sample as collected. Assign a phlebotomist, or change the order to Walk-in if the sample was collected at the lab.');
       $t = json_decode($o['times'], true) ?: []; $t[$st] = nowms();
       q('UPDATE orders SET status=?, times=? WHERE id=?', [$st, json_encode($t), $o['id']]); out(['order' => sView(sFresh($o['id']))]);
     }
