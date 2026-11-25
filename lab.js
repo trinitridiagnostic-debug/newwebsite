@@ -83,19 +83,21 @@
     ['bookings', 'Bookings', 'billing', 'M7 3v3M17 3v3M4 8h16M5 5h14v15H5V5zM9 13l2 2 4-4'],
     ['orders', 'Orders', 'view', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
     ['patients', 'Patients', 'view', 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21c1-4 4-6 8-6s7 2 8 6'],
+    ['visits', 'Home visits', 'assign', 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
     ['inbox', 'Inbox', 'inbox', 'M4 5h16v11H8l-4 4V5z'],
     ['reports', 'Reports', 'billing', 'M5 20V10M12 20V4M19 20v-7'],
     ['stock', 'Stock', 'stock', 'M4 8l8-4 8 4v8l-8 4-8-4V8zM4 8l8 4 8-4M12 12v8'],
     ['staff', 'Staff', 'staff', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z'],
     ['acct', 'My account', null, 'M12 8m-4 0a4 4 0 108 0 4 4 0 10-8 0M5 21c1-4 4-6 7-6s6 2 7 6']
   ];
-  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
-  var ROLES = { admin: 'Admin', reception: 'Reception', technician: 'Technician' };
+  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
+  var ROLES = { admin: 'Admin', reception: 'Reception', technician: 'Technician', phlebotomist: 'Phlebotomist' };
   LAB.roles = ROLES;
   function tok(v) { try { if (v === null) sessionStorage.removeItem('trin.lab.tok'); else if (v) sessionStorage.setItem('trin.lab.tok', v); else return sessionStorage.getItem('trin.lab.tok') || ''; } catch (e) { } return ''; }
   function logout(msg) { TOKEN = ''; ME = null; tok(null); clearInterval(pollT); $('#app').hidden = true; $('#auth').hidden = false; boot(msg); }
   var pollT = null;
   function showApp(staff, token) {
+    if (staff.role === 'phlebotomist') { try { localStorage.setItem('trin.ph.tok', token); } catch (e) { } tok(null); location.replace('phlebotomist.html'); return; }
     ME = staff; TOKEN = token; tok(token); $('#auth').hidden = true; $('#app').hidden = false;
     $('#wn').textContent = ME.name; $('#wr').textContent = ROLES[ME.role] || ME.role;
     var menu = $('#menu'); menu.textContent = '';
@@ -110,7 +112,7 @@
   function refreshDash() {
     api('GET', '/staff/dashboard?since=' + dayStart(0) + '&tz=' + (-new Date().getTimezoneOffset()), undefined, { quiet: true }).then(function (d) {
       DASH = d; LAB.dash = d;
-      var n = { bookings: d.bookings || 0, inbox: d.inbox.tickets + d.inbox.chats + d.inbox.members, stock: d.stock ? d.stock.low : 0, orders: 0 };
+      var n = { bookings: d.bookings || 0, inbox: d.inbox.tickets + d.inbox.chats + d.inbox.members, stock: d.stock ? d.stock.low : 0, orders: 0, visits: d.visits ? d.visits.unassigned + d.visits.sos : 0 };
       $$('#menu .nv').forEach(function (b) { var c = n[b.getAttribute('data-v')], dot = $('.dot', b); if (dot) { dot.hidden = !c; dot.textContent = c || ''; } });
     }).catch(function () { });
   }
@@ -135,6 +137,9 @@
     document.title = (TITLES[view] || 'Lab') + ' | Trinetri Lab Console';
   }
   window.addEventListener('hashchange', route);
+  /* datetime-local boxes <-> milliseconds */
+  LAB.toLocalInput = function (ms) { if (!ms) return ''; var d = new Date(Number(ms)), p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+  LAB.fromLocalInput = function (v) { if (!v) return ''; var t = new Date(v).getTime(); return isNaN(t) ? '' : t; };
   LAB.fail = function (page, e) { page.textContent = ''; page.appendChild(el('div', 'card', [el('p', { class: 'msg err', text: e.message || 'Something went wrong.' })])); };
 
   function boot(msg) {
@@ -265,6 +270,7 @@
       page.appendChild(el('div', 'card', [el('div', 'row', [el('h2', { text: o.code, style: 'margin:0' }), badge(o.status), resBadge(o)]),
         el('p', null, [el('b', { text: o.name }), ' · ' + o.mobile + (o.age != null ? ' · ' + o.age + ' yrs' : '') + (o.sex ? ' · ' + ({ M: 'Male', F: 'Female', O: 'Other' }[o.sex]) : '') + (o.ref_doctor ? ' · Ref: ' + o.ref_doctor : '') + ' · ' + (o.kind === 'home' ? 'Home collection' : 'Walk-in')]),
         el('p', { class: 'upd', text: 'Created ' + fdt(o.created) + (o.created_by ? ' by ' + o.created_by : '') + (o.notes ? ' · Note: ' + o.notes : '') }), tools]));
+      if (o.kind === 'home' && LAB.homeCard) page.appendChild(LAB.homeCard(o));
 
       /* progress */
       var idx = STEPS.indexOf(o.status), trk = el('div', 'trk');
@@ -300,9 +306,11 @@
       var n = el('input', { value: o.name }), mb = el('input', { value: o.mobile, inputmode: 'tel' }), ag = el('input', { type: 'number', min: 0, max: 120, value: o.age == null ? '' : o.age }), sx = el('select', null, [['', 'Sex'], ['M', 'Male'], ['F', 'Female'], ['O', 'Other']].map(function (x) { return el('option', { value: x[0], text: x[1], selected: x[0] === (o.sex || '') }); }));
       var dc = el('input', { value: o.ref_doctor || '' }), kd = el('select', null, [['walk-in', 'Walk-in'], ['home', 'Home collection']].map(function (x) { return el('option', { value: x[0], text: x[1], selected: x[0] === o.kind }); })), nt = el('textarea', { text: o.notes || '' }); nt.value = o.notes || '';
       var ms = el('span', 'msg');
-      modal('Edit patient details', el('div', 'form2', [fld('Name', n, 'full'), fld('Mobile', mb), fld('Age', ag), fld('Sex', sx), fld('Collection', kd), fld('Referred by', dc, 'full'), fld('Notes', nt, 'full'), ms]), [{ text: 'Cancel', cls: 'ghost' }, {
+      var ad = el('textarea', { placeholder: 'Full address with landmark' }); ad.value = o.addr || ''; var vt = el('input', { type: 'datetime-local' }); vt.value = LAB.toLocalInput(o.slot_at);
+      var adF = fld('Home collection address', ad, 'full'), vtF = fld('Visit date and time', vt, 'full'); function homeShow() { adF.hidden = vtF.hidden = kd.value !== 'home'; } kd.addEventListener('change', homeShow); homeShow();
+      modal('Edit patient details', el('div', 'form2', [fld('Name', n, 'full'), fld('Mobile', mb), fld('Age', ag), fld('Sex', sx), fld('Collection', kd), adF, vtF, fld('Referred by', dc, 'full'), fld('Notes', nt, 'full'), ms]), [{ text: 'Cancel', cls: 'ghost' }, {
         text: 'Save', keep: true, fn: function (close) {
-          api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/update', { name: n.value, mobile: mb.value, age: ag.value, sex: sx.value, ref_doctor: dc.value, kind: kd.value, notes: nt.value }).then(function () { close(); toast('Saved'); route(); }).catch(function (e) { say(ms, e.message, 'err'); });
+          api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/update', { name: n.value, mobile: mb.value, age: ag.value, sex: sx.value, ref_doctor: dc.value, kind: kd.value, notes: nt.value, address: kd.value === 'home' ? ad.value : '', slot: kd.value === 'home' ? LAB.fromLocalInput(vt.value) : '' }).then(function () { close(); toast('Saved'); route(); }).catch(function (e) { say(ms, e.message, 'err'); });
         }
       }]);
     }

@@ -13,6 +13,7 @@
     var items = [], pct = 0, discTouched = false;
     var mobile = el('input', { inputmode: 'tel', placeholder: '10-digit mobile', autocomplete: 'off' }), name = el('input', { autocomplete: 'off' }), age = el('input', { type: 'number', min: 0, max: 120 });
     var sex = el('select', null, opts([['', 'Select'], ['M', 'Male'], ['F', 'Female'], ['O', 'Other']], '')), doc = el('input', { placeholder: 'Doctor name (optional)' }), kind = el('select', null, opts([['walk-in', 'Walk-in'], ['home', 'Home collection']], 'walk-in')), notes = el('input', { placeholder: 'Optional' });
+    var addr = el('textarea', { placeholder: 'Full address with landmark' }), vtime = el('input', { type: 'datetime-local' });
     var info = el('div', 'note');
     function lookup() {
       var m = L.mob(mobile.value); info.textContent = ''; pct = 0; if (m.length !== 10) return;
@@ -57,7 +58,7 @@
     function create() {
       var m = L.mob(mobile.value); if (m.length !== 10) return say(ms, 'Enter a valid 10-digit mobile number.', 'err'); if (name.value.trim().length < 2) return say(ms, 'Enter the patient name.', 'err'); if (!items.length) return say(ms, 'Add at least one test.', 'err');
       var t = totals(); go.disabled = true; say(ms, 'Creating...', 'info');
-      api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: doc.value, kind: kind.value, notes: notes.value, booking_id: bookingId, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
+      api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: doc.value, kind: kind.value, address: kind.value === 'home' ? addr.value : '', slot: kind.value === 'home' ? L.fromLocalInput(vtime.value) : '', notes: notes.value, booking_id: bookingId, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
         .then(function (r) { L.refreshDash(); success(r.order, r.pin); }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); });
     }
     function success(o, pin) {
@@ -68,7 +69,7 @@
         el('div', 'row', [btn('Print receipt', '', function () { L.receipt(o, pin); }), btn('Send on WhatsApp', 'ghost', function () { window.open(L.waLink(o, pin), '_blank'); }), btn('Open order', 'ghost', function () { L.go('order', o.code); }), btn('New order', 'ghost', function () { L.go('new'); })])]));
     }
     if (pre) {   // opened from a website booking: fill in what the customer sent
-      name.value = pre.name || ''; mobile.value = pre.mobile || ''; kind.value = 'home';
+      name.value = pre.name || ''; mobile.value = pre.mobile || ''; kind.value = 'home'; addr.value = pre.address || ''; if (/^\d{4}-\d{2}-\d{2}$/.test(pre.date || '')) vtime.value = pre.date + 'T08:00'; if (L.homeFields) L.homeFields();
       notes.value = ('Website booking #' + pre.id + (pre.date ? ', ' + pre.date : '') + (pre.slot ? ' ' + pre.slot : '') + (pre.address ? ', ' + pre.address : '') + (pre.note ? ', ' + pre.note : '')).slice(0, 480);
       var left = [];
       String(pre.tests || '').split(/\s*,\s*|\n/).forEach(function (s) {
@@ -79,7 +80,7 @@
         el('p', { class: 'note', text: 'Check the details below, add or change tests, then create the order. The booking is marked done automatically.' + (left.length ? ' Not matched to the price list, add them yourself: ' + left.join(', ') + '.' : '') })]));
       lookup();
     }
-    page.appendChild(el('div', 'card', [el('h2', { text: '1. Patient' }), el('div', 'form2', [fld('Mobile number', mobile), fld('Patient name', name), fld('Age', age), fld('Sex', sex), fld('Referred by', doc), fld('Collection', kind), fld('Notes', notes, 'full'), info])]));
+    page.appendChild(el('div', 'card', [el('h2', { text: '1. Patient' }), el('div', 'form2', [fld('Mobile number', mobile), fld('Patient name', name), fld('Age', age), fld('Sex', sex), fld('Referred by', doc), fld('Collection', kind), (function () { var a = fld('Home collection address', addr, 'full'), t = fld('Visit date and time', vtime, 'full'); function sh() { a.hidden = t.hidden = kind.value !== 'home'; } kind.addEventListener('change', sh); sh(); L.homeFields = sh; return el('div', 'full', [a, t]); })(), fld('Notes', notes, 'full'), info])]));
     page.appendChild(el('div', 'card', [el('h2', { text: '2. Tests' }), fld('Add test or package', q), sugg, el('p', { class: 'upd', text: 'Quick packages:' }), chips, custom,
       el('div', 'tbl-wrap', el('table', 'tbl', [el('thead', null, el('tr', null, [el('th', { text: 'Test' }), el('th', { class: 'num', text: 'Price' }), el('th')])), tbody]))]));
     page.appendChild(el('div', 'card', [el('h2', { text: '3. Billing' }), el('div', 'filters', [fld('Discount (₹)', disc), memBtn, fld('Paid now (₹)', paid), fld('Payment mode', mode), btn('Paid in full', 'ghost', function () { paid.value = totals().t; draw(); })]), sum, el('div', 'row', [go, ms])]));
@@ -306,7 +307,7 @@
         }))]))); done();
       }).catch(function (e) { L.fail($('#page'), e); });
     }
-    function roleSel(v) { return el('select', null, opts([['reception', 'Reception: register, bill, inbox, memberships'], ['technician', 'Technician: samples, upload and send reports, stock'], ['admin', 'Admin: everything incl. staff']], v)); }
+    function roleSel(v) { return el('select', null, opts([['reception', 'Reception: register, bill, inbox, memberships'], ['technician', 'Technician: samples, upload and send reports, stock'], ['phlebotomist', 'Phlebotomist: home collection app only'], ['admin', 'Admin: everything incl. staff']], v)); }
     function edit(u) {
       var n = el('input', { value: u.name }), t = el('input', { value: u.title || '' }), r = roleSel(u.role), a = el('select', null, opts([['1', 'Active'], ['0', 'Disabled (cannot log in)']], u.active ? '1' : '0')), pw = el('input', { type: 'password', placeholder: 'Leave empty to keep', autocomplete: 'new-password' }), ms = el('span', 'msg');
       modal('Edit ' + u.username, el('div', 'form2', [fld('Name', n), fld('Title on reports', t), fld('Role', r, 'full'), fld('Status', a), fld('New password', pw), ms]), [{ text: 'Cancel', cls: 'ghost' }, { text: 'Save', keep: true, fn: function (close) {

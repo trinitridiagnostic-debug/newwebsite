@@ -79,3 +79,11 @@ Files involved: `lab.js`, `lab-report.js`, `pdf-lib.min.js` (website folder) and
 
 Customers log in or sign up with only their mobile number and a one-time code sent on WhatsApp. If the lab or the website already made an order for that number, it appears in their account straight after the OTP. Forgot-password no longer exists, because there is no password.
 In `config.php` set `otp_provider` and the matching template details (see `config.sample.php`, options A and B).
+
+## Phlebotomist app (home sample collection)
+
+- **Create logins:** Lab console > Staff > Add a staff login > Role **Phlebotomist**. They log in at `trinetridiagnostics.com/phlebotomist.html` (they can add it to their phone's home screen).
+- **Book a home visit:** New order > Collection **Home collection** > fill the address and the visit date and time. Website bookings carry their address and date across automatically.
+- **Assign:** Lab console > **Home visits** (or the Home visit card on the order). Choose a phlebotomist, or leave it open so any phlebotomist can pick it under **Pick Order**.
+- **Phlebotomist screens:** Orders (Accept, Start, Sample collected, Order release), Served, Pick Order, Leave, Password, SOS.
+- **Lab sees:** collected samples move the order to "Sample collected" automatically, plus phlebotomist leave and SOS alerts (with location) on the Home visits page. Press Acknowledge on an SOS once handled.

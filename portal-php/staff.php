@@ -3,9 +3,10 @@
    Staff log in with username + password and get a token. What each person may do depends on their role. */
 
 const ROLE_CAN = [
-  'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock'],
-  'reception'  => ['view', 'billing', 'status', 'inbox', 'members'],
+  'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock', 'assign'],
+  'reception'  => ['view', 'billing', 'status', 'inbox', 'members', 'assign'],
   'technician' => ['view', 'status', 'results', 'stock'],
+  'phlebotomist' => ['phleb'],   /* home-collection staff: only the phlebotomist app */
 ];
 
 function staff_can($s, $perm) { return in_array($perm, ROLE_CAN[$s['role']] ?? [], true); }
@@ -23,7 +24,7 @@ function validPassword($pw) {
   if (strlen($pw) < 8 || mb_strlen($pw) > 100) throw bad('Use a password of at least 8 characters.');
   if (preg_match('/^(.)\1+$/su', $pw) || in_array(strtolower($pw), ['password', '12345678', 'qwertyuiop'], true)) throw bad('That password is too easy to guess.');
 }
-function cleanRole($r) { $r = strtolower((string)$r); if (!isset(ROLE_CAN[$r])) throw bad('Role must be admin, reception or technician.'); return $r; }
+function cleanRole($r) { $r = strtolower((string)$r); if (!isset(ROLE_CAN[$r])) throw bad('Role must be admin, reception, technician or phlebotomist.'); return $r; }
 function cleanUser($u) { $u = strtolower(trim((string)$u)); if (!preg_match('/^[a-z0-9._-]{3,30}$/', $u)) throw bad('Username: 3 to 30 letters, numbers, dot, dash or underscore.'); return $u; }
 
 
@@ -89,7 +90,8 @@ function sView($o, $full = true) {
     'ref_doctor' => $o['ref_doctor'], 'kind' => $o['kind'], 'notes' => $o['notes'], 'tests' => $tests, 'subtotal' => $sub, 'discount' => (int)$o['discount'], 'amount' => (int)$o['amount'],
     'paid' => (int)$o['paid'], 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'pay_mode' => $o['pay_mode'], 'status' => $o['status'], 'res_status' => $o['res_status'],
     'times' => json_decode($o['times'], true) ?: new stdClass, 'created' => (int)$o['created'], 'hasReport' => !empty($o['report_file']), 'approved_by' => $o['approved_by'],
-    'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by']];
+    'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by'],
+    'addr' => (string)($o['addr'] ?? ''), 'slot_at' => ($o['slot_at'] ?? null) === null ? null : (int)$o['slot_at'], 'ph_id' => $o['ph_id'] ?? null, 'ph_status' => $o['ph_status'] ?? null];
   if ($full) $v['results'] = $o['results'] ? json_decode($o['results'], true) : [];
   return $v;
 }
@@ -128,6 +130,7 @@ function createOrder($s) {
   }
   $cu = one('SELECT id FROM users WHERE mobile=? AND verified=1', [$mobile]);   // a verified customer account sees the new order straight away
   if ($cu) autoLink($cu['id'], $mobile);
+  setVisit($id, $b);
   $bid = (int)field($b, 'booking_id');
   if ($bid > 0) q("UPDATE bookings SET status='done', order_code=? WHERE id=? AND status='new'", [$code, $bid]);
   out(['order' => sView(sFresh($id)), 'pin' => $pin], 201);
@@ -165,6 +168,7 @@ function updateOrder($s, $o) {
   }
   q('UPDATE orders SET name=?, mobile=?, age=?, sex=?, ref_doctor=?, kind=?, notes=?, tests=?, amount=?, discount=? WHERE id=?',
     [$name, $mobile !== '' ? $mobile : $o['mobile'], $age, $sex, $doc, $kind, $notes, json_encode($tests, JSON_UNESCAPED_UNICODE), $amount, $disc, $o['id']]);
+  setVisit($o['id'], $b);
   out(['order' => sView(sFresh($o['id']))]);
 }
 
@@ -268,6 +272,7 @@ function staff($path, $m) {
 
   $s = staffAuthed();
   require_once __DIR__ . '/pdf.php';
+  if ($s['role'] === 'phlebotomist' && strpos($path, '/staff/phleb/') !== 0 && !in_array($path, ['/staff/me', '/staff/password'], true)) throw new HttpErr(403, 'Your role does not allow this.');
   if ($path === '/staff/me' && $m === 'GET') out(['staff' => staffPublic($s)]);
   if ($path === '/staff/password' && $m === 'POST') {
     $b = body(); if (!password_verify((string)field($b, 'old'), $s['hash'])) throw bad('Your current password is not correct.');
@@ -277,6 +282,7 @@ function staff($path, $m) {
 
 
   /* catalog admin (admin role): edits the website's catalog.js and package pictures directly on this server */
+  require_once __DIR__ . '/phleb.php'; phlebRoutes($path, $m, $s);
   if ($path === '/staff/catalog' && $m === 'GET') { need($s, 'staff'); out(['catalog' => catalogRead()]); }
   if ($path === '/staff/catalog' && $m === 'PUT') { need($s, 'staff'); catalogWrite(body(12000000)); }
 
@@ -514,7 +520,8 @@ function staff($path, $m) {
       'dues' => ['orders' => $c('SELECT COUNT(*) AS n FROM orders WHERE amount>paid'), 'amount' => $c('SELECT COALESCE(SUM(amount-paid),0) AS n FROM orders WHERE amount>paid')],
       'stock' => ['low' => $c('SELECT COUNT(*) AS n FROM stock_items WHERE active=1 AND qty<=min_qty')],
       'inbox' => ['tickets' => $c("SELECT COUNT(*) AS n FROM tickets WHERE status='open'"), 'chats' => $unread, 'members' => $reqs],
-      'bookings' => $c("SELECT COUNT(*) AS n FROM bookings WHERE status='new'")]);
+      'bookings' => $c("SELECT COUNT(*) AS n FROM bookings WHERE status='new'"),
+      'visits' => ['unassigned' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND status='booked' AND (ph_id IS NULL OR ph_id='')"), 'sos' => $c('SELECT COUNT(*) AS n FROM sos WHERE ack_at IS NULL')]]);
   }
   if ($path === '/staff/summary' && $m === 'GET') {
     $from = (int)(isset($q['from']) ? $q['from'] : 0); $to = (int)(isset($q['to']) ? $q['to'] : nowms()); $tz = (int)(isset($q['tz']) ? $q['tz'] : 330);

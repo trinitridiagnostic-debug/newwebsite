@@ -89,7 +89,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v8';
+  $mark = $dir . '/.schema-v9';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -117,12 +117,14 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_items (id $ai, name VARCHAR(80) NOT NULL, unit VARCHAR(20) NOT NULL, qty INT NOT NULL DEFAULT 0, min_qty INT NOT NULL DEFAULT 0, active INT NOT NULL DEFAULT 1, updated BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS stock_log (id $ai, item_id INT NOT NULL, delta INT NOT NULL, note VARCHAR(120) NULL, by_name VARCHAR(60) NULL, ts BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS leaves (id $ai, staff_id VARCHAR(32) NOT NULL, from_d VARCHAR(10) NOT NULL, to_d VARCHAR(10) NOT NULL, reason VARCHAR(200) NULL, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS sos (id $ai, staff_id VARCHAR(32) NOT NULL, staff_name VARCHAR(60) NOT NULL, lat DOUBLE NULL, lng DOUBLE NULL, note VARCHAR(200) NULL, created BIGINT NOT NULL, ack_by VARCHAR(60) NULL, ack_at BIGINT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
   // columns added in v2 (safe to repeat: errors for existing columns are ignored)
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
     "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
-    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL"];
+    "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL", "orders ADD COLUMN addr VARCHAR(300) NULL", "orders ADD COLUMN slot_at BIGINT NULL", "orders ADD COLUMN slot_mins INT NULL", "orders ADD COLUMN ph_id VARCHAR(32) NULL", "orders ADD COLUMN ph_status VARCHAR(10) NULL", "orders ADD COLUMN ph_at BIGINT NULL"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
   try { $pdo->exec("UPDATE staff SET role='technician' WHERE role='doctor'"); } catch (PDOException $e) { }   /* the doctor role was removed */
   foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#2f4f93">
+<title>Phlebotomist | Trinetri Diagnostics</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="phleb.css?v=20261125">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="fl" novalidate autocomplete="on">
+    <img src="icon.png" alt="" width="56" height="56">
+    <h1>Trinetri Diagnostics</h1>
+    <p class="sub">Phlebotomist login</p>
+    <label for="lu">Username</label><input id="lu" autocomplete="username" autocapitalize="none">
+    <label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password">
+    <button class="big" type="submit">Log in</button>
+    <p class="msg" id="lmsg" role="status"></p>
+  </form>
+</div>
+<div id="app" hidden>
+  <header class="top" id="top"></header>
+  <main id="page"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="portal-config.js"></script>
+<script src="pw-eye.js"></script>
+<script src="phleb.js?v=20261125"></script>
+</body>
+</html>
