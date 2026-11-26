@@ -12,7 +12,7 @@
     return e;
   }
   var ICON = {
-    leave: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M9 15l2 2 4-4"/>', orders: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/>',
+    sched: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18M8 14h3M13 14h3M8 18h3"/>', leave: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M9 15l2 2 4-4"/>', orders: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/>',
     served: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 10l3 3 5-6M7 21h14V8"/>', pool: '<path d="M4 7h10M4 12h10M4 17h6M16 15l2 2 4-5"/>',
     pw: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M12 12h.01M17 12h.01"/>', out: '<path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/>',
     back: '<path d="M15 5l-7 7 7 7"/>', home: '<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>', call: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/>'
@@ -74,9 +74,9 @@
       var b = el('button', { type: 'button', onclick: fn || function () { location.hash = hash; } }, [svg(icon, 30), el('span', { text: label })]); b.appendChild(el('span', { class: 'n', hidden: true })); grid.appendChild(b); badge[key] = $('.n', b);
     }
     tile('orders', 'Orders', 'orders', '#orders'); tile('served', 'Served', 'served', '#served'); tile('pool', 'Pick Order', 'pool', '#pool');
-    tile('leave', 'Leave', 'leave', '#leave'); tile('pw', 'Password', 'pw', '#password'); tile('out', 'Logout', 'out', null, function () { logout(); });
-    var bar = el('div', 'leavebar', ['You are on leave today. You cannot pick new visits.']); bar.hidden = true; page.appendChild(bar); page.appendChild(grid);
-    function load() { api('GET', '/staff/phleb/home').then(function (d) { [['orders', d.orders], ['pool', d.pool]].forEach(function (x) { badge[x[0]].textContent = x[1]; badge[x[0]].hidden = !x[1]; }); bar.hidden = !d.on_leave; }).catch(function (e) { toast(e.message); }); }
+    tile('sched', 'Schedule', 'sched', '#schedule'); tile('leave', 'Leave', 'leave', '#leave'); tile('pw', 'Password', 'pw', '#password'); tile('out', 'Logout', 'out', null, function () { logout(); });
+    var bar = el('div', 'leavebar', ['You are on leave today. You cannot pick new visits.']); bar.hidden = true; page.appendChild(bar); var sb = el('a', { class: 'schedbar', href: '#schedule' }); sb.hidden = true; page.appendChild(sb); page.appendChild(grid);
+    function load() { api('GET', '/staff/phleb/home').then(function (d) { [['orders', d.orders], ['pool', d.pool]].forEach(function (x) { badge[x[0]].textContent = x[1]; badge[x[0]].hidden = !x[1]; }); bar.hidden = !d.on_leave; sb.hidden = !d.sched_unset; sb.textContent = 'Tell us your availability for ' + d.sched_unset + ' more day' + (d.sched_unset > 1 ? 's' : '') + '. Tap to set your schedule.'; }).catch(function (e) { toast(e.message); }); }
     load(); timer = setInterval(load, 30000);
   };
   function card(o, onTap, extra) {
@@ -164,6 +164,46 @@
     }
     box.appendChild(el('div', 'empty', ['Loading...']));
     api('GET', '/staff/phleb/orders/' + encodeURIComponent(code)).then(function (d) { draw(d.order); }).catch(function (e) { box.textContent = ''; box.appendChild(el('div', 'empty', [e.message])); });
+  };
+  V.schedule = function (page) {
+    header('Schedule', true);
+    var data = null, sel = '', picked = {}, strip = el('div', 'dstrip'), body = el('div'), ms = el('p', 'msg');
+    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    function parts(d) { var a = d.split('-'); return new Date(+a[0], +a[1] - 1, +a[2]); }
+    function longd(d) { var x = parts(d); return p2(x.getDate()) + '-' + MON[x.getMonth()] + '-' + x.getFullYear(); }
+    function hh(h) { return p2(h) + ':00'; }
+    function cur() { return data.days.filter(function (x) { return x.day === sel; })[0]; }
+    function pickDay(d) { sel = d; var c = cur(); picked = {}; if (c.state === 'yes') c.slots.forEach(function (h) { picked[h] = true; }); say(ms, '', ''); draw(); }
+    function allSlots() { var o = {}; for (var h = data.first; h <= data.last; h++) o[h] = true; return o; }
+    function save(avail, slots, jump) {
+      say(ms, 'Saving...', '');
+      api('POST', '/staff/phleb/schedule', { day: sel, available: avail, slots: slots }).then(function (r) {
+        data = r; say(ms, '', ''); toast(avail ? 'Slots confirmed for ' + longd(sel) : 'Marked not available on ' + longd(sel));
+        var nxt = data.days.filter(function (x) { return x.state === 'unset'; })[0]; pickDay(jump && nxt ? nxt.day : sel);
+      }).catch(function (e) { say(ms, e.message, 'err'); });
+    }
+    function draw() {
+      strip.textContent = '';
+      data.days.forEach(function (d) {
+        var x = parts(d.day); strip.appendChild(el('button', { type: 'button', class: 'dchip ' + d.state + (d.day === sel ? ' cur' : ''), onclick: function () { pickDay(d.day); } }, [el('span', 'dw', [DOW[x.getDay()]]), el('b', { text: p2(x.getDate()) }), el('span', 'dm', [MON[x.getMonth()]])]));
+      });
+      var c = cur(); body.textContent = '';
+      var yes = el('button', { type: 'button', class: 'yn yes' + (c.state === 'yes' || Object.keys(picked).length ? ' on' : ''), text: 'YES', onclick: function () { picked = allSlots(); c.state = 'yes'; draw(); } }),
+        no = el('button', { type: 'button', class: 'yn no' + (c.state === 'no' ? ' on' : ''), text: 'NO', onclick: function () { save(false, [], true); } });
+      body.appendChild(el('div', 'qrow', [el('span', 'q', ['Are you available on']), el('b', { text: longd(sel) }), yes, no]));
+      if (c.on_leave) body.appendChild(el('div', 'leavebar', ['You have leave applied on this date.']));
+      if (c.state === 'no') body.appendChild(el('div', 'empty', ['You marked not available on this date.']));
+      if (c.state === 'yes') {
+        var g = el('div', 'slots');
+        for (var h = data.first; h <= data.last; h++) (function (h) { g.appendChild(el('button', { type: 'button', class: 'slot' + (picked[h] ? ' on' : ''), text: hh(h), onclick: function () { if (picked[h]) delete picked[h]; else picked[h] = true; draw(); } })); })(h);
+        body.appendChild(el('div', 'selrow', [el('span', { class: 'note', text: Object.keys(picked).length + ' of ' + (data.last - data.first + 1) + ' slots selected' }), el('button', { type: 'button', class: 'link', text: Object.keys(picked).length === data.last - data.first + 1 ? 'Clear all' : 'Select all', onclick: function () { picked = Object.keys(picked).length === data.last - data.first + 1 ? {} : allSlots(); draw(); } })]));
+        body.appendChild(g);
+        body.appendChild(el('button', { type: 'button', class: 'big', style: 'margin-top:14px', text: 'Confirm Slots', onclick: function () { var s = Object.keys(picked).map(Number); if (!s.length) { say(ms, 'Choose at least one slot, or tap NO.', 'err'); return; } save(true, s, true); } }));
+      }
+    }
+    page.appendChild(el('div', 'note2', ['Tell the lab which days and hours you can take home visits in the next 8 days.']));
+    page.appendChild(strip); page.appendChild(body); page.appendChild(ms);
+    api('GET', '/staff/phleb/schedule').then(function (d) { data = d; var first = d.days.filter(function (x) { return x.state === 'unset'; })[0] || d.days[0]; pickDay(first.day); }).catch(function (e) { say(ms, e.message, 'err'); });
   };
   V.leave = function (page) {
     header('Leave'); var today = new Date(); var iso = today.getFullYear() + '-' + p2(today.getMonth() + 1) + '-' + p2(today.getDate());

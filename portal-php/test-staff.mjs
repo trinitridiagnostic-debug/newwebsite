@@ -228,6 +228,18 @@ try {
     r = await call('GET', '/staff/attendance', { token: TECH }); const row = r.j.rows.find((x) => x.present); ok(r.s === 200 && row && row.lat === 15.42 && r.j.rows.some((x) => !x.present), 'lab sees who is present and absent');
     const sf = await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + TECH } }); ok(sf.status === 200 && sf.headers.get('content-type') === 'image/jpeg', 'lab can open the selfie');
     ok((await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + PH1 } })).status === 403, 'phlebotomist cannot open the lab attendance'); }
+  // ---- advance schedule (next 8 days, hourly slots 5 am to 11 pm)
+  { r = await call('GET', '/staff/phleb/schedule', { token: PH1 }); ok(r.s === 200 && r.j.days.length === 8 && r.j.days.every((d) => d.state === 'unset') && r.j.first === 5 && r.j.last === 22, 'schedule starts with 8 unanswered days');
+    const d1 = r.j.days[0].day, d8 = r.j.days[7].day;
+    r = await call('POST', '/staff/phleb/schedule', { token: PH1, body: { day: d1, available: true, slots: [5, 6, 7, 30, 22] } }); ok(r.s === 200 && r.j.days[0].state === 'yes' && JSON.stringify(r.j.days[0].slots) === '[5,6,7,22]', 'yes with slots saved (invalid hour dropped)');
+    ok((await call('POST', '/staff/phleb/schedule', { token: PH1, body: { day: d1, available: true, slots: [] } })).s === 400, 'yes needs a slot');
+    r = await call('POST', '/staff/phleb/schedule', { token: PH1, body: { day: d8, available: false } }); ok(r.j.days[7].state === 'no' && r.j.days[7].slots.length === 0, 'no saved');
+    ok((await call('POST', '/staff/phleb/schedule', { token: PH1, body: { day: '2020-01-01', available: false } })).s === 400, 'past date refused');
+    ok((await call('POST', '/staff/phleb/schedule', { token: PH1, body: { day: '2099-01-01', available: false } })).s === 400, 'too far ahead refused');
+    const pid = (await call('GET', '/staff/me', { token: PH1 })).j.staff.id;
+    r = await call('GET', `/staff/phlebotomists/${pid}/schedule`, { token: TECH }); ok(r.s === 200 && r.j.days[0].state === 'yes' && r.j.days[7].state === 'no', 'lab sees the phlebotomist schedule');
+    ok((await call('GET', '/staff/phlebotomists', { token: A })).j.phlebotomists.find((x) => x.id === pid).sched_set === 2, 'list shows how many days are set');
+    ok((await call('GET', `/staff/phlebotomists/${pid}/schedule`, { token: PH1 })).s === 403, 'phlebotomist cannot use the lab schedule route'); }
   // ---- phlebotomists tab: list/add/edit/delete with district + taluk
   r = await call('POST', '/staff/phlebotomists', { token: A, body: { name: 'Ravi Gadag', username: 'ravi.g', password: 'Phleb#2026', mobile: '98450 12345', district: 'Gadag', taluka: 'Ron' } }); ok(r.s === 201 && r.j.phlebotomist.district === 'Gadag' && r.j.phlebotomist.mobile === '9845012345', 'admin adds a phlebotomist with district and taluk');
   const rid = r.j.phlebotomist.id;

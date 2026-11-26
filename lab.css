@@ -71,3 +71,10 @@
 .lab .sum{margin-bottom:14px}
 
 .selfie-t{width:44px;height:56px;object-fit:cover;border-radius:8px;display:block;background:#eef2f2}.linkb{border:0;background:none;padding:0;cursor:pointer}
+
+.schday{border:1.5px solid #e1e6e6;border-radius:12px;padding:10px 12px;margin:8px 0;background:#fff}
+.schday.yes{border-color:#2e9e5b;background:#f0faf3}.schday.no{border-color:#e6a29d;background:#fdf3f2}
+.schday .sh{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.schday .sb{font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:#e9eef0;color:#4b5b5f}
+.schday.yes .sb{background:#2e9e5b;color:#fff}.schday.no .sb{background:#d9534f;color:#fff}.schday .sb.lv{background:#f2a93b;color:#fff}
+.slotrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.slotrow .sl{font-size:12px;padding:3px 8px;border-radius:6px;background:#e9eef0;color:#7a888c}
+.slotrow .sl.on{background:#2e9e5b;color:#fff;font-weight:700}

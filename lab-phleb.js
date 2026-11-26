@@ -39,6 +39,21 @@
         api('POST', '/staff/phlebotomists/' + encodeURIComponent(p.id) + '/delete').then(function () { toast('Deleted'); load(); }).catch(function (e) { toast(e.message); });
       });
     }
+    function schedule(p) {
+      var box = el('div', null, [el('p', { class: 'note', text: 'Loading...' })]);
+      modal('Advance schedule: ' + p.name, box, [{ text: 'Close', cls: 'ghost' }]);
+      api('GET', '/staff/phlebotomists/' + encodeURIComponent(p.id) + '/schedule').then(function (d) {
+        box.textContent = '';
+        var yes = d.days.filter(function (x) { return x.state === 'yes'; }).length, no = d.days.filter(function (x) { return x.state === 'no'; }).length;
+        box.appendChild(el('p', { class: 'note', text: yes + ' day' + (yes === 1 ? '' : 's') + ' available, ' + no + ' not available, ' + (d.days.length - yes - no) + ' not answered yet.' }));
+        d.days.forEach(function (x) {
+          var dt = new Date(x.day + 'T00:00:00'), label = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()] + ', ' + dt.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.getMonth()];
+          var slots = el('div', 'slotrow');
+          if (x.state === 'yes') for (var h = d.first; h <= d.last; h++) slots.appendChild(el('span', { class: 'sl' + (x.slots.indexOf(h) >= 0 ? ' on' : ''), text: ('0' + h).slice(-2) + ':00' }));
+          box.appendChild(el('div', 'schday ' + x.state, [el('div', 'sh', [el('b', { text: label }), el('span', { class: 'sb', text: x.state === 'yes' ? 'Available (' + x.slots.length + ' slots)' : x.state === 'no' ? 'Not available' : 'Not answered' }), x.on_leave ? el('span', { class: 'sb lv', text: 'Leave' }) : null]), slots]));
+        });
+      }).catch(function (e) { box.textContent = ''; box.appendChild(el('p', { class: 'msg err', text: e.message })); });
+    }
     function counts() { var c = {}; rows.forEach(function (p) { if (p.active && p.district) c[p.district] = (c[p.district] || 0) + 1; }); return c; }
     function draw() {
       var act = rows.filter(function (p) { return p.active; }), c = counts(), keys = Object.keys(c).sort(), noLoc = act.filter(function (p) { return !p.district; }).length;
@@ -60,9 +75,10 @@
         return el('tr', null, [el('td', null, [el('b', { text: p.name }), el('div', { class: 'note', text: '@' + p.username })]), el('td', { text: p.mobile || '-' }), el('td', { text: p.district || '-' }), el('td', { text: p.taluka || '-' }),
           el('td', null, [el('span', { class: 'badge2 b-' + (p.active ? (p.on_leave ? 'booked' : 'completed') : 'cancelled'), text: p.active ? (p.on_leave ? 'On leave today' : 'Active') : 'Inactive' })]),
           el('td', { class: 'num', text: p.served + ' done / ' + p.open + ' open' }),
+          el('td', null, [btn('Schedule' + (p.active ? ' (' + p.sched_set + '/8)' : ''), 'ghost', function () { schedule(p); })]),
           canEdit ? el('td', null, [btn('Edit', 'ghost', function () { edit(p); }), ' ', btn('Delete', 'ghost', function () { del(p); })]) : null]);
       });
-      listBox.appendChild(el('div', 'tbl-wrap', el('table', 'tbl', [el('thead', null, el('tr', null, ['Name', 'Mobile', 'District', 'Taluk', 'Status', 'Visits', canEdit ? '' : null].filter(function (h) { return h !== null; }).map(function (h) { return el('th', { text: h }); }))), el('tbody', null, trs)])));
+      listBox.appendChild(el('div', 'tbl-wrap', el('table', 'tbl', [el('thead', null, el('tr', null, ['Name', 'Mobile', 'District', 'Taluk', 'Status', 'Visits', 'Advance schedule', canEdit ? '' : null].filter(function (h) { return h !== null; }).map(function (h) { return el('th', { text: h }); }))), el('tbody', null, trs)])));
     }
     var search = el('input', { type: 'search', placeholder: 'Search name or mobile' }); search.addEventListener('input', function () { fs = search.value; draw(); });
     page.appendChild(el('div', 'row', [search, canEdit ? btn('Add phlebotomist', '', function () { edit(null); }) : null]));

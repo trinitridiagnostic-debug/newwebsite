@@ -109,3 +109,22 @@ input,textarea{width:100%;border:1px solid #cfd4df;border-radius:10px;padding:12
 @keyframes slideup{from{transform:translateY(100%)}}
 @keyframes fade{from{opacity:0}}
 @media (prefers-reduced-motion:reduce){.att,.att *{animation-duration:.01s!important;animation-iteration-count:1!important}}
+
+.schedbar{display:block;background:#fff4d6;border:2px solid var(--yel);color:#6b4b00;border-radius:12px;padding:11px 13px;margin:0 14px 12px;font-weight:700;text-decoration:none;font-size:14px}
+.note2{margin:12px 14px 4px;color:#5d6678;font-size:14px}
+.dstrip{display:flex;gap:8px;overflow-x:auto;padding:10px 14px;scrollbar-width:none}.dstrip::-webkit-scrollbar{display:none}
+.dchip{flex:0 0 auto;width:58px;border:2px solid #e3e7ef;background:#fff;border-radius:14px;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:1px;font:inherit;color:#5d6678;cursor:pointer;transition:all .2s}
+.dchip b{font-size:20px;color:var(--ink)}.dchip .dw,.dchip .dm{font-size:11px;font-weight:700;text-transform:uppercase}
+.dchip.yes{background:#e3f6ea;border-color:#2e9e5b}.dchip.yes b,.dchip.yes .dw,.dchip.yes .dm{color:#14683a}
+.dchip.no{background:#fdeceb;border-color:#e08a84}.dchip.no b,.dchip.no .dw,.dchip.no .dm{color:#b3261e}
+.dchip.cur{box-shadow:0 0 0 3px rgba(47,79,147,.35);transform:translateY(-2px)}
+.qrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:2px solid #eceff5}
+.qrow .q{color:#6b7385;font-size:15px}.qrow b{color:var(--blue);font-size:15px;margin-right:auto}
+.yn{min-width:84px;padding:14px 0;border:0;border-radius:10px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.14);font:inherit;font-weight:800;font-size:16px;color:var(--blue);cursor:pointer}
+.yn.yes.on{background:#2e9e5b;color:#fff}.yn.no.on{background:#d9534f;color:#fff}
+.selrow{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 0}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:12px 14px}
+.slot{padding:16px 0;border:0;border-radius:6px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.14);font:inherit;font-weight:800;font-size:15px;color:var(--blue);cursor:pointer;transition:all .18s}
+.slot.on{background:#2e9e5b;color:#fff;box-shadow:0 4px 12px rgba(46,158,91,.4);transform:scale(1.03)}
+#page>.big{width:calc(100% - 28px);margin:14px}
+.selrow .link{background:none;border:0;color:var(--blue2);text-decoration:underline;font:inherit;font-weight:700;cursor:pointer}

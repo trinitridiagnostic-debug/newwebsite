@@ -30,6 +30,32 @@ function phOnLeave($sid, $day) { return (bool)one('SELECT 1 AS x FROM leaves WHE
 function phToday() { return (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d'); }
 function phDay($v) { $v = (string)$v; $d = DateTime::createFromFormat('Y-m-d', $v); if (!$d || $d->format('Y-m-d') !== $v) throw bad('Choose a valid date.'); return $v; }
 
+const PH_SLOT_FIRST = 5, PH_SLOT_LAST = 22;   // hourly slots 05:00 to 22:00 (the last one ends at 11 pm)
+const PH_AHEAD = 8;                              // phlebotomists schedule the next 8 days
+function phAddDays($day, $n) { return (new DateTime($day, new DateTimeZone('Asia/Kolkata')))->modify(($n >= 0 ? '+' : '') . $n . ' day')->format('Y-m-d'); }
+function phSchedule($sid) {
+  $t = phToday(); $from = phAddDays($t, 1); $to = phAddDays($t, PH_AHEAD); $have = [];
+  foreach (all('SELECT * FROM availability WHERE staff_id=? AND day>=? AND day<=?', [$sid, $from, $to]) as $a) $have[$a['day']] = $a;
+  $days = [];
+  for ($k = 1; $k <= PH_AHEAD; $k++) {
+    $d = phAddDays($t, $k); $a = $have[$d] ?? null;
+    $days[] = ['day' => $d, 'state' => !$a ? 'unset' : ((int)$a['avail'] === 1 ? 'yes' : 'no'), 'slots' => $a && (int)$a['avail'] === 1 ? array_map('intval', array_filter(explode(',', $a['slots']), 'strlen')) : [], 'on_leave' => phOnLeave($sid, $d)];
+  }
+  return ['days' => $days, 'first' => PH_SLOT_FIRST, 'last' => PH_SLOT_LAST];
+}
+function phSaveSchedule($sid, $b) {
+  $d = phDay(field($b, 'day')); $t = phToday();
+  if ($d < phAddDays($t, 1) || $d > phAddDays($t, PH_AHEAD)) throw bad('You can set your schedule for the next ' . PH_AHEAD . ' days only.');
+  $yes = !empty($b['available']); $slots = [];
+  if ($yes) {
+    foreach ((array)($b['slots'] ?? []) as $h) { $h = (int)$h; if ($h >= PH_SLOT_FIRST && $h <= PH_SLOT_LAST) $slots[$h] = $h; }
+    ksort($slots); if (!$slots) throw bad('Choose at least one slot, or say No for this date.');
+  }
+  $row = [$yes ? 1 : 0, implode(',', $slots), nowms()];
+  if (one('SELECT 1 AS x FROM availability WHERE staff_id=? AND day=?', [$sid, $d])) q('UPDATE availability SET avail=?, slots=?, updated=? WHERE staff_id=? AND day=?', array_merge($row, [$sid, $d]));
+  else q('INSERT INTO availability (avail, slots, updated, staff_id, day) VALUES (?,?,?,?,?)', array_merge($row, [$sid, $d]));
+}
+
 function phlebRoutes($path, $m, $s) {
   /* ---------- the phlebotomist's own screens ---------- */
   if (strpos($path, '/staff/phleb/') === 0) {
@@ -39,7 +65,7 @@ function phlebRoutes($path, $m, $s) {
       out(['name' => $s['name'], 'orders' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND ph_id=? AND ph_status IN ('assigned','accepted','started')", [$me]),
         'served' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND ph_id=? AND ph_status='collected'", [$me]),
         'pool' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND status='booked' AND (ph_id IS NULL OR ph_id='')"),
-        'on_leave' => phOnLeave($me, phToday()), 'attendance' => (bool)one('SELECT 1 AS x FROM attendance WHERE staff_id=? AND day=?', [$me, phToday()])]);
+        'on_leave' => phOnLeave($me, phToday()), 'attendance' => (bool)one('SELECT 1 AS x FROM attendance WHERE staff_id=? AND day=?', [$me, phToday()]), 'sched_unset' => count(array_filter(phSchedule($me)['days'], function ($d) { return $d['state'] === 'unset'; }))]);
     }
     if ($path === '/staff/phleb/orders' && $m === 'GET') {
       $scope = isset($_GET['scope']) ? $_GET['scope'] : 'mine';
@@ -107,6 +133,8 @@ function phlebRoutes($path, $m, $s) {
       try { q('INSERT INTO attendance (staff_id, day, at, lat, lng, acc, selfie) VALUES (?,?,?,?,?,?,?)', [$me, $day, nowms(), (float)$lat, (float)$lng, is_numeric($acc) ? (float)$acc : null, $file]); } catch (PDOException $e) { }
       out(['ok' => true]);
     }
+    if ($path === '/staff/phleb/schedule' && $m === 'GET') out(phSchedule($me));
+    if ($path === '/staff/phleb/schedule' && $m === 'POST') { phSaveSchedule($me, body()); out(phSchedule($me)); }
     if ($path === '/staff/phleb/leaves' && $m === 'GET') {
       out(['leaves' => array_map(function ($x) { return ['id' => (int)$x['id'], 'from' => $x['from_d'], 'to' => $x['to_d'], 'reason' => (string)$x['reason']]; },
         all('SELECT * FROM leaves WHERE staff_id=? AND to_d>=? ORDER BY from_d', [$me, phToday()]))]);
@@ -134,7 +162,7 @@ function phlebRoutes($path, $m, $s) {
     $pv = function ($x) {
       $n = one("SELECT COUNT(*) AS n FROM orders WHERE ph_id=? AND ph_status='collected'", [$x['id']]); $o = one("SELECT COUNT(*) AS n FROM orders WHERE ph_id=? AND status='booked' AND (ph_status IS NULL OR ph_status<>'collected')", [$x['id']]);
       return ['id' => $x['id'], 'name' => $x['name'], 'username' => $x['username'], 'mobile' => (string)($x['mobile'] ?? ''), 'district' => (string)($x['district'] ?? ''), 'taluka' => (string)($x['taluka'] ?? ''),
-        'active' => (int)$x['active'] === 1, 'on_leave' => phOnLeave($x['id'], phToday()), 'served' => (int)$n['n'], 'open' => (int)$o['n'], 'created' => (int)$x['created']];
+        'sched_set' => (int)one('SELECT COUNT(*) AS n FROM availability WHERE staff_id=? AND day>=? AND day<=?', [$x['id'], phAddDays(phToday(), 1), phAddDays(phToday(), PH_AHEAD)])['n'], 'active' => (int)$x['active'] === 1, 'on_leave' => phOnLeave($x['id'], phToday()), 'served' => (int)$n['n'], 'open' => (int)$o['n'], 'created' => (int)$x['created']];
     };
     $loc = function ($b) {
       $d = clean(field($b, 'district'), 40); $t = clean(field($b, 'taluka'), 40); $mob = preg_replace('/\D/', '', (string)field($b, 'mobile')); $mob = strlen($mob) >= 10 ? substr($mob, -10) : $mob;
@@ -142,6 +170,10 @@ function phlebRoutes($path, $m, $s) {
       return [$mob, $d, $t];
     };
     if ($path === '/staff/phlebotomists' && $m === 'GET') { need($s, 'assign'); out(['phlebotomists' => array_map($pv, all("SELECT * FROM staff WHERE role='phlebotomist' ORDER BY name"))]); }
+    if ($m === 'GET' && preg_match('#^/staff/phlebotomists/([^/]+)/schedule$#', $path, $r)) {
+      need($s, 'assign'); $x = one("SELECT id, name FROM staff WHERE id=? AND role='phlebotomist'", [rawurldecode($r[1])]); if (!$x) throw new HttpErr(404, 'Phlebotomist not found.');
+      out(array_merge(phSchedule($x['id']), ['name' => $x['name']]));
+    }
     if ($path === '/staff/phlebotomists' && $m === 'POST') {
       need($s, 'staff'); $b = body(); $user = cleanUser(field($b, 'username')); $name = clean(field($b, 'name'), 60); $pw = (string)field($b, 'password'); list($mob, $d, $t) = $loc($b);
       if (mb_strlen($name) < 2) throw bad('Enter the name.'); validPassword($pw);

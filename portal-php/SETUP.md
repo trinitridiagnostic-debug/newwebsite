@@ -104,3 +104,6 @@ In the phlebotomist app, after **Start**, the phlebotomist must ask the patient 
 
 ## Daily attendance (selfie + GPS)
 The first time a phlebotomist opens the app each day (IST), a full-screen "Welcome" sheet asks for **Capture Selfie**. The phone's front camera takes the photo, the phone's GPS location is read, then **Proceed** saves it. The app cannot be used until attendance is marked (unless the phlebotomist has leave for that day). The browser asks for camera and location permission the first time: tap Allow. The lab console has an **Attendance** tab: pick a date to see who is present (selfie, time, map link), on leave or not marked. Selfies are stored in `portal-storage/attendance` (private, not public).
+
+## Advance schedule (next 8 days)
+In the phlebotomist app, **Schedule** asks for each of the next 8 days: **YES** selects all hourly slots (05:00 to 22:00, ending at 11 pm) in green, and the phlebotomist can untap any slot and press **Confirm Slots**; **NO** marks the day not available. The home screen shows a yellow reminder while any of the 8 days is unanswered. In the lab console, the Phlebotomists page has an **Advance schedule** button per person (for example "Schedule (3/8)") that shows the 8 days with available days and slots in green.
