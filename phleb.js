@@ -198,43 +198,56 @@
     api('GET', '/staff/phleb/home', undefined, true).then(function (h) { if (!h.attendance && !h.on_leave) attendance(); }).catch(function () { });
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) checkAttendance(); });
-  var SPIN = '<svg viewBox="0 0 40 40" width="46" height="46" fill="none" stroke="#2bb39b" stroke-width="3" stroke-linecap="round"><path class="arc" d="M30 12a14 14 0 10 3 9"/><path d="M31 5v8h-8"/></svg>';
-  var SMILE = '<svg viewBox="0 0 64 64" width="{s}" height="{s}"><circle cx="32" cy="32" r="30" fill="#d4ac2c"/><circle cx="22" cy="25" r="4" fill="#fff"/><circle cx="42" cy="25" r="4" fill="#fff"/><path d="M16 38q16 16 32 0z" fill="#fff"/></svg>';
+  var PIN_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 10-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+  var CAM_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+  var OK_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"/></svg>';
+  var FACE = '<svg viewBox="0 0 64 64" width="96" height="96" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><circle cx="32" cy="24" r="11"/><path d="M10 58c2-13 12-19 22-19s20 6 22 19"/></svg>';
   function attendance() {
-    attOpen = true; var shot = '', pos = null, stream = null, busy = false;
-    var ov = el('div', 'att'), sheet = el('div', 'sheet'), row = el('div', 'arow'), msg = el('p', 'msg'), video = el('video', { autoplay: '', playsinline: '', muted: '' }), cam = el('div', 'camwrap'), main = el('button', { type: 'button', class: 'btn', text: 'Capture Selfie' }),
-      file = el('input', { type: 'file', accept: 'image/*', capture: 'user', hidden: 'hidden' }), me = el('div', 'slot'), ph = el('div', 'selfie');
-    video.muted = true; cam.hidden = true; cam.appendChild(video);
-    sheet.appendChild(el('div', 'wl', ['Welcome, ' + ME.name]));
-    me.appendChild(el('span', { class: 'sm bounce', html: SMILE.replace(/\{s\}/g, '78') })); ph.appendChild(el('span', { class: 'sm', html: SMILE.replace(/\{s\}/g, '42') }));
-    row.appendChild(me); row.appendChild(el('span', { class: 'sp', html: SPIN })); row.appendChild(el('div', 'phone', [el('span', { class: 'sm', html: SMILE.replace(/\{s\}/g, '30') })])); row.appendChild(el('span', { class: 'sp', html: SPIN })); row.appendChild(ph);
-    sheet.appendChild(row); sheet.appendChild(cam); sheet.appendChild(msg); sheet.appendChild(main); sheet.appendChild(file); ov.appendChild(sheet); document.body.appendChild(ov);
+    attOpen = true; var shot = '', pos = null, stream = null, busy = false, clock = null;
+    var ov = el('div', 'att'), msg = el('p', 'msg'), video = el('video', { autoplay: '', playsinline: '', muted: '' }), main = el('button', { type: 'button', class: 'btn', text: 'Capture Selfie' }),
+      file = el('input', { type: 'file', accept: 'image/*', capture: 'user', hidden: 'hidden' }), photo = el('img', { alt: 'Your selfie' }), frame = el('div', 'frame'), faceEl = el('span', { class: 'face', html: FACE }),
+      sCam = el('div', 'step on', [el('span', { class: 'ic', html: CAM_SVG }), 'Selfie']), sLoc = el('div', 'step', [el('span', { class: 'ic', html: PIN_SVG }), el('span', { class: 'lt', text: 'Location' })]), sOk = el('div', 'step', [el('span', { class: 'ic', html: OK_SVG }), 'Mark']);
+    video.muted = true; video.hidden = true; photo.hidden = true;
+    for (var i = 0; i < 9; i++) ov.appendChild(el('i', { class: 'bub b' + i }));
+    var hr = new Date().getHours(), hi = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening', tEl = el('div', 'tm'), dEl = el('div', 'dt');
+    function tick() { var d = new Date(); tEl.textContent = tm(d); dEl.textContent = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear(); }
+    tick(); clock = setInterval(tick, 20000);
+    frame.appendChild(el('div', 'ring')); frame.appendChild(el('div', 'inner', [faceEl, video, photo, el('div', 'scan')]));
+    var sheet = el('div', 'sheet', [el('div', 'steps', [sCam, el('span', 'ln'), sLoc, el('span', 'ln'), sOk]), msg, main, file]);
+    ov.appendChild(el('div', 'atop', [el('div', 'hi', [hi + ',']), el('div', 'nm2', [ME.name]), tEl, dEl])); ov.appendChild(frame); ov.appendChild(el('div', 'hint', ['Mark your attendance to start your day'])); ov.appendChild(sheet); document.body.appendChild(ov);
     function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+    function done(el_) { el_.classList.add('on'); }
     function locate() {
-      pos = null; if (!navigator.geolocation) { say(msg, 'This phone cannot share its location.', 'err'); return; }
-      navigator.geolocation.getCurrentPosition(function (p) { pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; ready(); }, function (e) {
-        say(msg, e.code === 1 ? 'Allow location access for this site in the browser settings, then tap Retake.' : 'Could not get your location. Switch on GPS and tap Retake.', 'err');
+      pos = null; sLoc.className = 'step busy'; sLoc.querySelector('.lt').textContent = 'Locating...';
+      if (!navigator.geolocation) { sLoc.className = 'step bad'; say(msg, 'This phone cannot share its location.', 'err'); return; }
+      navigator.geolocation.getCurrentPosition(function (p) { pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; sLoc.className = 'step on'; sLoc.querySelector('.lt').textContent = 'Location locked'; ready(); }, function (e) {
+        sLoc.className = 'step bad'; sLoc.querySelector('.lt').textContent = 'Location needed';
+        say(msg, e.code === 1 ? 'Allow location access for this site in the browser settings, then tap Retake.' : 'Could not get your location. Switch on GPS and tap Retake.', 'err'); retake();
       }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
     }
     function useImage(img) {
       var w = img.videoWidth || img.naturalWidth, h = img.videoHeight || img.naturalHeight, k = Math.min(1, 480 / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); shot = c.toDataURL('image/jpeg', 0.7); stopCam(); cam.hidden = true;
-      ph.textContent = ''; ph.appendChild(el('img', { src: shot, alt: 'Your selfie' })); say(msg, 'Getting your location...', ''); main.textContent = 'Getting location...'; main.disabled = true; locate();
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); shot = c.toDataURL('image/jpeg', 0.7); stopCam(); video.hidden = true; faceEl.hidden = true; photo.src = shot; photo.hidden = false; frame.className = 'frame done';
+      main.textContent = 'Getting location...'; main.disabled = true; say(msg, '', ''); locate();
     }
     function ready() { if (!shot || !pos) return; say(msg, '', ''); main.disabled = false; main.textContent = 'Proceed'; main.className = 'btn pri'; main.onclick = send; retake(); }
-    function retake() { if (sheet.querySelector('.rt')) return; sheet.appendChild(el('button', { type: 'button', class: 'link rt', text: 'Retake selfie', onclick: function () { shot = ''; pos = null; ph.textContent = ''; ph.appendChild(el('span', { class: 'sm', html: SMILE.replace(/\{s\}/g, '42') })); main.className = 'btn'; main.disabled = false; main.textContent = 'Capture Selfie'; main.onclick = capture; var r = sheet.querySelector('.rt'); if (r) r.remove(); say(msg, '', ''); } })); }
+    function retake() {
+      if (ov.querySelector('.rt')) return;
+      sheet.appendChild(el('button', { type: 'button', class: 'rt', text: 'Retake selfie', onclick: function () { shot = ''; pos = null; photo.hidden = true; faceEl.hidden = false; frame.className = 'frame'; main.className = 'btn'; main.disabled = false; main.textContent = 'Capture Selfie'; main.onclick = capture; sLoc.className = 'step'; sLoc.querySelector('.lt').textContent = 'Location'; sOk.className = 'step'; var r = ov.querySelector('.rt'); if (r) r.remove(); say(msg, '', ''); } }));
+    }
     function send() {
       if (busy) return; busy = true; main.disabled = true; say(msg, 'Saving your attendance...', '');
       api('POST', '/staff/phleb/attendance', { selfie: shot, lat: pos.lat, lng: pos.lng, acc: pos.acc }).then(function () {
-        sheet.textContent = ''; sheet.appendChild(el('div', 'verified', [el('span', { class: 'vbig', html: '<svg viewBox="0 0 52 52" width="96" height="96"><circle class="tc" cx="26" cy="26" r="23" fill="none"/><path class="tk" fill="none" d="M14 27l8 8 16-17"/></svg>' }), el('div', 'nm', ['Attendance marked']), el('div', 'meta', ['Have a safe day, ' + ME.name.split(' ')[0] + '.'])]));
-        setTimeout(function () { ov.remove(); attOpen = false; route(); }, 1600);
+        done(sOk); clearInterval(clock); ov.classList.add('ok'); frame.className = 'frame done';
+        ov.appendChild(el('div', 'okpop', [el('span', { class: 'vbig', html: '<svg viewBox="0 0 52 52" width="110" height="110"><circle class="tc" cx="26" cy="26" r="23" fill="#e6f5ec"/><path class="tk" fill="none" d="M14 27l8 8 16-17"/></svg>' }), el('div', 'nm3', ['Attendance marked']), el('div', 'meta2', ['Have a safe day, ' + ME.name.split(' ')[0] + '.'])]));
+        setTimeout(function () { ov.remove(); attOpen = false; route(); }, 1900);
       }).catch(function (e) { busy = false; main.disabled = false; say(msg, e.message, 'err'); });
     }
     function capture() {
       locate();
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { file.click(); return; }
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(function (s) {
-        stream = s; video.srcObject = s; cam.hidden = false; video.play().catch(function () { }); main.textContent = 'Take photo'; main.className = 'btn pri';
+        stream = s; video.srcObject = s; video.hidden = false; faceEl.hidden = true; frame.className = 'frame live'; video.play().catch(function () { }); main.textContent = 'Take photo'; main.className = 'btn pri'; main.disabled = false;
         main.onclick = function () { if (!video.videoWidth) return; useImage(video); };
       }).catch(function () { file.click(); });
     }
