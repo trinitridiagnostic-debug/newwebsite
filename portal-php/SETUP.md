@@ -98,3 +98,6 @@ After the phlebotomist marks the sample collected, the app shows **Show payment 
 4. In AiSensy create an approved template with a **document header** and 4 variables ({{1}} name, {{2}} order ID, {{3}} amount paid, {{4}} date), then add `'aisensy_invoice_campaign' => 'your_campaign_name',`.
 5. The lab console order page has **Download invoice** and **Send invoice on WhatsApp** buttons for any order with a payment.
 Without the webhook the app still notices the payment (it checks Razorpay every few seconds while the QR is on screen).
+
+## Patient PIN check before collecting a home sample
+In the phlebotomist app, after **Start**, the phlebotomist must ask the patient for the 6-digit report PIN (the one given when the order was created) and verify it. Only then does **Sample collected** appear. After 5 wrong tries the app waits 10 minutes. If the patient lost the PIN, open the order in the lab console and generate a new PIN, then give it to the patient.

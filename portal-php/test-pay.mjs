@@ -34,7 +34,7 @@ try {
   const PH = (await call('POST', '/staff/login', { body: { username: 'ph1', password: 'Staff#2026' } })).j.token, PH2 = (await call('POST', '/staff/login', { body: { username: 'ph2', password: 'Staff#2026' } })).j.token;
   const ph1 = (await call('GET', '/staff/phlebs', { token: A })).j.phlebs.find((x) => x.name === 'Suresh');
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Linga Gouda', mobile: '9811111111', kind: 'home', address: 'Gadag', slot: Date.now() + 3600000, tests: [{ name: 'LIPID PROFILE', price: 250 }, { name: 'CBC', price: 300 }], discount: 50 } });
-  const code = r.j.order.code; ok(r.j.order.due === 500, 'order due 500');
+  const code = r.j.order.code, pin1 = r.j.pin; ok(r.j.order.due === 500, 'order due 500');
   await call('POST', `/staff/orders/${code}/assign`, { token: A, body: { phleb: ph1.id } });
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Auto Assign', mobile: '9833333333', kind: 'home', address: 'X', phleb: ph1.id, tests: [{ name: 'CBC', price: 300 }] } }); ok(r.s === 201 && r.j.order.ph_id === ph1.id && r.j.order.ph_status === 'assigned', 'new order created already assigned to the phlebotomist');
   ok((await call('GET', '/staff/phleb/orders?scope=mine', { token: PH })).j.orders.some((o) => o.code === r.j.order.code), 'it shows in the phlebotomist app');
@@ -43,7 +43,7 @@ try {
   r = await call('POST', `/staff/orders/${r.j.order.code}/update`, { token: A, body: { name: 'Doc Test', ref_doctor: '', ref_doc_mobile: '9448236254' } }); ok(r.j.order.ref_doctor === '' && r.j.order.ref_doc_mobile === '', 'Self clears the doctor number');
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Walk In', mobile: '9833333335', kind: 'walk-in', phleb: ph1.id, tests: [{ name: 'CBC', price: 300 }] } }); ok(r.s === 201 && !r.j.order.ph_id, 'walk-in order ignores phlebotomist');
   r = await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH }); ok(r.s === 400, 'QR refused before sample collected');
-  await call('POST', `/staff/phleb/orders/${code}/accept`, { token: PH }); await call('POST', `/staff/phleb/orders/${code}/collected`, { token: PH });
+  await call('POST', `/staff/phleb/orders/${code}/accept`, { token: PH }); await call('POST', `/staff/phleb/orders/${code}/verifypin`, { token: PH, body: { pin: pin1 } }); await call('POST', `/staff/phleb/orders/${code}/collected`, { token: PH });
   ok((await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH2 })).s === 404, 'other phlebotomist cannot take payment');
   r = await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH }); ok(r.s === 200 && r.j.qr.image_url === 'https://rzp.test/qr.png' && r.j.qr.amount === 500, 'QR created for the due amount');
   const cr = log().find((l) => l.path.endsWith('/payments/qr_codes')); ok(cr.auth === 'rzp_test_k' && cr.body.payment_amount === 50000 && cr.body.usage === 'single_use' && cr.body.fixed_amount === true && cr.body.notes.order === code, 'Razorpay got a fixed single-use 500 rupee QR');
@@ -63,8 +63,8 @@ try {
   ok((await call('GET', `/staff/orders/${code}/invoice`, { token: PH })).s === 403, 'phlebotomist cannot use lab invoice route');
   r = await call('POST', `/staff/orders/${code}/sendinvoice`, { token: A }); ok(r.s === 200 && log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')).length === 2, 'lab can resend the invoice');
   // second order: confirmed by polling Razorpay (webhook late)
-  r = await call('POST', '/staff/orders', { token: A, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: Date.now() + 7200000, tests: [{ name: 'CBC', price: 300 }], paid: 100, pay_mode: 'cash' } }); const c2 = r.j.order.code;
-  await call('POST', `/staff/orders/${c2}/assign`, { token: A, body: { phleb: ph1.id } }); await call('POST', `/staff/phleb/orders/${c2}/collected`, { token: PH });
+  r = await call('POST', '/staff/orders', { token: A, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: Date.now() + 7200000, tests: [{ name: 'CBC', price: 300 }], paid: 100, pay_mode: 'cash' } }); const c2 = r.j.order.code, pin2 = r.j.pin;
+  await call('POST', `/staff/orders/${c2}/assign`, { token: A, body: { phleb: ph1.id } }); await call('POST', `/staff/phleb/orders/${c2}/verifypin`, { token: PH, body: { pin: pin2 } }); await call('POST', `/staff/phleb/orders/${c2}/collected`, { token: PH });
   r = await call('POST', `/staff/phleb/orders/${c2}/payqr`, { token: PH }); ok(r.j.qr.amount === 200, 'QR is for the balance only');
   writeFileSync(PAID, '20000'); r = await call('GET', `/staff/phleb/orders/${c2}/paystatus`, { token: PH }); ok(r.j.paid_online === true && r.j.order.paid === 300, 'polling Razorpay marks it paid');
   console.log(`${pass} passed, ${fail} failed`);

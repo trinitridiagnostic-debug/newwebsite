@@ -53,3 +53,15 @@ input,textarea{width:100%;border:1px solid #cfd4df;border-radius:10px;padding:12
 
 .pay .qr{display:block;width:230px;max-width:80%;margin:12px auto 4px;border:2px solid var(--yel);border-radius:12px;background:#fff}
 .pay .paid{background:#e6f5ec;color:#14683a;border-radius:10px;padding:12px;font-weight:700;margin-top:10px}
+
+.pininp{width:100%;text-align:center;font:700 28px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.5em;padding:12px 8px 12px calc(8px + .5em);border:2px solid var(--yel);border-radius:12px;margin:10px 0}
+.verified{text-align:center;padding:8px 0}
+.verified .vbig{display:inline-block;animation:pop .5s .1s both}
+.tick svg,.verified svg{display:block}
+.tc{stroke:var(--ok);stroke-width:3;stroke-linecap:round;stroke-dasharray:145;stroke-dashoffset:145;transform-origin:center;animation:draw .6s ease-out forwards}
+.tk{stroke:var(--ok);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:draw .4s .55s ease-out forwards}
+.verified .tc{fill:#e6f5ec}
+.pinok{display:flex;align-items:center;gap:8px;color:#14683a;font-weight:700;margin:6px 0}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.tc,.tk,.verified .vbig{animation-duration:.01s;animation-delay:0s}}

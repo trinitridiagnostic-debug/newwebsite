@@ -196,7 +196,7 @@ try {
   const PH1 = await login('ph1'), PH2 = await login('ph2'); ok(PH1 && PH2, 'phlebotomists log in');
   const slot = Date.now() + 3600000;
   r = await call('POST', '/staff/orders', { token: REC, body: { name: 'Linga Gouda', mobile: '9811111111', kind: 'home', address: 'Nandishwar Nagar, Gadag', slot, tests: [{ name: 'LIPID PROFILE', price: 250 }] } });
-  ok(r.s === 201 && r.j.order.addr === 'Nandishwar Nagar, Gadag' && r.j.order.slot_at === slot && r.j.order.kind === 'home', 'home order keeps address and visit time'); const hc = r.j.order.code;
+  ok(r.s === 201 && r.j.order.addr === 'Nandishwar Nagar, Gadag' && r.j.order.slot_at === slot && r.j.order.kind === 'home', 'home order keeps address and visit time'); const hc = r.j.order.code, hpin = r.j.pin;
   ok((await call('GET', '/staff/phleb/home', { token: TECH })).s === 403 && (await call('GET', '/staff/orders', { token: PH1 })).s === 403, 'roles are separated both ways');
   r = await call('GET', '/staff/dashboard?since=0', { token: REC }); ok(r.j.visits.unassigned === 1, 'dashboard counts unassigned visits');
   r = await call('GET', '/staff/phleb/orders?scope=pool', { token: PH1 }); ok(r.j.orders.length === 1 && r.j.orders[0].code === hc && r.j.orders[0].fasting === true && r.j.orders[0].due === 250, 'pool shows the visit with fasting flag and amount to collect');
@@ -208,6 +208,11 @@ try {
   ok((await call('GET', '/staff/phleb/orders?scope=mine', { token: PH2 })).j.orders.length === 0 && (await call('POST', `/staff/phleb/orders/${hc}/start`, { token: PH2 })).s === 403, 'others cannot touch it');
   ok((await call('POST', `/staff/phleb/orders/${hc}/accept`, { token: PH1 })).j.order.ph_status === 'accepted', 'accept');
   ok((await call('POST', `/staff/phleb/orders/${hc}/start`, { token: PH1 })).j.order.ph_status === 'started', 'start');
+  r = await call('POST', `/staff/phleb/orders/${hc}/collected`, { token: PH1 }); ok(r.s === 400, 'cannot collect before the patient PIN is verified');
+  ok((await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH2, body: { pin: hpin } })).s === 404, 'other phlebotomist cannot verify');
+  ok((await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH1, body: { pin: '12' } })).s === 400, 'short PIN refused');
+  ok((await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH1, body: { pin: hpin === '111111' ? '222222' : '111111' } })).s === 400, 'wrong PIN refused');
+  r = await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH1, body: { pin: hpin } }); ok(r.s === 200 && r.j.verified && r.j.order.pin_ok === true, 'right PIN verifies');
   r = await call('POST', `/staff/phleb/orders/${hc}/collected`, { token: PH1 }); ok(r.j.order.ph_status === 'collected' && r.j.order.status === 'collected', 'collected moves the lab order to collected');
   ok((await call('GET', `/staff/orders/${hc}`, { token: REC })).j.order.status === 'collected', 'lab sees collected');
   ok((await call('GET', '/staff/phleb/orders?scope=served', { token: PH1 })).j.orders.length === 1 && (await call('GET', '/staff/phleb/home', { token: PH1 })).j.served === 1, 'served list and count');

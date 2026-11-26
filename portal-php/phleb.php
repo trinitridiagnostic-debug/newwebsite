@@ -13,7 +13,7 @@ function phView($o) {
   return ['code' => $o['code'], 'name' => $o['name'], 'mobile' => $o['mobile'], 'age' => $o['age'] === null ? null : (int)$o['age'], 'sex' => $o['sex'],
     'addr' => (string)($o['addr'] ?? ''), 'slot_at' => $o['slot_at'] === null ? null : (int)$o['slot_at'], 'slot_mins' => (int)($o['slot_mins'] ?: 20),
     'tests' => array_column($tests, 'name'), 'fasting' => phFasting($tests), 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'amount' => (int)$o['amount'], 'paid' => (int)$o['paid'], 'pay_mode' => $o['pay_mode'], 'notes' => (string)$o['notes'],
-    'ph_id' => $o['ph_id'], 'ph_status' => $o['ph_status'], 'ph_at' => $o['ph_at'] === null ? null : (int)$o['ph_at'], 'status' => $o['status'], 'created' => (int)$o['created']];
+    'ph_id' => $o['ph_id'], 'pin_ok' => (int)($o['ph_pin_ok'] ?? 0) === 1, 'ph_status' => $o['ph_status'], 'ph_at' => $o['ph_at'] === null ? null : (int)$o['ph_at'], 'status' => $o['status'], 'created' => (int)$o['created']];
 }
 /* address + visit time on an order (called after create/update when the form sent them) */
 function setVisit($id, $b) {
@@ -48,6 +48,20 @@ function phlebRoutes($path, $m, $s) {
       else $rows = all("SELECT * FROM orders WHERE kind='home' AND ph_id=? AND ph_status IN ('assigned','accepted','started') ORDER BY COALESCE(slot_at, created) ASC LIMIT 100", [$me]);
       out(['orders' => array_map('phView', $rows)]);
     }
+    if ($m === 'POST' && preg_match('#^/staff/phleb/orders/([^/]+)/verifypin$#', $path, $r)) {
+      $o = one("SELECT * FROM orders WHERE code=? AND kind='home'", [rawurldecode($r[1])]);
+      if (!$o || $o['ph_id'] !== $me) throw new HttpErr(404, 'Visit not found.');
+      if ($o['ph_status'] === 'collected') throw bad('This visit is already done.');
+      if ((int)$o['ph_pin_ok'] === 1) out(['verified' => true, 'order' => phView($o)]);
+      $now = nowms(); $tries = (int)$o['ph_pin_tries'];
+      if ($tries >= 5 && $o['ph_pin_at'] !== null && $now - (int)$o['ph_pin_at'] < 10 * 60000) throw new HttpErr(429, 'Too many wrong PINs. Wait 10 minutes or ask the lab for a new PIN.');
+      if ($tries >= 5) $tries = 0;
+      $pin = preg_replace('/\D/', '', (string)field(body(), 'pin'));
+      if (strlen($pin) !== 6) throw bad('Enter the 6-digit PIN the patient has.');
+      if (!hash_equals($o['pin_hash'], pinHash($o['code'], $pin))) { q('UPDATE orders SET ph_pin_tries=?, ph_pin_at=? WHERE id=?', [$tries + 1, $now, $o['id']]); throw bad('That PIN is not correct. Ask the patient to check it.'); }
+      q('UPDATE orders SET ph_pin_ok=1, ph_pin_tries=0 WHERE id=?', [$o['id']]);
+      out(['verified' => true, 'order' => phView(sFresh($o['id']))]);
+    }
     if ($m === 'POST' && preg_match('#^/staff/phleb/orders/([^/]+)/(accept|start|collected|release|pick)$#', $path, $r)) {
       $code = rawurldecode($r[1]); $act = $r[2]; $o = one("SELECT * FROM orders WHERE code=? AND kind='home'", [$code]);
       if (!$o) throw new HttpErr(404, 'Visit not found.');
@@ -62,8 +76,9 @@ function phlebRoutes($path, $m, $s) {
         if ($o['ph_status'] === 'collected') throw bad('This visit is already done.');
         if ($act === 'accept') q("UPDATE orders SET ph_status='accepted', ph_at=? WHERE id=?", [$now, $o['id']]);
         if ($act === 'start') q("UPDATE orders SET ph_status='started', ph_at=? WHERE id=?", [$now, $o['id']]);
-        if ($act === 'release') q("UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=? WHERE id=?", [$now, $o['id']]);
+        if ($act === 'release') q("UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=?, ph_pin_ok=0 WHERE id=?", [$now, $o['id']]);
         if ($act === 'collected') {
+          if ((int)$o['ph_pin_ok'] !== 1) throw bad('Verify the patient\'s PIN before collecting the sample.');
           $t = json_decode($o['times'], true) ?: []; $t['collected'] = $now;
           q("UPDATE orders SET ph_status='collected', ph_at=?, status=CASE WHEN status='booked' THEN 'collected' ELSE status END, times=? WHERE id=?", [$now, json_encode($t), $o['id']]);
         }
@@ -124,7 +139,7 @@ function phlebRoutes($path, $m, $s) {
     if ($m === 'POST' && preg_match('#^/staff/phlebotomists/([^/]+?)(?:/(delete))?$#', $path, $r)) {
       need($s, 'staff'); $x = one("SELECT * FROM staff WHERE id=? AND role='phlebotomist'", [rawurldecode($r[1])]); if (!$x) throw new HttpErr(404, 'Phlebotomist not found.');
       if (($r[2] ?? '') === 'delete') {
-        q("UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=? WHERE ph_id=? AND (ph_status IS NULL OR ph_status<>'collected')", [nowms(), $x['id']]);   // unfinished visits go back to the pool
+        q("UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=?, ph_pin_ok=0 WHERE ph_id=? AND (ph_status IS NULL OR ph_status<>'collected')", [nowms(), $x['id']]);   // unfinished visits go back to the pool
         q('DELETE FROM leaves WHERE staff_id=?', [$x['id']]); q('DELETE FROM staff WHERE id=?', [$x['id']]); out(['ok' => true]);
       }
       $b = body(); list($mob, $d, $t) = $loc($b); $name = isset($b['name']) ? clean($b['name'], 60) : $x['name']; if (mb_strlen($name) < 2) throw bad('Enter the name.');
@@ -153,10 +168,10 @@ function phlebRoutes($path, $m, $s) {
     if ($o['kind'] !== 'home') throw bad('Only home-collection orders can be assigned. Change the order to Home collection first.');
     if ($o['ph_status'] === 'collected' || $o['status'] !== 'booked') throw bad('The sample is already collected.');
     $pid = clean(field(body(), 'phleb'), 32);
-    if ($pid === '') q('UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=? WHERE id=?', [nowms(), $o['id']]);
+    if ($pid === '') q('UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=?, ph_pin_ok=0 WHERE id=?', [nowms(), $o['id']]);
     else {
       $p = one("SELECT id FROM staff WHERE id=? AND role='phlebotomist' AND active=1", [$pid]); if (!$p) throw bad('Choose a phlebotomist.');
-      q("UPDATE orders SET ph_id=?, ph_status='assigned', ph_at=? WHERE id=?", [$pid, nowms(), $o['id']]);
+      q("UPDATE orders SET ph_id=?, ph_status='assigned', ph_at=?, ph_pin_ok=0 WHERE id=?", [$pid, nowms(), $o['id']]);
     }
     out(['order' => sView(sFresh($o['id']))]);
   }

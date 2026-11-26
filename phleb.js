@@ -101,6 +101,22 @@
     } });
     return card(o, null, el('div', 'btns', [b]));
   });
+  function tick(sz) { return el('span', { class: 'tick', html: '<svg viewBox="0 0 52 52" width="' + sz + '" height="' + sz + '"><circle class="tc" cx="26" cy="26" r="23" fill="none"/><path class="tk" fill="none" d="M14 27l8 8 16-17"/></svg>' }); }
+  function pinCard(o, after) {
+    var c = el('div', 'card pin'), inp = el('input', { class: 'pininp', inputmode: 'numeric', pattern: '[0-9]*', maxlength: '6', placeholder: '------', autocomplete: 'one-time-code', 'aria-label': 'Patient PIN' }), msg = el('p', 'msg'),
+      go = el('button', { type: 'button', class: 'btn pri', style: 'width:100%', text: 'Verify PIN' });
+    inp.addEventListener('input', function () { inp.value = inp.value.replace(/\D/g, '').slice(0, 6); });
+    c.appendChild(el('div', 'nm', ['Collect the patient PIN'])); c.appendChild(el('div', 'meta', ['Ask the patient or family for the 6-digit PIN the lab gave them. Verify it before taking the sample.'])); c.appendChild(inp); c.appendChild(go); c.appendChild(msg);
+    function submit() {
+      if (inp.value.length !== 6) { say(msg, 'Enter the 6-digit PIN.', 'err'); return; }
+      go.disabled = true; inp.disabled = true; say(msg, 'Checking...', '');
+      api('POST', '/staff/phleb/orders/' + encodeURIComponent(o.code) + '/verifypin', { pin: inp.value }).then(function (r) {
+        c.textContent = ''; c.appendChild(el('div', 'verified', [el('span', { class: 'vbig', html: '<svg viewBox="0 0 52 52" width="96" height="96"><circle class="tc" cx="26" cy="26" r="23" fill="none"/><path class="tk" fill="none" d="M14 27l8 8 16-17"/></svg>' }), el('div', 'nm', ['PIN verified']), el('div', 'meta', ['You can collect the sample now.'])]));
+        setTimeout(function () { after(r.order); }, 1500);
+      }).catch(function (e) { go.disabled = false; inp.disabled = false; inp.value = ''; inp.focus(); say(msg, e.message, 'err'); });
+    }
+    go.addEventListener('click', submit); inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); }); return c;
+  }
   function payCard(o) {
     var c = el('div', 'card pay'), area = el('div'), poll = null;
     function stop() { clearInterval(poll); poll = null; }
@@ -140,8 +156,9 @@
       var b = el('div', 'btns');
       if (o.ph_status === 'assigned') b.appendChild(el('button', { type: 'button', class: 'btn pri', text: 'Accept', onclick: act('accept', 'Accepted') }));
       if (o.ph_status === 'assigned' || o.ph_status === 'accepted') b.appendChild(el('button', { type: 'button', class: 'btn pri', text: 'Start', onclick: act('start', 'Started. Safe travels.') }));
-      if (o.ph_status === 'started') b.appendChild(el('button', { type: 'button', class: 'btn go', text: 'Sample collected', onclick: function () { var self = this; if (confirm('Confirm that the sample of ' + o.name + ' has been collected?')) act('collected', 'Marked as collected').call(self); } }));
+      if (o.ph_status === 'started' && o.pin_ok) b.appendChild(el('button', { type: 'button', class: 'btn go', text: 'Sample collected', onclick: function () { var self = this; if (confirm('Confirm that the sample of ' + o.name + ' has been collected?')) act('collected', 'Marked as collected').call(self); } }));
       dt.appendChild(b); box.appendChild(dt);
+      if (o.ph_status === 'started' && !o.pin_ok) box.appendChild(pinCard(o, draw)); else if (o.ph_status === 'started' || (o.ph_status === 'collected' && o.pin_ok)) dt.insertBefore(el('div', 'pinok', [tick(22), 'Patient PIN verified']), b);
       if (o.ph_status === 'collected') box.appendChild(payCard(o));
       if (o.ph_status !== 'collected') box.appendChild(el('button', { type: 'button', class: 'btn', style: 'width:100%', text: 'Order release', onclick: function () { var self = this; if (confirm('Release this visit back to the pool? Another phlebotomist can pick it.')) act('release', 'Released').call(self); } }));
     }
