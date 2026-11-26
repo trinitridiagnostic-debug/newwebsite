@@ -69,4 +69,29 @@
     page.appendChild(sumBox); page.appendChild(listBox);
     load().then(function () { done(); });
   };
+
+  /* ---------- daily attendance (selfie + GPS) ---------- */
+  L.views.attendance = function (page, _a, done) {
+    var d = el('input', { type: 'date' }), box = el('div'), now = new Date(); d.value = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+    function thumb(r) {
+      var img = el('img', { alt: 'Selfie of ' + r.name, class: 'selfie-t' }), a = el('button', { type: 'button', class: 'linkb', 'aria-label': 'Open selfie' }, [img]);
+      api('GET', '/staff/attendance/selfie?id=' + r.selfie, undefined, { blob: true }).then(function (b) { var u = URL.createObjectURL(b); img.src = u; a.onclick = function () { modal(r.name + ' - ' + L.fdt(r.at), el('img', { src: u, style: 'max-width:100%;border-radius:10px', alt: '' }), [{ text: 'Close', cls: 'ghost' }]); }; }).catch(function () { });
+      return a;
+    }
+    function load() {
+      box.textContent = ''; box.appendChild(el('div', { class: 'empty', text: 'Loading...' }));
+      api('GET', '/staff/attendance?day=' + encodeURIComponent(d.value)).then(function (r) {
+        box.textContent = ''; var pres = r.rows.filter(function (x) { return x.present; }).length, lv = r.rows.filter(function (x) { return !x.present && x.on_leave; }).length;
+        box.appendChild(el('p', { class: 'note', text: pres + ' present, ' + lv + ' on leave, ' + (r.rows.length - pres - lv) + ' not marked yet (of ' + r.rows.length + ' active phlebotomists).' }));
+        if (!r.rows.length) { box.appendChild(el('div', { class: 'empty', text: 'No phlebotomists yet.' })); return; }
+        var trs = r.rows.map(function (x) {
+          return el('tr', null, [el('td', null, x.present ? thumb(x) : '-'), el('td', null, [el('b', { text: x.name }), el('div', { class: 'note', text: [x.taluka, x.district].filter(Boolean).join(', ') || x.mobile })]),
+            el('td', null, [el('span', { class: 'badge2 b-' + (x.present ? 'completed' : (x.on_leave ? 'booked' : 'cancelled')), text: x.present ? 'Present' : (x.on_leave ? 'On leave' : 'Not marked') })]), el('td', { text: x.at ? L.fdt(x.at) : '-' }),
+            el('td', null, x.lat != null ? el('a', { href: 'https://www.google.com/maps/search/?api=1&query=' + x.lat + ',' + x.lng, target: '_blank', rel: 'noopener', text: 'Open location' + (x.acc ? ' (±' + Math.round(x.acc) + ' m)' : '') }) : '-')]);
+        });
+        box.appendChild(el('div', 'tbl-wrap', el('table', 'tbl', [el('thead', null, el('tr', null, ['Selfie', 'Phlebotomist', 'Status', 'Marked at', 'GPS location'].map(function (h) { return el('th', { text: h }); }))), el('tbody', null, trs)])));
+      }).catch(function (e) { box.textContent = ''; box.appendChild(el('p', { class: 'msg err', text: e.message })); });
+    }
+    d.addEventListener('change', load); page.appendChild(el('div', 'row', [fld('Date', d)])); page.appendChild(box); load(); done();
+  };
 })();

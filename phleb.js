@@ -189,8 +189,62 @@
   window.addEventListener('hashchange', route);
   function enter(staff, token) {
     if (staff.role !== 'phlebotomist') { TOKEN = ''; tok(null); say($('#lmsg'), staff.role === 'admin' || staff.role === 'reception' || staff.role === 'technician' ? 'This app is for phlebotomists. Staff logins use the lab console.' : 'This login cannot use this app.', 'err'); $('#login').hidden = false; return; }
-    ME = staff; TOKEN = token; tok(token); $('#login').hidden = true; $('#app').hidden = false; route();
+    ME = staff; TOKEN = token; tok(token); $('#login').hidden = true; $('#app').hidden = false; route(); checkAttendance();
   }
+  /* ---------- daily attendance: selfie + GPS, asked on the first open of each day ---------- */
+  var attOpen = false;
+  function checkAttendance() {
+    if (!ME || attOpen) return;
+    api('GET', '/staff/phleb/home', undefined, true).then(function (h) { if (!h.attendance && !h.on_leave) attendance(); }).catch(function () { });
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkAttendance(); });
+  var SPIN = '<svg viewBox="0 0 40 40" width="46" height="46" fill="none" stroke="#2bb39b" stroke-width="3" stroke-linecap="round"><path class="arc" d="M30 12a14 14 0 10 3 9"/><path d="M31 5v8h-8"/></svg>';
+  var SMILE = '<svg viewBox="0 0 64 64" width="{s}" height="{s}"><circle cx="32" cy="32" r="30" fill="#d4ac2c"/><circle cx="22" cy="25" r="4" fill="#fff"/><circle cx="42" cy="25" r="4" fill="#fff"/><path d="M16 38q16 16 32 0z" fill="#fff"/></svg>';
+  function attendance() {
+    attOpen = true; var shot = '', pos = null, stream = null, busy = false;
+    var ov = el('div', 'att'), sheet = el('div', 'sheet'), row = el('div', 'arow'), msg = el('p', 'msg'), video = el('video', { autoplay: '', playsinline: '', muted: '' }), cam = el('div', 'camwrap'), main = el('button', { type: 'button', class: 'btn', text: 'Capture Selfie' }),
+      file = el('input', { type: 'file', accept: 'image/*', capture: 'user', hidden: 'hidden' }), me = el('div', 'slot'), ph = el('div', 'selfie');
+    video.muted = true; cam.hidden = true; cam.appendChild(video);
+    sheet.appendChild(el('div', 'wl', ['Welcome, ' + ME.name]));
+    me.appendChild(el('span', { class: 'sm bounce', html: SMILE.replace(/\{s\}/g, '78') })); ph.appendChild(el('span', { class: 'sm', html: SMILE.replace(/\{s\}/g, '42') }));
+    row.appendChild(me); row.appendChild(el('span', { class: 'sp', html: SPIN })); row.appendChild(el('div', 'phone', [el('span', { class: 'sm', html: SMILE.replace(/\{s\}/g, '30') })])); row.appendChild(el('span', { class: 'sp', html: SPIN })); row.appendChild(ph);
+    sheet.appendChild(row); sheet.appendChild(cam); sheet.appendChild(msg); sheet.appendChild(main); sheet.appendChild(file); ov.appendChild(sheet); document.body.appendChild(ov);
+    function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+    function locate() {
+      pos = null; if (!navigator.geolocation) { say(msg, 'This phone cannot share its location.', 'err'); return; }
+      navigator.geolocation.getCurrentPosition(function (p) { pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; ready(); }, function (e) {
+        say(msg, e.code === 1 ? 'Allow location access for this site in the browser settings, then tap Retake.' : 'Could not get your location. Switch on GPS and tap Retake.', 'err');
+      }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+    }
+    function useImage(img) {
+      var w = img.videoWidth || img.naturalWidth, h = img.videoHeight || img.naturalHeight, k = Math.min(1, 480 / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); shot = c.toDataURL('image/jpeg', 0.7); stopCam(); cam.hidden = true;
+      ph.textContent = ''; ph.appendChild(el('img', { src: shot, alt: 'Your selfie' })); say(msg, 'Getting your location...', ''); main.textContent = 'Getting location...'; main.disabled = true; locate();
+    }
+    function ready() { if (!shot || !pos) return; say(msg, '', ''); main.disabled = false; main.textContent = 'Proceed'; main.className = 'btn pri'; main.onclick = send; retake(); }
+    function retake() { if (sheet.querySelector('.rt')) return; sheet.appendChild(el('button', { type: 'button', class: 'link rt', text: 'Retake selfie', onclick: function () { shot = ''; pos = null; ph.textContent = ''; ph.appendChild(el('span', { class: 'sm', html: SMILE.replace(/\{s\}/g, '42') })); main.className = 'btn'; main.disabled = false; main.textContent = 'Capture Selfie'; main.onclick = capture; var r = sheet.querySelector('.rt'); if (r) r.remove(); say(msg, '', ''); } })); }
+    function send() {
+      if (busy) return; busy = true; main.disabled = true; say(msg, 'Saving your attendance...', '');
+      api('POST', '/staff/phleb/attendance', { selfie: shot, lat: pos.lat, lng: pos.lng, acc: pos.acc }).then(function () {
+        sheet.textContent = ''; sheet.appendChild(el('div', 'verified', [el('span', { class: 'vbig', html: '<svg viewBox="0 0 52 52" width="96" height="96"><circle class="tc" cx="26" cy="26" r="23" fill="none"/><path class="tk" fill="none" d="M14 27l8 8 16-17"/></svg>' }), el('div', 'nm', ['Attendance marked']), el('div', 'meta', ['Have a safe day, ' + ME.name.split(' ')[0] + '.'])]));
+        setTimeout(function () { ov.remove(); attOpen = false; route(); }, 1600);
+      }).catch(function (e) { busy = false; main.disabled = false; say(msg, e.message, 'err'); });
+    }
+    function capture() {
+      locate();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { file.click(); return; }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(function (s) {
+        stream = s; video.srcObject = s; cam.hidden = false; video.play().catch(function () { }); main.textContent = 'Take photo'; main.className = 'btn pri';
+        main.onclick = function () { if (!video.videoWidth) return; useImage(video); };
+      }).catch(function () { file.click(); });
+    }
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0]; if (!f) return; var u = URL.createObjectURL(f), im = new Image();
+      im.onload = function () { useImage(im); URL.revokeObjectURL(u); }; im.onerror = function () { say(msg, 'Could not read that photo. Please try again.', 'err'); }; im.src = u;
+    });
+    main.onclick = capture;
+  }
+
   $('#fl').addEventListener('submit', function (e) {
     e.preventDefault(); var m = $('#lmsg'), u = $('#lu').value.trim(), p = $('#lp').value; if (!u || !p) return say(m, 'Enter your username and password.', 'err');
     say(m, 'Logging in...', ''); api('POST', '/staff/login', { username: u, password: p }, true).then(function (r) { $('#lp').value = ''; say(m, '', ''); enter(r.staff, r.token); }).catch(function (er) { say(m, er.message, 'err'); });

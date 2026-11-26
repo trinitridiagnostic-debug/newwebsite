@@ -217,6 +217,17 @@ try {
   ok((await call('GET', `/staff/orders/${hc}`, { token: REC })).j.order.status === 'collected', 'lab sees collected');
   ok((await call('GET', '/staff/phleb/orders?scope=served', { token: PH1 })).j.orders.length === 1 && (await call('GET', '/staff/phleb/home', { token: PH1 })).j.served === 1, 'served list and count');
   ok((await call('POST', `/staff/phleb/orders/${hc}/release`, { token: PH1 })).s === 400, 'a finished visit cannot be released');
+  // ---- daily attendance (selfie + GPS)
+  { const jpg = 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(3000, 7)]).toString('base64');
+    ok((await call('GET', '/staff/phleb/home', { token: PH1 })).j.attendance === false, 'attendance not marked at first');
+    ok((await call('POST', '/staff/phleb/attendance', { token: PH1, body: { selfie: jpg } })).s === 400, 'attendance needs GPS');
+    ok((await call('POST', '/staff/phleb/attendance', { token: PH1, body: { selfie: 'data:image/png;base64,AAAA', lat: 15.4, lng: 75.6 } })).s === 400, 'attendance needs a jpeg selfie');
+    ok((await call('POST', '/staff/phleb/attendance', { token: PH1, body: { selfie: jpg, lat: 15.42, lng: 75.63, acc: 12 } })).s === 200, 'attendance marked with selfie and GPS');
+    ok((await call('GET', '/staff/phleb/home', { token: PH1 })).j.attendance === true, 'attendance shows as marked');
+    ok((await call('POST', '/staff/phleb/attendance', { token: PH1, body: { selfie: jpg, lat: 1, lng: 1 } })).j.already === true, 'second mark the same day is ignored');
+    r = await call('GET', '/staff/attendance', { token: TECH }); const row = r.j.rows.find((x) => x.present); ok(r.s === 200 && row && row.lat === 15.42 && r.j.rows.some((x) => !x.present), 'lab sees who is present and absent');
+    const sf = await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + TECH } }); ok(sf.status === 200 && sf.headers.get('content-type') === 'image/jpeg', 'lab can open the selfie');
+    ok((await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + PH1 } })).status === 403, 'phlebotomist cannot open the lab attendance'); }
   // ---- phlebotomists tab: list/add/edit/delete with district + taluk
   r = await call('POST', '/staff/phlebotomists', { token: A, body: { name: 'Ravi Gadag', username: 'ravi.g', password: 'Phleb#2026', mobile: '98450 12345', district: 'Gadag', taluka: 'Ron' } }); ok(r.s === 201 && r.j.phlebotomist.district === 'Gadag' && r.j.phlebotomist.mobile === '9845012345', 'admin adds a phlebotomist with district and taluk');
   const rid = r.j.phlebotomist.id;

@@ -69,3 +69,5 @@
 .lab .sum .gt{font-family:inherit;font-size:1.15rem;font-weight:800;text-align:left;letter-spacing:0;color:inherit}
 .lab .sum b.gt{text-align:right}
 .lab .sum{margin-bottom:14px}
+
+.selfie-t{width:44px;height:56px;object-fit:cover;border-radius:8px;display:block;background:#eef2f2}.linkb{border:0;background:none;padding:0;cursor:pointer}

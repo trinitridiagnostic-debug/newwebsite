@@ -39,7 +39,7 @@ function phlebRoutes($path, $m, $s) {
       out(['name' => $s['name'], 'orders' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND ph_id=? AND ph_status IN ('assigned','accepted','started')", [$me]),
         'served' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND ph_id=? AND ph_status='collected'", [$me]),
         'pool' => $c("SELECT COUNT(*) AS n FROM orders WHERE kind='home' AND status='booked' AND (ph_id IS NULL OR ph_id='')"),
-        'on_leave' => phOnLeave($me, phToday())]);
+        'on_leave' => phOnLeave($me, phToday()), 'attendance' => (bool)one('SELECT 1 AS x FROM attendance WHERE staff_id=? AND day=?', [$me, phToday()])]);
     }
     if ($path === '/staff/phleb/orders' && $m === 'GET') {
       $scope = isset($_GET['scope']) ? $_GET['scope'] : 'mine';
@@ -93,6 +93,19 @@ function phlebRoutes($path, $m, $s) {
       require_once __DIR__ . '/pay.php';
       if ($act === 'payqr' && $m === 'POST') { $qr = payQrCreate($o); out(['qr' => $qr, 'order' => phView(sFresh($o['id']))]); }
       if ($act === 'paystatus' && $m === 'GET') { $o = payQrCheck($o); out(['order' => phView($o), 'paid_online' => orderDue($o) < 1 && $o['pay_mode'] === 'online']); }
+    }
+    if ($path === '/staff/phleb/attendance' && $m === 'POST') {
+      $day = phToday();
+      if (one('SELECT 1 AS x FROM attendance WHERE staff_id=? AND day=?', [$me, $day])) out(['ok' => true, 'already' => true]);
+      $b = body(700000); $lat = field($b, 'lat'); $lng = field($b, 'lng'); $acc = field($b, 'acc');
+      if (!is_numeric($lat) || !is_numeric($lng) || abs((float)$lat) > 90 || abs((float)$lng) > 180) throw bad('Your location was not received. Switch on GPS and try again.');
+      $img = (string)field($b, 'selfie');
+      if (!preg_match('#^data:image/jpeg;base64,([A-Za-z0-9+/=]+)$#', $img, $mm)) throw bad('Take a selfie first.');
+      $raw = base64_decode($mm[1], true); if ($raw === false || strlen($raw) < 2000 || strlen($raw) > 450000 || substr($raw, 0, 3) !== "\xFF\xD8\xFF") throw bad('The selfie could not be read. Please retake it.');
+      $file = $day . '-' . $me . '.jpg';
+      if (@file_put_contents(cfg()['storage_dir'] . '/attendance/' . $file, $raw, LOCK_EX) === false) throw new Exception('Cannot save the selfie.');
+      try { q('INSERT INTO attendance (staff_id, day, at, lat, lng, acc, selfie) VALUES (?,?,?,?,?,?,?)', [$me, $day, nowms(), (float)$lat, (float)$lng, is_numeric($acc) ? (float)$acc : null, $file]); } catch (PDOException $e) { }
+      out(['ok' => true]);
     }
     if ($path === '/staff/phleb/leaves' && $m === 'GET') {
       out(['leaves' => array_map(function ($x) { return ['id' => (int)$x['id'], 'from' => $x['from_d'], 'to' => $x['to_d'], 'reason' => (string)$x['reason']]; },
@@ -148,6 +161,22 @@ function phlebRoutes($path, $m, $s) {
       if (!empty($b['password'])) { validPassword((string)$b['password']); q('UPDATE staff SET hash=? WHERE id=?', [password_hash((string)$b['password'], PASSWORD_DEFAULT), $x['id']]); }
       out(['phlebotomist' => $pv(one('SELECT * FROM staff WHERE id=?', [$x['id']]))]);
     }
+  }
+  /* attendance sheet for the lab (selfie + GPS the phlebotomists sent) */
+  if ($path === '/staff/attendance' && $m === 'GET') {
+    need($s, 'assign'); $day = phDay($_GET['day'] ?? phToday()); $rows = [];
+    $att = []; foreach (all('SELECT * FROM attendance WHERE day=?', [$day]) as $a) $att[$a['staff_id']] = $a;
+    foreach (all("SELECT id, name, mobile, district, taluka FROM staff WHERE role='phlebotomist' AND active=1 ORDER BY name") as $x) {
+      $a = $att[$x['id']] ?? null;
+      $rows[] = ['staff_id' => $x['id'], 'name' => $x['name'], 'mobile' => (string)($x['mobile'] ?? ''), 'district' => (string)($x['district'] ?? ''), 'taluka' => (string)($x['taluka'] ?? ''), 'on_leave' => phOnLeave($x['id'], $day),
+        'present' => (bool)$a, 'at' => $a ? (int)$a['at'] : null, 'lat' => $a ? (float)$a['lat'] : null, 'lng' => $a ? (float)$a['lng'] : null, 'acc' => $a && $a['acc'] !== null ? (float)$a['acc'] : null, 'selfie' => $a ? $a['id'] : null];
+    }
+    out(['day' => $day, 'rows' => $rows]);
+  }
+  if ($path === '/staff/attendance/selfie' && $m === 'GET') {
+    need($s, 'assign'); $a = one('SELECT * FROM attendance WHERE id=?', [(int)($_GET['id'] ?? 0)]); $f = $a ? cfg()['storage_dir'] . '/attendance/' . basename($a['selfie']) : '';
+    if (!$a || !is_file($f)) throw new HttpErr(404, 'No selfie.');
+    header('Content-Type: image/jpeg'); header('Cache-Control: private, max-age=3600'); header('Content-Length: ' . filesize($f)); readfile($f); exit;
   }
   if ($path === '/staff/phlebs' && $m === 'GET') {
     need($s, 'assign'); $day = phToday();

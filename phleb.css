@@ -65,3 +65,20 @@ input,textarea{width:100%;border:1px solid #cfd4df;border-radius:10px;padding:12
 @keyframes draw{to{stroke-dashoffset:0}}
 @keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.tc,.tk,.verified .vbig{animation-duration:.01s;animation-delay:0s}}
+
+.att{position:fixed;inset:0;z-index:50;background:#5577ad;display:flex;align-items:flex-end}
+.att .sheet{background:#fff;width:100%;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));min-height:300px}
+.att .wl{text-align:center;font-weight:700;font-size:18px;color:#6b6b6b;margin-bottom:14px}
+.att .arow{display:flex;align-items:center;justify-content:space-between;margin:6px 4px 16px;min-height:90px}
+.att .slot,.att .selfie{width:78px;height:78px;display:flex;align-items:center;justify-content:center}
+.att .selfie img{width:78px;height:96px;object-fit:cover}
+.att .phone{width:48px;height:84px;border:3px solid #c9c9c9;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#fafafa}
+.att .sp .arc{transform-origin:20px 20px;animation:spin 1.6s linear infinite}
+.att .bounce{animation:bob 1.4s ease-in-out infinite}
+.att .camwrap{margin:0 auto 12px;width:min(260px,70%);border-radius:14px;overflow:hidden;border:2px solid var(--yel)}
+.att video{display:block;width:100%;transform:scaleX(-1)}
+.att .btn{width:100%;box-shadow:0 6px 14px rgba(0,0,0,.18);font-size:18px;padding:16px}
+.att .link.rt{display:block;margin:12px auto 0}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bob{50%{transform:translateY(-6px)}}
+.att .rt{background:none;border:0;color:var(--blue2);text-decoration:underline;font:inherit;font-weight:600;padding:8px;cursor:pointer}

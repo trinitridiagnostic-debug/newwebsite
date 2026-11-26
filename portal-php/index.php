@@ -83,13 +83,14 @@ function db() {
   $dir = $c['storage_dir'];
   if (!is_dir($dir)) @mkdir($dir, 0755, true);
   if (!is_dir($dir . '/reports')) @mkdir($dir . '/reports', 0755, true);
+  if (!is_dir($dir . '/attendance')) @mkdir($dir . '/attendance', 0755, true);
   if (!is_file($dir . '/.htaccess')) @file_put_contents($dir . '/.htaccess', "Require all denied\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n");
   $dsn = $c['db_dsn'] !== '' ? $c['db_dsn'] : 'sqlite:' . $dir . '/portal.sqlite';
   $pdo = new PDO($dsn, $c['db_user'] !== '' ? $c['db_user'] : null, $c['db_pass'] !== '' ? $c['db_pass'] : null,
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v13';
+  $mark = $dir . '/.schema-v14';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -120,6 +121,7 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS payments (id $ai, order_id VARCHAR(32) NOT NULL, ref VARCHAR(40) NOT NULL UNIQUE, amount BIGINT NOT NULL, mode VARCHAR(12) NOT NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS leaves (id $ai, staff_id VARCHAR(32) NOT NULL, from_d VARCHAR(10) NOT NULL, to_d VARCHAR(10) NOT NULL, reason VARCHAR(200) NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS sos (id $ai, staff_id VARCHAR(32) NOT NULL, staff_name VARCHAR(60) NOT NULL, lat DOUBLE NULL, lng DOUBLE NULL, note VARCHAR(200) NULL, created BIGINT NOT NULL, ack_by VARCHAR(60) NULL, ack_at BIGINT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS attendance (id $ai, staff_id VARCHAR(32) NOT NULL, day VARCHAR(10) NOT NULL, at BIGINT NOT NULL, lat DOUBLE NOT NULL, lng DOUBLE NOT NULL, acc DOUBLE NULL, selfie VARCHAR(60) NOT NULL, UNIQUE (staff_id, day))$tail";
   foreach ($sql as $s) $pdo->exec($s);
   // columns added in v2 (safe to repeat: errors for existing columns are ignored)
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "orders ADD COLUMN ph_pin_ok INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_tries INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_at BIGINT NULL", "staff ADD COLUMN mobile VARCHAR(12) NULL", "staff ADD COLUMN district VARCHAR(40) NULL", "staff ADD COLUMN taluka VARCHAR(40) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",

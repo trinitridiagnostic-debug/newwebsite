@@ -101,3 +101,6 @@ Without the webhook the app still notices the payment (it checks Razorpay every 
 
 ## Patient PIN check before collecting a home sample
 In the phlebotomist app, after **Start**, the phlebotomist must ask the patient for the 6-digit report PIN (the one given when the order was created) and verify it. Only then does **Sample collected** appear. After 5 wrong tries the app waits 10 minutes. If the patient lost the PIN, open the order in the lab console and generate a new PIN, then give it to the patient.
+
+## Daily attendance (selfie + GPS)
+The first time a phlebotomist opens the app each day (IST), a full-screen "Welcome" sheet asks for **Capture Selfie**. The phone's front camera takes the photo, the phone's GPS location is read, then **Proceed** saves it. The app cannot be used until attendance is marked (unless the phlebotomist has leave for that day). The browser asks for camera and location permission the first time: tap Allow. The lab console has an **Attendance** tab: pick a date to see who is present (selfie, time, map link), on leave or not marked. Selfies are stored in `portal-storage/attendance` (private, not public).

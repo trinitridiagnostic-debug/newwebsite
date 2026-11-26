@@ -85,13 +85,14 @@
     ['patients', 'Patients', 'view', 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21c1-4 4-6 8-6s7 2 8 6'],
     ['visits', 'Home visits', 'assign', 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
     ['phlebs', 'Phlebotomists', 'assign', 'M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5'],
+    ['attendance', 'Attendance', 'assign', 'M5 4h14v16H5zM9 2v4M15 2v4M8 12l3 3 5-6'],
     ['inbox', 'Inbox', 'inbox', 'M4 5h16v11H8l-4 4V5z'],
     ['reports', 'Reports', 'billing', 'M5 20V10M12 20V4M19 20v-7'],
     ['stock', 'Stock', 'stock', 'M4 8l8-4 8 4v8l-8 4-8-4V8zM4 8l8 4 8-4M12 12v8'],
     ['staff', 'Staff', 'staff', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z'],
     ['acct', 'My account', null, 'M12 8m-4 0a4 4 0 108 0 4 4 0 10-8 0M5 21c1-4 4-6 7-6s6 2 7 6']
   ];
-  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', phlebs: 'Phlebotomists', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
+  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', phlebs: 'Phlebotomists', attendance: 'Phlebotomist attendance', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
   var ROLES = { admin: 'Admin', reception: 'Reception', technician: 'Technician', phlebotomist: 'Phlebotomist' };
   LAB.roles = ROLES;
   function tok(v) { try { if (v === null) sessionStorage.removeItem('trin.lab.tok'); else if (v) sessionStorage.setItem('trin.lab.tok', v); else return sessionStorage.getItem('trin.lab.tok') || ''; } catch (e) { } return ''; }
