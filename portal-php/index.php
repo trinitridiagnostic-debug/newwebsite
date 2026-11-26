@@ -89,7 +89,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v11';
+  $mark = $dir . '/.schema-v12';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -122,7 +122,7 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS sos (id $ai, staff_id VARCHAR(32) NOT NULL, staff_name VARCHAR(60) NOT NULL, lat DOUBLE NULL, lng DOUBLE NULL, note VARCHAR(200) NULL, created BIGINT NOT NULL, ack_by VARCHAR(60) NULL, ack_at BIGINT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
   // columns added in v2 (safe to repeat: errors for existing columns are ignored)
-  $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
+  $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "staff ADD COLUMN mobile VARCHAR(12) NULL", "staff ADD COLUMN district VARCHAR(40) NULL", "staff ADD COLUMN taluka VARCHAR(40) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
     "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
     "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL", "orders ADD COLUMN addr VARCHAR(300) NULL", "orders ADD COLUMN slot_at BIGINT NULL", "orders ADD COLUMN slot_mins INT NULL", "orders ADD COLUMN ph_id VARCHAR(32) NULL", "orders ADD COLUMN ph_status VARCHAR(10) NULL", "orders ADD COLUMN ph_at BIGINT NULL", "orders ADD COLUMN pay_qr_id VARCHAR(40) NULL", "orders ADD COLUMN pay_qr_url VARCHAR(300) NULL", "orders ADD COLUMN pay_qr_amt BIGINT NULL", "orders ADD COLUMN pay_qr_at BIGINT NULL"];

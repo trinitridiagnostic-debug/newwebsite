@@ -212,6 +212,18 @@ try {
   ok((await call('GET', `/staff/orders/${hc}`, { token: REC })).j.order.status === 'collected', 'lab sees collected');
   ok((await call('GET', '/staff/phleb/orders?scope=served', { token: PH1 })).j.orders.length === 1 && (await call('GET', '/staff/phleb/home', { token: PH1 })).j.served === 1, 'served list and count');
   ok((await call('POST', `/staff/phleb/orders/${hc}/release`, { token: PH1 })).s === 400, 'a finished visit cannot be released');
+  // ---- phlebotomists tab: list/add/edit/delete with district + taluk
+  r = await call('POST', '/staff/phlebotomists', { token: A, body: { name: 'Ravi Gadag', username: 'ravi.g', password: 'Phleb#2026', mobile: '98450 12345', district: 'Gadag', taluka: 'Ron' } }); ok(r.s === 201 && r.j.phlebotomist.district === 'Gadag' && r.j.phlebotomist.mobile === '9845012345', 'admin adds a phlebotomist with district and taluk');
+  const rid = r.j.phlebotomist.id;
+  ok((await call('POST', '/staff/phlebotomists', { token: A, body: { name: 'Dup', username: 'ravi.g', password: 'Phleb#2026' } })).s === 400, 'duplicate username refused');
+  ok((await call('POST', '/staff/phlebotomists', { token: TECH, body: { name: 'Nope Nope', username: 'nope1', password: 'Phleb#2026' } })).s === 403, 'technician cannot add');
+  r = await call('GET', '/staff/phlebotomists', { token: TECH }); ok(r.s === 200 && r.j.phlebotomists.length === 3 && r.j.phlebotomists.some((x) => x.taluka === 'Ron'), 'technician can see the list');
+  ok((await call('GET', '/staff/phlebotomists', { token: PH1 })).s === 403, 'phlebotomist cannot see the list');
+  r = await call('POST', `/staff/phlebotomists/${rid}`, { token: A, body: { name: 'Ravi G', mobile: '9845012345', district: 'Dharwad', taluka: 'Hubballi', password: 'NewPass#2026' } }); ok(r.j.phlebotomist.district === 'Dharwad' && r.j.phlebotomist.name === 'Ravi G', 'edit location and name');
+  ok((await call('POST', '/staff/login', { body: { username: 'ravi.g', password: 'NewPass#2026' } })).s === 200, 'new password works');
+  r = await call('POST', `/staff/phlebotomists/${rid}`, { token: A, body: { active: false } }); ok(r.j.phlebotomist.active === false, 'deactivate');
+  ok((await call('POST', '/staff/login', { body: { username: 'ravi.g', password: 'NewPass#2026' } })).s !== 200, 'inactive cannot log in');
+  ok((await call('POST', `/staff/phlebotomists/${rid}/delete`, { token: A })).s === 200 && (await call('GET', '/staff/phlebotomists', { token: A })).j.phlebotomists.length === 2, 'delete');
   r = await call('POST', '/staff/orders', { token: REC, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: slot + 7200000, tests: [{ name: 'CBC', price: 300 }] } }); const hc2 = r.j.order.code;
   ok((await call('POST', `/staff/phleb/orders/${hc2}/pick`, { token: PH2 })).j.order.ph_status === 'accepted', 'pick from pool');
   ok((await call('POST', `/staff/phleb/orders/${hc2}/pick`, { token: PH1 })).s === 400, 'a picked visit cannot be picked again');

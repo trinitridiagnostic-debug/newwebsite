@@ -101,6 +101,39 @@ function phlebRoutes($path, $m, $s) {
   }
 
   /* ---------- the lab side: assign visits, see leave and SOS ---------- */
+  /* ---------- the Phlebotomists tab in the lab console ---------- */
+  if (strpos($path, '/staff/phlebotomists') === 0) {
+    $pv = function ($x) {
+      $n = one("SELECT COUNT(*) AS n FROM orders WHERE ph_id=? AND ph_status='collected'", [$x['id']]); $o = one("SELECT COUNT(*) AS n FROM orders WHERE ph_id=? AND status='booked' AND (ph_status IS NULL OR ph_status<>'collected')", [$x['id']]);
+      return ['id' => $x['id'], 'name' => $x['name'], 'username' => $x['username'], 'mobile' => (string)($x['mobile'] ?? ''), 'district' => (string)($x['district'] ?? ''), 'taluka' => (string)($x['taluka'] ?? ''),
+        'active' => (int)$x['active'] === 1, 'on_leave' => phOnLeave($x['id'], phToday()), 'served' => (int)$n['n'], 'open' => (int)$o['n'], 'created' => (int)$x['created']];
+    };
+    $loc = function ($b) {
+      $d = clean(field($b, 'district'), 40); $t = clean(field($b, 'taluka'), 40); $mob = preg_replace('/\D/', '', (string)field($b, 'mobile')); $mob = strlen($mob) >= 10 ? substr($mob, -10) : $mob;
+      if ($mob !== '' && !preg_match('/^[6-9]\d{9}$/', $mob)) throw bad('Enter a valid 10-digit mobile number.');
+      return [$mob, $d, $t];
+    };
+    if ($path === '/staff/phlebotomists' && $m === 'GET') { need($s, 'assign'); out(['phlebotomists' => array_map($pv, all("SELECT * FROM staff WHERE role='phlebotomist' ORDER BY name"))]); }
+    if ($path === '/staff/phlebotomists' && $m === 'POST') {
+      need($s, 'staff'); $b = body(); $user = cleanUser(field($b, 'username')); $name = clean(field($b, 'name'), 60); $pw = (string)field($b, 'password'); list($mob, $d, $t) = $loc($b);
+      if (mb_strlen($name) < 2) throw bad('Enter the name.'); validPassword($pw);
+      if (one('SELECT 1 AS x FROM staff WHERE username=?', [$user])) throw bad('That username is taken.');
+      $id = rnd(9); q("INSERT INTO staff (id, username, name, role, title, hash, active, created, mobile, district, taluka) VALUES (?,?,?,?,?,?,1,?,?,?,?)", [$id, $user, $name, 'phlebotomist', 'Phlebotomist', password_hash($pw, PASSWORD_DEFAULT), nowms(), $mob, $d, $t]);
+      out(['phlebotomist' => $pv(one('SELECT * FROM staff WHERE id=?', [$id]))], 201);
+    }
+    if ($m === 'POST' && preg_match('#^/staff/phlebotomists/([^/]+?)(?:/(delete))?$#', $path, $r)) {
+      need($s, 'staff'); $x = one("SELECT * FROM staff WHERE id=? AND role='phlebotomist'", [rawurldecode($r[1])]); if (!$x) throw new HttpErr(404, 'Phlebotomist not found.');
+      if (($r[2] ?? '') === 'delete') {
+        q("UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=? WHERE ph_id=? AND (ph_status IS NULL OR ph_status<>'collected')", [nowms(), $x['id']]);   // unfinished visits go back to the pool
+        q('DELETE FROM leaves WHERE staff_id=?', [$x['id']]); q('DELETE FROM staff WHERE id=?', [$x['id']]); out(['ok' => true]);
+      }
+      $b = body(); list($mob, $d, $t) = $loc($b); $name = isset($b['name']) ? clean($b['name'], 60) : $x['name']; if (mb_strlen($name) < 2) throw bad('Enter the name.');
+      $active = isset($b['active']) ? ($b['active'] ? 1 : 0) : (int)$x['active'];
+      q('UPDATE staff SET name=?, mobile=?, district=?, taluka=?, active=? WHERE id=?', [$name, $mob, $d, $t, $active, $x['id']]);
+      if (!empty($b['password'])) { validPassword((string)$b['password']); q('UPDATE staff SET hash=? WHERE id=?', [password_hash((string)$b['password'], PASSWORD_DEFAULT), $x['id']]); }
+      out(['phlebotomist' => $pv(one('SELECT * FROM staff WHERE id=?', [$x['id']]))]);
+    }
+  }
   if ($path === '/staff/phlebs' && $m === 'GET') {
     need($s, 'assign'); $day = phToday();
     out(['phlebs' => array_map(function ($x) use ($day) { return ['id' => $x['id'], 'name' => $x['name'], 'username' => $x['username'], 'on_leave' => phOnLeave($x['id'], $day)]; },
