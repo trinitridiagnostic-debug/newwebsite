@@ -87,7 +87,7 @@ function sView($o, $full = true) {
   $tests = json_decode($o['tests'], true) ?: [];
   $sub = array_sum(array_column($tests, 'price'));
   $v = ['id' => $o['id'], 'code' => $o['code'], 'name' => $o['name'], 'mobile' => $o['mobile'], 'age' => $o['age'] === null ? null : (int)$o['age'], 'sex' => $o['sex'],
-    'ref_doctor' => $o['ref_doctor'], 'kind' => $o['kind'], 'notes' => $o['notes'], 'tests' => $tests, 'subtotal' => $sub, 'discount' => (int)$o['discount'], 'amount' => (int)$o['amount'],
+    'ref_doctor' => $o['ref_doctor'], 'ref_doc_mobile' => $o['ref_doc_mobile'] ?? '', 'kind' => $o['kind'], 'notes' => $o['notes'], 'tests' => $tests, 'subtotal' => $sub, 'discount' => (int)$o['discount'], 'amount' => (int)$o['amount'],
     'paid' => (int)$o['paid'], 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'pay_mode' => $o['pay_mode'], 'status' => $o['status'], 'res_status' => $o['res_status'],
     'times' => json_decode($o['times'], true) ?: new stdClass, 'created' => (int)$o['created'], 'hasReport' => !empty($o['report_file']), 'approved_by' => $o['approved_by'],
     'approved_at' => $o['approved_at'] === null ? null : (int)$o['approved_at'], 'created_by' => $o['created_by'],
@@ -108,6 +108,7 @@ function demographics($b) {
   $kind = clean(field($b, 'kind'), 10); if (!in_array($kind, ['walk-in', 'home'], true)) $kind = 'walk-in';
   return [$age, $sex, clean(field($b, 'ref_doctor'), 80), $kind, cleanBody(field($b, 'notes'), 500)];
 }
+function docMobile($b) { $m = preg_replace('/\D/', '', (string)field($b, 'ref_doc_mobile')); return (clean(field($b, 'ref_doctor'), 80) === '' || strlen($m) < 10) ? '' : substr($m, -10); }
 function money($b, $k) { return max(0, (int)round((float)field($b, $k))); }
 
 function createOrder($s) {
@@ -131,7 +132,7 @@ function createOrder($s) {
   }
   $cu = one('SELECT id FROM users WHERE mobile=? AND verified=1', [$mobile]);   // a verified customer account sees the new order straight away
   if ($cu) autoLink($cu['id'], $mobile);
-  setVisit($id, $b);
+  setVisit($id, $b); q('UPDATE orders SET ref_doc_mobile=? WHERE id=?', [docMobile($b), $id]);
   if ($pid !== '') {
     q("UPDATE orders SET ph_id=?, ph_status='assigned', ph_at=? WHERE id=?", [$pid, nowms(), $id]);
   }
@@ -172,7 +173,7 @@ function updateOrder($s, $o) {
   }
   q('UPDATE orders SET name=?, mobile=?, age=?, sex=?, ref_doctor=?, kind=?, notes=?, tests=?, amount=?, discount=? WHERE id=?',
     [$name, $mobile !== '' ? $mobile : $o['mobile'], $age, $sex, $doc, $kind, $notes, json_encode($tests, JSON_UNESCAPED_UNICODE), $amount, $disc, $o['id']]);
-  setVisit($o['id'], $b);
+  setVisit($o['id'], $b); q('UPDATE orders SET ref_doc_mobile=? WHERE id=?', [docMobile($b), $o['id']]);
   out(['order' => sView(sFresh($o['id']))]);
 }
 

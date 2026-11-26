@@ -240,7 +240,7 @@
     add(box, [el('h1', { text: 'TRINETRI DIAGNOSTICS' }), el('div', { text: 'K C Rani Road, 3rd Cross Rd, Betageri, Karnataka 582101' }), el('div', { text: 'Phone / WhatsApp: +91 91873 15972' }), el('hr'),
       el('table', null, [el('tr', null, [el('td', { text: 'Order ID' }), el('td', { class: 'r', text: o.code })]), el('tr', null, [el('td', { text: 'Date' }), el('td', { class: 'r', text: fdt(o.created) })]),
         el('tr', null, [el('td', { text: 'Patient' }), el('td', { class: 'r', text: o.name + (o.age != null ? ', ' + o.age + (o.sex || '') : '') })]), el('tr', null, [el('td', { text: 'Mobile' }), el('td', { class: 'r', text: o.mobile })]),
-        o.ref_doctor ? el('tr', null, [el('td', { text: 'Referred by' }), el('td', { class: 'r', text: o.ref_doctor })]) : null]), el('hr'),
+        o.ref_doctor ? el('tr', null, [el('td', { text: 'Referred by' }), el('td', { class: 'r', text: o.ref_doctor + (o.ref_doc_mobile ? ' (' + o.ref_doc_mobile + ')' : '') })]) : null]), el('hr'),
       el('table', null, rows), el('hr'),
       el('table', null, [el('tr', null, [el('td', { text: 'Sub total' }), el('td', { class: 'r', text: inr(o.subtotal) })]), o.discount ? el('tr', null, [el('td', { text: 'Discount' }), el('td', { class: 'r', text: '- ' + inr(o.discount) })]) : null,
         el('tr', null, [el('td', null, el('b', { text: 'Total' })), el('td', { class: 'r' }, el('b', { text: inr(o.amount) }))]), el('tr', null, [el('td', { text: 'Paid' + (o.pay_mode ? ' (' + o.pay_mode + ')' : '') }), el('td', { class: 'r', text: inr(o.paid) })]),
@@ -309,13 +309,13 @@
     }
     function editModal(o) {
       var n = el('input', { value: o.name }), mb = el('input', { value: o.mobile, inputmode: 'tel' }), ag = el('input', { type: 'number', min: 0, max: 120, value: o.age == null ? '' : o.age }), sx = el('select', null, [['', 'Sex'], ['M', 'Male'], ['F', 'Female'], ['O', 'Other']].map(function (x) { return el('option', { value: x[0], text: x[1], selected: x[0] === (o.sex || '') }); }));
-      var dc = el('input', { value: o.ref_doctor || '' }), kd = el('select', null, [['walk-in', 'Walk-in'], ['home', 'Home collection']].map(function (x) { return el('option', { value: x[0], text: x[1], selected: x[0] === o.kind }); })), nt = el('textarea', { text: o.notes || '' }); nt.value = o.notes || '';
+      var dcp = window.docPicker(LAB, o.ref_doctor || '', o.ref_doc_mobile || ''), kd = el('select', null, [['walk-in', 'Walk-in'], ['home', 'Home collection']].map(function (x) { return el('option', { value: x[0], text: x[1], selected: x[0] === o.kind }); })), nt = el('textarea', { text: o.notes || '' }); nt.value = o.notes || '';
       var ms = el('span', 'msg');
       var ad = el('textarea', { placeholder: 'Full address with landmark' }); ad.value = o.addr || ''; var vt = el('input', { type: 'datetime-local' }); vt.value = LAB.toLocalInput(o.slot_at);
       var adF = fld('Home collection address', ad, 'full'), vtF = fld('Visit date and time', vt, 'full'); function homeShow() { adF.hidden = vtF.hidden = kd.value !== 'home'; } kd.addEventListener('change', homeShow); homeShow();
-      modal('Edit patient details', el('div', 'form2', [fld('Name', n, 'full'), fld('Mobile', mb), fld('Age', ag), fld('Sex', sx), fld('Collection', kd), adF, vtF, fld('Referred by', dc, 'full'), fld('Notes', nt, 'full'), ms]), [{ text: 'Cancel', cls: 'ghost' }, {
+      modal('Edit patient details', el('div', 'form2', [fld('Name', n, 'full'), fld('Mobile', mb), fld('Age', ag), fld('Sex', sx), fld('Collection', kd), adF, vtF, fld('Referred by', dcp.node, 'full'), fld('Notes', nt, 'full'), ms]), [{ text: 'Cancel', cls: 'ghost' }, {
         text: 'Save', keep: true, fn: function (close) {
-          api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/update', { name: n.value, mobile: mb.value, age: ag.value, sex: sx.value, ref_doctor: dc.value, kind: kd.value, notes: nt.value, address: kd.value === 'home' ? ad.value : '', slot: kd.value === 'home' ? LAB.fromLocalInput(vt.value) : '' }).then(function () { close(); toast('Saved'); route(); }).catch(function (e) { say(ms, e.message, 'err'); });
+          api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/update', { name: n.value, mobile: mb.value, age: ag.value, sex: sx.value, ref_doctor: dcp.get().name, ref_doc_mobile: dcp.get().mobile, kind: kd.value, notes: nt.value, address: kd.value === 'home' ? ad.value : '', slot: kd.value === 'home' ? LAB.fromLocalInput(vt.value) : '' }).then(function () { close(); toast('Saved'); route(); }).catch(function (e) { say(ms, e.message, 'err'); });
         }
       }]);
     }
