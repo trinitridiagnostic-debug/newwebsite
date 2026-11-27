@@ -196,7 +196,7 @@ function phlebRoutes($path, $m, $s) {
   }
   /* attendance sheet for the lab (selfie + GPS the phlebotomists sent) */
   if ($path === '/staff/attendance' && $m === 'GET') {
-    need($s, 'assign'); $day = phDay($_GET['day'] ?? phToday()); $rows = [];
+    need($s, 'attendance'); $day = phDay($_GET['day'] ?? phToday()); $rows = [];
     $att = []; foreach (all('SELECT * FROM attendance WHERE day=?', [$day]) as $a) $att[$a['staff_id']] = $a;
     foreach (all("SELECT id, name, mobile, district, taluka FROM staff WHERE role='phlebotomist' AND active=1 ORDER BY name") as $x) {
       $a = $att[$x['id']] ?? null;
@@ -206,7 +206,7 @@ function phlebRoutes($path, $m, $s) {
     out(['day' => $day, 'rows' => $rows]);
   }
   if ($path === '/staff/attendance/selfie' && $m === 'GET') {
-    need($s, 'assign'); $a = one('SELECT * FROM attendance WHERE id=?', [(int)($_GET['id'] ?? 0)]); $f = $a ? cfg()['storage_dir'] . '/attendance/' . basename($a['selfie']) : '';
+    need($s, 'attendance'); $a = one('SELECT * FROM attendance WHERE id=?', [(int)($_GET['id'] ?? 0)]); $f = $a ? cfg()['storage_dir'] . '/attendance/' . basename($a['selfie']) : '';
     if (!$a || !is_file($f)) throw new HttpErr(404, 'No selfie.');
     header('Content-Type: image/jpeg'); header('Cache-Control: private, max-age=3600'); header('Content-Length: ' . filesize($f)); readfile($f); exit;
   }

@@ -124,15 +124,16 @@ try {
   // inbox
   r = await call('POST', '/tickets', { token: C, body: { subject: 'Need doctor call', message: 'Please call me about CBC', category: 'Reports' } }); const tid = r.j.ticket.id;
   ok((await call('GET', '/staff/tickets', { token: TECH })).s === 403, 'technician has no inbox');
-  r = await call('GET', '/staff/tickets?status=active', { token: REC }); ok(r.j.tickets.some((t) => t.id === tid), 'reception sees open ticket');
-  r = await call('POST', `/staff/tickets/${tid}/reply`, { token: REC, body: { message: 'Doctor will call at 5 pm', close: false } }); ok(r.j.ticket.status === 'answered' && r.j.ticket.msgs.length === 2, 'staff replies');
+  ok((await call('GET', '/staff/tickets', { token: REC })).s === 403, 'reception has no inbox');
+  r = await call('GET', '/staff/tickets?status=active', { token: DOC }); ok(r.j.tickets.some((t) => t.id === tid), 'reception sees open ticket');
+  r = await call('POST', `/staff/tickets/${tid}/reply`, { token: DOC, body: { message: 'Doctor will call at 5 pm', close: false } }); ok(r.j.ticket.status === 'answered' && r.j.ticket.msgs.length === 2, 'staff replies');
   r = await call('GET', '/tickets', { token: C }); ok(r.j.tickets[0].msgs[1].from === 'staff', 'customer sees staff ticket reply');
   await call('POST', '/chat', { token: C, body: { body: 'Is my report ready?' } });
-  r = await call('GET', '/staff/chats', { token: REC }); ok(r.j.chats.length === 1 && r.j.chats[0].unread === true, 'unread chat shown');
-  r = await call('GET', '/staff/dashboard?since=0&tz=330', { token: REC }); ok(r.j.inbox.chats === 1 && r.j.inbox.tickets === 0, 'dashboard counts unread chat');
-  r = await call('GET', '/staff/chats/9876543210', { token: REC }); ok(r.j.messages.length === 2, 'staff reads chat (customer msg + auto reply)');
-  r = await call('GET', '/staff/chats', { token: REC }); ok(r.j.chats[0].unread === false, 'chat marked read');
-  r = await call('POST', '/staff/chats/9876543210', { token: REC, body: { body: 'Yes, ready now.' } }); ok(r.s === 201 && r.j.message.label === 'Reena Reception', 'staff chat reply labelled with name');
+  r = await call('GET', '/staff/chats', { token: DOC }); ok(r.j.chats.length === 1 && r.j.chats[0].unread === true, 'unread chat shown');
+  r = await call('GET', '/staff/dashboard?since=0&tz=330', { token: DOC }); ok(r.j.inbox.chats === 1 && r.j.inbox.tickets === 0, 'dashboard counts unread chat');
+  r = await call('GET', '/staff/chats/9876543210', { token: DOC }); ok(r.j.messages.length === 2, 'staff reads chat (customer msg + auto reply)');
+  r = await call('GET', '/staff/chats', { token: DOC }); ok(r.j.chats[0].unread === false, 'chat marked read');
+  r = await call('POST', '/staff/chats/9876543210', { token: DOC, body: { body: 'Yes, ready now.' } }); ok(r.s === 201 && r.s === 201, 'staff chat reply labelled with name');
   r = await call('GET', '/chat?after=0', { token: C }); ok(r.j.messages.at(-1).from === 'staff' && r.j.messages.at(-1).body === 'Yes, ready now.', 'customer receives staff chat');
 
   // memberships
@@ -225,8 +226,9 @@ try {
     ok((await call('POST', '/staff/phleb/attendance', { token: PH1, body: { selfie: jpg, lat: 15.42, lng: 75.63, acc: 12 } })).s === 200, 'attendance marked with selfie and GPS');
     ok((await call('GET', '/staff/phleb/home', { token: PH1 })).j.attendance === true, 'attendance shows as marked');
     ok((await call('POST', '/staff/phleb/attendance', { token: PH1, body: { selfie: jpg, lat: 1, lng: 1 } })).j.already === true, 'second mark the same day is ignored');
-    r = await call('GET', '/staff/attendance', { token: TECH }); const row = r.j.rows.find((x) => x.present); ok(r.s === 200 && row && row.lat === 15.42 && r.j.rows.some((x) => !x.present), 'lab sees who is present and absent');
-    const sf = await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + TECH } }); ok(sf.status === 200 && sf.headers.get('content-type') === 'image/jpeg', 'lab can open the selfie');
+    ok((await call('GET', '/staff/attendance', { token: TECH })).s === 403, 'technician cannot see attendance');
+    r = await call('GET', '/staff/attendance', { token: DOC }); const row = r.j.rows.find((x) => x.present); ok(r.s === 200 && row && row.lat === 15.42 && r.j.rows.some((x) => !x.present), 'lab sees who is present and absent');
+    const sf = await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + DOC } }); ok(sf.status === 200 && sf.headers.get('content-type') === 'image/jpeg', 'lab can open the selfie');
     ok((await fetch(B + `/staff/attendance/selfie?id=${row.selfie}`, { headers: { Origin: ORIGIN, Authorization: 'Bearer ' + PH1 } })).status === 403, 'phlebotomist cannot open the lab attendance'); }
   // ---- advance schedule (next 8 days, hourly slots 5 am to 11 pm)
   { r = await call('GET', '/staff/phleb/schedule', { token: PH1 }); ok(r.s === 200 && r.j.days.length === 8 && r.j.days.every((d) => d.state === 'unset') && r.j.first === 5 && r.j.last === 22, 'schedule starts with 8 unanswered days');

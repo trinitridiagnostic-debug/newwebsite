@@ -3,9 +3,9 @@
    Staff log in with username + password and get a token. What each person may do depends on their role. */
 
 const ROLE_CAN = [
-  'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock', 'assign', 'crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_all', 'crm_delete', 'crm_staff', 'crm_settings'],
-  'reception'  => ['view', 'billing', 'status', 'inbox', 'members', 'assign'],
-  'technician' => ['view', 'status', 'results', 'stock', 'assign'],
+  'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock', 'assign', 'office', 'dispatch', 'attendance', 'crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_all', 'crm_delete', 'crm_staff', 'crm_settings'],
+  'reception'  => ['view', 'billing', 'status', 'members', 'assign'],
+  'technician' => ['view', 'status', 'results', 'stock', 'assign', 'dispatch'],
   'telecaller' => ['crm', 'crm_add'],
   'marketing'  => ['crm', 'crm_add', 'crm_import', 'crm_all'],
   'teamlead'   => ['crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_team', 'crm_staff'],
