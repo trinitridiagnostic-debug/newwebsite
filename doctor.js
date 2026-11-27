@@ -39,10 +39,10 @@
   function setView(v) { try { localStorage.setItem('trin.dr.view', v); } catch (e) { } }
   function viewSwitch(onchange) {
     var w = el('div', 'vsw'), cur = getView();
-    [['mrp', 'MRP only', 'Show to patient'], ['b2b', 'MRP + B2B', 'With commission']].forEach(function (x) {
+    [['mrp', 'MRP'], ['b2b', 'B2B']].forEach(function (x) {
       var lab = el('label', { class: cur === x[0] ? 'on' : '' }), r = el('input', { type: 'radio', name: 'vw', value: x[0], checked: cur === x[0] });
       r.addEventListener('change', function () { setView(x[0]); [].forEach.call(w.children, function (c) { c.classList.toggle('on', c.firstChild.checked); }); onchange(x[0]); });
-      lab.appendChild(r); lab.appendChild(el('span', null, [el('b', { text: x[1] }), el('small', { text: x[2] })])); w.appendChild(lab);
+      lab.appendChild(r); lab.appendChild(el('span', null, [el('b', { text: x[1] })])); w.appendChild(lab);
     });
     return w;
   }
