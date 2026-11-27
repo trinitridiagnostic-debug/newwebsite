@@ -12,7 +12,7 @@
 
   /* ---------- B2B price list ---------- */
   L.views.b2b = function (page, _a, done) {
-    var catMap = {}; (L.catalog || []).forEach(function (t) { var k = norm(t.name); if (k && !catMap[k]) catMap[k] = t.key; });
+    var catMap = {}, catPrice = {}; (L.catalog || []).forEach(function (t) { var k = norm(t.name); if (k && !catMap[k]) catMap[k] = t.key; catPrice[t.key] = t.price || 0; });
     var data = null, cur = [], q = el('input', { placeholder: 'Search the saved price list', style: 'max-width:340px' }), tb = el('tbody'), sum = el('p', 'note');
     var up = el('div', 'card'), file = el('input', { type: 'file', accept: '.xlsx,.xls,.csv' }), pv = el('div'), ms = el('span', 'msg'), rep = el('input', { type: 'checkbox' });
     up.appendChild(el('h2', { text: 'Upload B2B prices' }));
@@ -27,31 +27,31 @@
           rows = rows.filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); }); if (rows.length < 2) { say(ms, 'The file has no data rows.', 'err'); return; }
           var hi = 0; for (var i = 0; i < Math.min(rows.length, 10); i++) if (rows[i].some(function (c) { return /price|rate|amount|b2b|mrp|cost/i.test(c); }) && rows[i].some(function (c) { return /test|name|investigation|description|parameter|profile/i.test(c); })) { hi = i; break; }
           var head = rows[hi].map(function (h, i) { return String(h).trim() || 'Column ' + (i + 1); }), body = rows.slice(hi + 1);
-          var nc = -1, pc = -1; head.forEach(function (h, i) { if (nc < 0 && /test|investigation|name|description|parameter/i.test(h) && !/code/i.test(h)) nc = i; });
-          [/b2b|partner|doctor|lab rate|net/i, /price|rate|amount|cost/i, /mrp/i].forEach(function (re) { if (pc < 0) head.forEach(function (h, i) { if (pc < 0 && re.test(h)) pc = i; }); });
-          if (nc < 0) nc = 0; if (pc < 0) pc = head.length > 1 ? head.length - 1 : 0; data = { head: head, body: body };
+          var nc = -1, pc = -1, mc = -1; head.forEach(function (h, i) { if (mc < 0 && /mrp|m\.r\.p|retail|patient price|selling/i.test(h)) mc = i; }); head.forEach(function (h, i) { if (nc < 0 && /test|investigation|name|description|parameter/i.test(h) && !/code/i.test(h)) nc = i; });
+          [/b2b|partner|doctor|lab rate|net/i, /price|rate|amount|cost/i].forEach(function (re) { if (pc < 0) head.forEach(function (h, i) { if (pc < 0 && i !== mc && re.test(h)) pc = i; }); }); if (pc < 0) pc = head.map(function (h, i) { return i; }).filter(function (i) { return i !== mc && i !== nc; })[0] || 0;
+          if (nc < 0) nc = 0; data = { head: head, body: body };
           var ns = el('select', null, head.map(function (h, i) { return el('option', { value: String(i), text: h, selected: i === nc }); })), ps = el('select', null, head.map(function (h, i) { return el('option', { value: String(i), text: h, selected: i === pc }); }));
-          var sm = el('div'), go = btn('Save prices', '', save);
-          function build() { var out = [], un = 0, seen = {}; data.body.forEach(function (r) { var n = String(r[+ns.value] || '').trim(), p = price(r[+ps.value]); if (!n || p < 1) return; var k = catMap[norm(n)]; if (!k) { k = 'X:' + slug(n); un++; } if (seen[k]) return; seen[k] = 1; out.push({ key: k, name: n, price: p, matched: !k.indexOf('X:') ? 0 : 1 }); }); return { rows: out, un: un }; }
+          var ms2 = el('select', null, [el('option', { value: '-1', text: '(use my catalog price)' })].concat(head.map(function (h, i) { return el('option', { value: String(i), text: h, selected: i === mc }); }))), sm = el('div'), go = btn('Save prices', '', save);
+          function build() { var out = [], un = 0, seen = {}; data.body.forEach(function (r) { var n = String(r[+ns.value] || '').trim(), p = price(r[+ps.value]); if (!n || p < 1) return; var k = catMap[norm(n)]; if (!k) { k = 'X:' + slug(n); un++; } if (seen[k]) return; seen[k] = 1; var mrp = +ms2.value >= 0 ? price(r[+ms2.value]) : (catPrice[k] || 0); out.push({ key: k, name: n, price: p, mrp: mrp, matched: !k.indexOf('X:') ? 0 : 1 }); }); return { rows: out, un: un }; }
           function show() { var b = build(); sm.textContent = ''; sm.appendChild(el('p', { class: 'note', text: b.rows.length + ' prices ready' + (b.un ? ' (' + b.un + ' not found in your catalog; they will still be saved under the name in your file)' : ' (all matched to your catalog)') + '.' }));
-            var t = el('table', 'tbl', [el('thead', null, [el('tr', null, [el('th', { text: 'Test (from your file)' }), el('th', { text: 'B2B price' }), el('th', { text: 'In catalog' })])]), el('tbody', null, b.rows.slice(0, 6).map(function (r) { return el('tr', null, [el('td', { text: r.name }), el('td', { text: inr(r.price) }), el('td', { text: r.matched ? 'Yes' : 'No' })]); }))]); sm.appendChild(t); go.disabled = !b.rows.length; }
-          ns.onchange = ps.onchange = show;
+            var t = el('table', 'tbl', [el('thead', null, [el('tr', null, [el('th', { text: 'Test (from your file)' }), el('th', { text: 'MRP' }), el('th', { text: 'B2B price' }), el('th', { text: 'In catalog' })])]), el('tbody', null, b.rows.slice(0, 6).map(function (r) { return el('tr', null, [el('td', { text: r.name }), el('td', { text: r.mrp ? inr(r.mrp) : '-' }), el('td', { text: inr(r.price) }), el('td', { text: r.matched ? 'Yes' : 'No' })]); }))]); sm.appendChild(t); go.disabled = !b.rows.length; }
+          ns.onchange = ps.onchange = ms2.onchange = show;
           function save() {
             var b = build(); if (!b.rows.length) return; if (rep.checked && !confirm('This replaces the whole saved price list with this file. Continue?')) return; go.disabled = true;
-            var rowsAll = b.rows.map(function (r) { return { key: r.key, name: r.name, price: r.price }; }), i = 0, total = 0;
+            var rowsAll = b.rows.map(function (r) { return { key: r.key, name: r.name, price: r.price, mrp: r.mrp }; }), i = 0, total = 0;
             (function next() { if (i >= rowsAll.length) { say(ms, 'Saved ' + total + ' prices. Doctors can see them now.', 'ok'); pv.textContent = ''; file.value = ''; load(); return; }
               say(ms, 'Saving ' + Math.min(i + 1000, rowsAll.length) + ' of ' + rowsAll.length + '...', 'info');
               api('POST', '/staff/b2b', { rows: rowsAll.slice(i, i + 1000), replace: rep.checked && i === 0 }).then(function (r) { total += r.saved; i += 1000; next(); }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); }); })();
           }
-          pv.textContent = ''; pv.appendChild(el('div', 'form2', [fld('Test name column', ns), fld('B2B price column', ps)])); pv.appendChild(sm);
+          pv.textContent = ''; pv.appendChild(el('div', 'form2', [fld('Test name column', ns), fld('B2B price column', ps), fld('MRP column (what the patient normally pays)', ms2, 'full')])); pv.appendChild(sm);
           pv.appendChild(el('label', { class: 'chk', style: 'margin:8px 0' }, [rep, el('span', { text: 'Replace the whole saved list (untick to just add and update)' })])); pv.appendChild(el('div', 'row', [go])); show(); say(ms, '', '');
         } catch (e) { say(ms, 'Could not read that file. Save it as .xlsx or .csv and try again.', 'err'); }
       }; rd.readAsArrayBuffer(f);
     });
-    var list = el('div', 'card', [el('h2', { text: 'Saved B2B prices' }), sum, el('div', 'row', [q]), el('div', 'tblwrap', [el('table', 'tbl', [el('thead', null, [el('tr', null, [el('th', { text: 'Test / package' }), el('th', { text: 'B2B price' }), el('th', { text: '' })])]), tb])])]);
+    var list = el('div', 'card', [el('h2', { text: 'Saved B2B prices' }), sum, el('div', 'row', [q]), el('div', 'tblwrap', [el('table', 'tbl', [el('thead', null, [el('tr', null, [el('th', { text: 'Test / package' }), el('th', { text: 'MRP' }), el('th', { text: 'B2B price' }), el('th', { text: '' })])]), tb])])]);
     function draw() { var t = q.value.toLowerCase().split(/\s+/).filter(Boolean), n = 0; tb.textContent = ''; cur.forEach(function (r) { if (n >= 200) return; var h = r.name.toLowerCase(); if (!t.every(function (w) { return h.indexOf(w) >= 0; })) return; n++;
-      tb.appendChild(el('tr', null, [el('td', { text: r.name }), el('td', { text: inr(r.price) }), el('td', null, [btn('Remove', 'danger', function () { L.confirmBox('Remove ' + r.name + ' from the partner price list?', 'Remove', function () { api('POST', '/staff/b2b/delete', { key: r.key }).then(function () { load(); }).catch(function (e) { toast(e.message); }); }); })])])); });
-      if (!n) tb.appendChild(el('tr', null, [el('td', { colspan: '3', class: 'empty', text: cur.length ? 'Nothing matches.' : 'No prices yet. Upload your B2B Excel above.' })])); }
+      tb.appendChild(el('tr', null, [el('td', { text: r.name }), el('td', { text: r.mrp ? inr(r.mrp) : '-' }), el('td', { text: inr(r.price) }), el('td', null, [btn('Remove', 'danger', function () { L.confirmBox('Remove ' + r.name + ' from the partner price list?', 'Remove', function () { api('POST', '/staff/b2b/delete', { key: r.key }).then(function () { load(); }).catch(function (e) { toast(e.message); }); }); })])])); });
+      if (!n) tb.appendChild(el('tr', null, [el('td', { colspan: '4', class: 'empty', text: cur.length ? 'Nothing matches.' : 'No prices yet. Upload your B2B Excel above.' })])); }
     q.addEventListener('input', draw);
     function load() { return api('GET', '/staff/b2b').then(function (r) { cur = r.rows; sum.textContent = r.count + ' tests and packages' + (r.updated ? ' · last updated ' + L.fdt(r.updated) : '') + (r.count > 200 ? ' · showing the first 200 matches' : ''); draw(); }); }
     page.appendChild(up); page.appendChild(list); load().then(function () { done(); }).catch(function (e) { L.fail(page, e); });

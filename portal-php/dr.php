@@ -83,22 +83,22 @@ function drEarnings($did) {
 function drRoutes($path, $m, $s) {
   /* ---- lab side: upload the B2B price list, see doctor bookings ---- */
   if ($path === '/staff/b2b' && $m === 'GET') {
-    need($s, 'b2b'); $rows = all('SELECT tkey, name, price, updated FROM b2b_prices ORDER BY name'); $u = 0; foreach ($rows as $r) $u = max($u, (int)$r['updated']);
-    out(['count' => count($rows), 'updated' => $u, 'rows' => array_map(function ($r) { return ['key' => $r['tkey'], 'name' => $r['name'], 'price' => (int)$r['price']]; }, $rows)]);
+    need($s, 'b2b'); $rows = all('SELECT tkey, name, price, mrp, updated FROM b2b_prices ORDER BY name'); $u = 0; foreach ($rows as $r) $u = max($u, (int)$r['updated']);
+    out(['count' => count($rows), 'updated' => $u, 'rows' => array_map(function ($r) { return ['key' => $r['tkey'], 'name' => $r['name'], 'price' => (int)$r['price'], 'mrp' => (int)$r['mrp']]; }, $rows)]);
   }
   if ($path === '/staff/b2b' && $m === 'POST') {
     need($s, 'b2b'); $b = body(6000000); $rows = is_array($b['rows'] ?? null) ? $b['rows'] : []; if (!$rows) throw bad('No prices found in the file.');
     if (count($rows) > 6000) throw bad('Too many rows in one go (6000 max).');
     $clean = []; $now = nowms();
     foreach ($rows as $r) {
-      if (!is_array($r)) continue; $k = clean(field($r, 'key'), 40); $n = clean(field($r, 'name'), 160); $p = (int)round((float)field($r, 'price'));
-      if ($k === '' || $n === '' || $p < 1 || $p > 1000000) continue; $clean[$k] = [$n, $p];
+      if (!is_array($r)) continue; $k = clean(field($r, 'key'), 40); $n = clean(field($r, 'name'), 160); $p = (int)round((float)field($r, 'price')); $mrp = max(0, min(1000000, (int)round((float)field($r, 'mrp'))));
+      if ($k === '' || $n === '' || $p < 1 || $p > 1000000) continue; $clean[$k] = [$n, $p, $mrp];
     }
     if (!$clean) throw bad('No valid rows (each needs a test name and a price above 0).');
     if (!empty($b['replace'])) q('DELETE FROM b2b_prices');
     foreach ($clean as $k => $v) {
-      if (one('SELECT 1 AS x FROM b2b_prices WHERE tkey=?', [$k])) q('UPDATE b2b_prices SET name=?, price=?, updated=? WHERE tkey=?', [$v[0], $v[1], $now, $k]);
-      else q('INSERT INTO b2b_prices (tkey, name, price, updated) VALUES (?,?,?,?)', [$k, $v[0], $v[1], $now]);
+      if (one('SELECT 1 AS x FROM b2b_prices WHERE tkey=?', [$k])) q('UPDATE b2b_prices SET name=?, price=?, mrp=?, updated=? WHERE tkey=?', [$v[0], $v[1], $v[2], $now, $k]);
+      else q('INSERT INTO b2b_prices (tkey, name, price, mrp, updated) VALUES (?,?,?,?,?)', [$k, $v[0], $v[1], $v[2], $now]);
     }
     $c = one('SELECT COUNT(*) AS n FROM b2b_prices'); out(['saved' => count($clean), 'count' => (int)$c['n']]);
   }
@@ -117,7 +117,7 @@ function drRoutes($path, $m, $s) {
     $c = one('SELECT COUNT(*) AS n FROM b2b_prices');
     out(['earnings' => drEarnings($s['id']), 'prices' => (int)$c['n'], 'recent' => array_map('drView', all('SELECT * FROM dr_bookings WHERE doctor_id=? ORDER BY created DESC LIMIT 5', [$s['id']]))]);
   }
-  if ($path === '/staff/dr/prices' && $m === 'GET') { out(['prices' => array_map(function ($r) { return ['key' => $r['tkey'], 'name' => $r['name'], 'price' => (int)$r['price']]; }, all('SELECT tkey, name, price FROM b2b_prices ORDER BY name'))]); }
+  if ($path === '/staff/dr/prices' && $m === 'GET') { out(['prices' => array_map(function ($r) { return ['key' => $r['tkey'], 'name' => $r['name'], 'price' => (int)$r['price'], 'mrp' => (int)$r['mrp']]; }, all('SELECT tkey, name, price, mrp FROM b2b_prices ORDER BY name'))]); }
   if ($path === '/staff/dr/bookings' && $m === 'GET') {
     $rows = all('SELECT * FROM dr_bookings WHERE doctor_id=? ORDER BY created DESC LIMIT 300', [$s['id']]);
     out(['bookings' => array_map(function ($r) { return drView($r, true); }, $rows), 'earnings' => drEarnings($s['id'])]);
@@ -130,7 +130,7 @@ function drRoutes($path, $m, $s) {
     $slot = (int)field($b, 'slot'); if ($slot < nowms() - 600000 || $slot > nowms() + 60 * 86400000) throw bad('Choose a visit date and time within the next 60 days.');
     $keys = field($b, 'tests'); if (!is_array($keys) || !$keys) throw bad('Choose at least one test.'); $keys = array_values(array_unique(array_map(function ($k) { return clean($k, 40); }, array_slice($keys, 0, 80))));
     $tests = []; $b2b = 0;
-    foreach ($keys as $k) { $p = one('SELECT * FROM b2b_prices WHERE tkey=?', [$k]); if (!$p) throw bad('One of the tests is not on the partner price list. Please refresh and choose again.'); $tests[] = ['key' => $p['tkey'], 'name' => $p['name'], 'b2b' => (int)$p['price']]; $b2b += (int)$p['price']; }
+    foreach ($keys as $k) { $p = one('SELECT * FROM b2b_prices WHERE tkey=?', [$k]); if (!$p) throw bad('One of the tests is not on the partner price list. Please refresh and choose again.'); $tests[] = ['key' => $p['tkey'], 'name' => $p['name'], 'b2b' => (int)$p['price'], 'mrp' => (int)$p['mrp']]; $b2b += (int)$p['price']; }
     $price = (int)round((float)field($b, 'price')); if ($price < $b2b) throw bad('The amount you charge the patient cannot be less than the lab price of Rs ' . $b2b . '.'); if ($price > 1000000) throw bad('That amount is too high.');
     $age = field($b, 'age'); $age = ($age === '' || $age === null) ? null : max(0, min(120, (int)$age)); $sex = strtoupper(clean(field($b, 'sex'), 1)); if (!in_array($sex, ['M', 'F', 'O'], true)) $sex = null;
     $id = drId(); q('INSERT INTO dr_bookings (id, doctor_id, pname, mobile, age, sex, addr, slot_at, notes, tests, b2b, price, commission, status, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',

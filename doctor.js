@@ -34,6 +34,19 @@
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function p2(n) { return (n < 10 ? '0' : '') + n; }
   function when(ms) { if (!ms) return 'Time not fixed'; var d = new Date(ms), h = d.getHours(), ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return p2(d.getDate()) + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear() + ', ' + p2(h) + ':' + p2(d.getMinutes()) + ' ' + ap; }
+  /* MRP only (safe to show the patient) or MRP + B2B + commission (doctor's own view). Remembered on this phone. */
+  function getView() { try { return localStorage.getItem('trin.dr.view') === 'mrp' ? 'mrp' : 'b2b'; } catch (e) { return 'b2b'; } }
+  function setView(v) { try { localStorage.setItem('trin.dr.view', v); } catch (e) { } }
+  function viewSwitch(onchange) {
+    var w = el('div', 'vsw'), cur = getView();
+    [['mrp', 'MRP only', 'Show to patient'], ['b2b', 'MRP + B2B', 'With commission']].forEach(function (x) {
+      var lab = el('label', { class: cur === x[0] ? 'on' : '' }), r = el('input', { type: 'radio', name: 'vw', value: x[0], checked: cur === x[0] });
+      r.addEventListener('change', function () { setView(x[0]); [].forEach.call(w.children, function (c) { c.classList.toggle('on', c.firstChild.checked); }); onchange(x[0]); });
+      lab.appendChild(r); lab.appendChild(el('span', null, [el('b', { text: x[1] }), el('small', { text: x[2] })])); w.appendChild(lab);
+    });
+    return w;
+  }
+  function pshow(p, v) { return v === 'mrp' ? (p.mrp > 0 ? inr(p.mrp) : '-') : (p.mrp > 0 ? 'MRP ' + inr(p.mrp) + ' \u00B7 B2B ' + inr(p.price) : 'B2B ' + inr(p.price)); }
   var STAGE = { awaiting_payment: 'Waiting for your payment', confirmed: 'Confirmed - lab will assign a phlebotomist', phlebo_assigned: 'Phlebotomist assigned', collected: 'Sample collected', processing: 'Testing in progress', completed: 'Report ready', report_ready: 'Report ready', cancelled: 'Cancelled', booked: 'Confirmed' };
   function stageOf(b) { return b.status === 'confirmed' ? (b.stage || 'confirmed') : b.status; }
   function logout(msg) { TOKEN = ''; ME = null; PRICES = null; tok(null); clearInterval(timer); $('#app').hidden = true; $('#login').hidden = false; if (msg) say($('#lmsg'), msg, 'err'); }
@@ -78,23 +91,33 @@
     var q = el('input', { placeholder: 'Type a test or package name', autocomplete: 'off', 'aria-label': 'Search tests' }), sug = el('div', 'sug', []); sug.hidden = true; var chips = el('div', 'chips');
     var charge = el('input', { inputmode: 'numeric', 'aria-label': 'Amount you charge the patient' }), sum = el('div', 'sum'), ms = el('p', 'msg'), go = el('button', { type: 'button', class: 'big', text: 'Continue to payment' });
     function b2b() { return sel.reduce(function (a, t) { return a + t.price; }, 0); }
+    function mrpTot() { return sel.reduce(function (a, t) { return a + (t.mrp || 0); }, 0); }
+    function mrpAll() { return sel.length && sel.every(function (t) { return t.mrp > 0; }); }
+    function defCharge() { return mrpAll() ? mrpTot() : b2b(); }
     function render() {
-      chips.textContent = ''; sel.forEach(function (t, i) { chips.appendChild(el('div', 'chip', [el('span', { text: t.name }), el('b', { text: inr(t.price) }), el('button', { type: 'button', 'aria-label': 'Remove', text: '×', onclick: function () { sel.splice(i, 1); autoCharge = true; render(); } })])); });
-      var t = b2b(), c = Math.round(Number(charge.value) || 0), gain = c - t; sum.textContent = '';
-      if (!sel.length) { sum.appendChild(el('div', 'l', [el('span', { text: 'Choose tests to see the lab price.' })])); go.disabled = true; return; }
-      sum.appendChild(el('div', 'l', [el('span', { text: 'Lab price (B2B) you pay now' }), el('b', { text: inr(t) })]));
-      sum.appendChild(el('div', 'l', [el('span', { text: 'You charge the patient' }), el('b', { text: inr(c) })]));
-      sum.appendChild(el('div', 'l t', [el('span', { text: 'Your commission' }), el('span', { class: gain >= 0 ? 'gain' : 'lose', text: gain >= 0 ? inr(gain) : 'Below lab price' })]));
+      if (typeof foot !== 'undefined') foot.hidden = getView() === 'mrp';
+      chips.textContent = ''; sel.forEach(function (t, i) { chips.appendChild(el('div', 'chip', [el('span', { text: t.name }), el('b', { text: pshow(t, getView()) }), el('button', { type: 'button', 'aria-label': 'Remove', text: '×', onclick: function () { sel.splice(i, 1); autoCharge = true; setCharge(); } })])); });
+      var t = b2b(), c = Math.round(Number(charge.value) || 0), gain = c - t, v = getView(); sum.textContent = '';
+      if (!sel.length) { sum.appendChild(el('div', 'l', [el('span', { text: 'Choose tests to see the price.' })])); go.disabled = true; return; }
+      if (mrpAll()) sum.appendChild(el('div', 'l', [el('span', { text: 'Total MRP' }), el('b', { text: inr(mrpTot()) })]));
+      if (v === 'mrp') {
+        sum.appendChild(el('div', 'l t', [el('span', { text: 'Patient pays' }), el('b', { text: inr(c) })]));
+        if (gain < 0) sum.appendChild(el('div', 'l', [el('span', { class: 'lose', text: 'This amount is too low. Please increase it.' })]));
+      } else {
+        sum.appendChild(el('div', 'l', [el('span', { text: 'Lab price (B2B) you pay now' }), el('b', { text: inr(t) })]));
+        sum.appendChild(el('div', 'l', [el('span', { text: 'You charge the patient' }), el('b', { text: inr(c) })]));
+        sum.appendChild(el('div', 'l t', [el('span', { text: 'Your commission' }), el('span', { class: gain >= 0 ? 'gain' : 'lose', text: gain >= 0 ? inr(gain) : 'Below lab price' })]));
+      }
       go.disabled = gain < 0;
     }
     var autoCharge = true;
-    function setCharge() { if (autoCharge) charge.value = String(b2b()); render(); }
+    function setCharge() { if (autoCharge) charge.value = String(defCharge()); render(); }
     charge.addEventListener('input', function () { autoCharge = false; render(); });
     function suggest() {
       var terms = q.value.toLowerCase().split(/\s+/).filter(Boolean); sug.textContent = ''; if (!terms.length || !PRICES) { sug.hidden = true; return; }
       var n = 0; for (var i = 0; i < PRICES.length && n < 30; i++) {
         var p = PRICES[i], hay = p.name.toLowerCase(); if (!terms.every(function (w) { return hay.indexOf(w) >= 0; })) continue; n++;
-        (function (p) { sug.appendChild(el('button', { type: 'button', onclick: function () { if (!sel.some(function (s) { return s.key === p.key; })) sel.push(p); q.value = ''; sug.hidden = true; var was = autoCharge; setCharge(); autoCharge = was; } }, [el('span', { text: p.name }), el('small', { text: inr(p.price) })])); })(p);
+        (function (p) { sug.appendChild(el('button', { type: 'button', onclick: function () { if (!sel.some(function (s) { return s.key === p.key; })) sel.push(p); q.value = ''; sug.hidden = true; var was = autoCharge; setCharge(); autoCharge = was; } }, [el('span', { text: p.name }), el('small', { text: pshow(p, getView()) })])); })(p);
       }
       if (!n) sug.appendChild(el('div', { class: 'empty', style: 'padding:14px', text: 'No test found. Check the spelling or call the lab.' })); sug.hidden = false;
     }
@@ -106,9 +129,9 @@
         .then(function (r) { location.hash = '#pay/' + r.booking.id; }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); });
     };
     page.appendChild(el('div', 'form', [el('label', { text: 'Patient name' }), nm, el('label', { text: 'Mobile number' }), mb, el('div', 'row2', [el('div', null, [el('label', { text: 'Age' }), age]), el('div', null, [el('label', { text: 'Gender' }), sexRow])]),
-      el('label', { text: 'Home address' }), ad, el('label', { text: 'Visit date and time' }), dt, el('label', { text: 'Tests / packages' }), q, sug, chips,
-      el('label', { text: 'Amount you charge the patient (₹)' }), charge, sum, el('label', { text: 'Notes' }), nt, go, ms]));
-    page.appendChild(el('p', { class: 'meta', style: 'color:#6b7385;font-size:.88rem;margin:10px 4px', text: 'You collect the amount from the patient. You pay the lab only the lab price, by UPI QR on the next screen. The difference is your commission.' }));
+      el('label', { text: 'Home address' }), ad, el('label', { text: 'Visit date and time' }), dt, el('label', { text: 'Price view' }), viewSwitch(function () { suggest(); render(); }), el('label', { text: 'Tests / packages' }), q, sug, chips,
+      el('label', { text: 'Amount the patient pays (₹)' }), charge, sum, el('label', { text: 'Notes' }), nt, go, ms]));
+    var foot = el('p', { class: 'meta', style: 'color:#6b7385;font-size:.88rem;margin:10px 4px', text: 'You collect the amount from the patient. You pay the lab only the lab price, by UPI QR on the next screen. The difference is your commission.' }); page.appendChild(foot);
     render(); loadPrices().then(function () { if (!PRICES.length) say(ms, 'The lab has not uploaded the partner price list yet.', 'err'); }).catch(function (e) { say(ms, e.message, 'err'); });
   };
 
@@ -163,9 +186,9 @@
   };
 
   V.prices = function (page) {
-    header('Price list', '#home'); var q = el('input', { class: 'srch', placeholder: 'Search tests or packages', 'aria-label': 'Search' }), list = el('div', 'plist'); page.appendChild(q); page.appendChild(list);
-    function draw(all) { list.textContent = ''; var t = q.value.toLowerCase().split(/\s+/).filter(Boolean), n = 0; all.forEach(function (p) { if (n >= 150) return; var h = p.name.toLowerCase(); if (t.every(function (w) { return h.indexOf(w) >= 0; })) { n++; list.appendChild(el('div', 'p', [el('span', { text: p.name }), el('b', { text: inr(p.price) })])); } }); if (!n) list.appendChild(el('p', 'empty', ['Nothing found.'])); }
-    loadPrices().then(function (all) { draw(all); q.addEventListener('input', function () { draw(all); }); }).catch(function (e) { list.appendChild(el('p', 'empty', [e.message])); });
+    header('Price list', '#home'); var q = el('input', { class: 'srch', placeholder: 'Search tests or packages', 'aria-label': 'Search' }), list = el('div', 'plist'), ALL = []; page.appendChild(viewSwitch(function () { draw(ALL); })); page.appendChild(q); page.appendChild(list);
+    function draw(all) { list.textContent = ''; var t = q.value.toLowerCase().split(/\s+/).filter(Boolean), n = 0; all.forEach(function (p) { if (n >= 150) return; var h = p.name.toLowerCase(); if (t.every(function (w) { return h.indexOf(w) >= 0; })) { n++; list.appendChild(el('div', 'p', [el('span', { text: p.name }), el('b', { text: pshow(p, getView()) })])); } }); if (!n) list.appendChild(el('p', 'empty', ['Nothing found.'])); }
+    loadPrices().then(function (all) { ALL = all; draw(all); q.addEventListener('input', function () { draw(all); }); }).catch(function (e) { list.appendChild(el('p', 'empty', [e.message])); });
   };
 
   V.password = function (page) {

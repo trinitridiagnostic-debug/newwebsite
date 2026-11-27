@@ -42,10 +42,10 @@ try {
   // B2B upload
   ok((await call('POST', '/staff/b2b', { token: DR, body: { rows: [{ key: 'T:1', name: 'x', price: 1 }] } })).s === 403, 'doctor cannot upload prices');
   ok((await call('POST', '/staff/b2b', { token: A, body: { rows: [] } })).s === 400, 'empty upload refused');
-  r = await call('POST', '/staff/b2b', { token: A, body: { rows: [{ key: 'A:1', name: 'CBC', price: 150 }, { key: 'A:2', name: 'LIPID PROFILE', price: 200 }, { key: 'K:9', name: 'Full Body Checkup', price: 900 }, { key: 'X:bad', name: 'Zero', price: 0 }, { key: '', name: 'nokey', price: 5 }] } });
+  r = await call('POST', '/staff/b2b', { token: A, body: { rows: [{ key: 'A:1', name: 'CBC', price: 150, mrp: 350 }, { key: 'A:2', name: 'LIPID PROFILE', price: 200, mrp: 500 }, { key: 'K:9', name: 'Full Body Checkup', price: 900 }, { key: 'X:bad', name: 'Zero', price: 0 }, { key: '', name: 'nokey', price: 5 }] } });
   ok(r.s === 200 && r.j.saved === 3 && r.j.count === 3, 'upload saves 3 valid rows, skips 2 bad');
-  r = await call('POST', '/staff/b2b', { token: A, body: { rows: [{ key: 'A:1', name: 'CBC', price: 140 }] } }); ok(r.j.count === 3, 'second upload updates, not duplicates');
-  ok((await call('GET', '/staff/dr/prices', { token: DR })).j.prices.find((p) => p.key === 'A:1').price === 140, 'doctor sees updated B2B price');
+  r = await call('POST', '/staff/b2b', { token: A, body: { rows: [{ key: 'A:1', name: 'CBC', price: 140, mrp: 350 }] } }); ok(r.j.count === 3, 'second upload updates, not duplicates');
+  { const pr = (await call('GET', '/staff/dr/prices', { token: DR })).j.prices; ok(pr.find((p) => p.key === 'A:1').price === 140 && pr.find((p) => p.key === 'A:1').mrp === 350 && pr.find((p) => p.key === 'A:2').mrp === 500 && pr.find((p) => p.key === 'K:9').mrp === 0, 'doctor sees B2B and MRP'); }
   // booking validation
   const slot = Date.now() + 86400000, base = { name: 'Gopal', mobile: '9811000001', age: 44, sex: 'M', address: 'Near bus stand, Betageri', slot, tests: ['A:1', 'A:2'], price: 600 };
   ok((await call('POST', '/staff/dr/bookings', { token: DR, body: { ...base, price: 300 } })).s === 400, 'price below B2B (340) refused');

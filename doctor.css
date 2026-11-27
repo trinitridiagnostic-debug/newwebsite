@@ -28,3 +28,6 @@
 .stg{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:12px;background:#e8eefb;color:#2f4f93;margin-top:6px}.stg.awaiting_payment{background:#fff0d9;color:#9a5a00}.stg.report_ready{background:#dff4e7;color:#1c7a45}.stg.cancelled{background:#f3dcdc;color:#a02c2c}
 .srch{margin-bottom:10px}
 .plist .p{display:flex;justify-content:space-between;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px}.plist .p b{color:var(--blue);white-space:nowrap}
+
+.vsw{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vsw label{display:flex;gap:8px;align-items:center;margin:0;border:1.5px solid #cfd4df;border-radius:10px;padding:9px 10px;cursor:pointer;font-weight:400}.vsw label.on{border-color:var(--blue);background:#eef6f5}.vsw input{width:auto;flex:none;margin:0}.vsw span{display:flex;flex-direction:column;line-height:1.2}.vsw small{color:var(--mut);font-size:.76rem}
+.chip b{font-size:.82rem;text-align:right}.plist .p b{font-size:.85rem;text-align:right}
