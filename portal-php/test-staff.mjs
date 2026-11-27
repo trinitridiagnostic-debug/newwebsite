@@ -34,7 +34,7 @@ try {
   const mk = async (username, role, name, title) => (await call('POST', '/staff/users', { token: A, body: { username, role, name, title, password: 'Staff#2026' } }));
   ok((await mk('rec1', 'reception', 'Reena Reception')).s === 201, 'create reception');
   ok((await mk('tech1', 'technician', 'Tarun Tech')).s === 201, 'create technician');
-  r = await mk('doc1', 'doctor', 'Dr Meera Rao', 'MD'); ok(r.s === 400, 'the doctor role no longer exists');
+  r = await mk('nurse1', 'nurse', 'Nurse', 'RN'); ok(r.s === 400, 'an unknown role is refused');
   ok((await mk('adm2', 'admin', 'Second Admin')).s === 201, 'create second admin');
   ok((await mk('rec1', 'reception', 'Dup')).s === 400, 'duplicate username');
   ok((await mk('bad', 'wizard', 'Bad Role')).s === 400, 'bad role');

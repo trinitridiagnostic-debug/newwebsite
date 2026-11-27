@@ -65,7 +65,7 @@
   var TESTS = (window.RAW || []).filter(function (r) { return !HID[r[0] + ':' + r[1]]; }).map(function (r) { var e = ED[r[0] + ':' + r[1]]; return { key: r[0] + ':' + r[1], name: (e && e.n) || r[2], price: e && e.m > 0 ? e.m : r[3] }; })
     .concat((CATL.extraTests || []).map(function (t) { return { key: 'T:' + t.k, name: t.n, price: t.m }; }));
   var PKGS = (CATL.packages || []).map(function (p) { return { key: 'K:' + p.id, name: p.name, price: p.price, pkg: true }; });
-  LAB.packages = PKGS;
+  LAB.packages = PKGS; LAB.catalog = PKGS.concat(TESTS);
   LAB.search = function (q) {
     var terms = String(q || '').toLowerCase().split(/\s+/).filter(Boolean); if (!terms.length) return [];
     var out = [];
@@ -86,6 +86,8 @@
     ['visits', 'Home visits', 'dispatch', 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
     ['phlebs', 'Phlebotomists', 'dispatch', 'M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5'],
     ['attendance', 'Attendance', 'attendance', 'M5 4h14v16H5zM9 2v4M15 2v4M8 12l3 3 5-6'],
+    ['drbk', 'Doctor bookings', 'b2b', 'M12 3v6M9 6h6M5 21v-4a4 4 0 014-4h6a4 4 0 014 4v4'],
+    ['b2b', 'B2B prices', 'b2b', 'M3 12V4h8l10 10-8 8L3 12zM7.5 8.5h.01'],
     ['crm', 'CRM Leads', 'crm', 'M4 6h16M4 12h16M4 18h10M18 15l2 2 3-4'],
     ['crmteam', 'CRM team', 'crm_staff', 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3 3-5 6-5s6 2 6 5M17 11a2.5 2.5 0 100-5M17 15c2.5 0 4.5 1.5 4.5 4'],
     ['crmset', 'Integrations', 'crm_settings', 'M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1'],
@@ -95,13 +97,14 @@
     ['staff', 'Staff', 'staff', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z'],
     ['acct', 'My account', null, 'M12 8m-4 0a4 4 0 108 0 4 4 0 10-8 0M5 21c1-4 4-6 7-6s6 2 7 6']
   ];
-  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', phlebs: 'Phlebotomists', crm: 'CRM Leads', crmteam: 'CRM team', crmset: 'Lead integrations', attendance: 'Phlebotomist attendance', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
-  var ROLES = { admin: 'Super admin', reception: 'Reception', technician: 'Technician', phlebotomist: 'Phlebotomist', telecaller: 'Telecaller', marketing: 'Digital marketing', teamlead: 'Team leader', manager: 'Manager' };
+  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', phlebs: 'Phlebotomists', crm: 'CRM Leads', drbk: 'Doctor bookings', b2b: 'Doctor B2B prices', crmteam: 'CRM team', crmset: 'Lead integrations', attendance: 'Phlebotomist attendance', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
+  var ROLES = { admin: 'Super admin', reception: 'Reception', technician: 'Technician', phlebotomist: 'Phlebotomist', telecaller: 'Telecaller', marketing: 'Digital marketing', teamlead: 'Team leader', manager: 'Manager', doctor: 'Doctor partner' };
   LAB.roles = ROLES;
   function tok(v) { try { if (v === null) sessionStorage.removeItem('trin.lab.tok'); else if (v) sessionStorage.setItem('trin.lab.tok', v); else return sessionStorage.getItem('trin.lab.tok') || ''; } catch (e) { } return ''; }
   function logout(msg) { TOKEN = ''; ME = null; tok(null); clearInterval(pollT); $('#app').hidden = true; $('#auth').hidden = false; boot(msg); }
   var pollT = null;
   function showApp(staff, token) {
+    if (staff.role === 'doctor') { try { localStorage.setItem('trin.dr.tok', token); } catch (e) { } tok(null); location.replace('doctor.html'); return; }
     if (staff.role === 'phlebotomist') { try { localStorage.setItem('trin.ph.tok', token); } catch (e) { } tok(null); location.replace('phlebotomist.html'); return; }
     ME = staff; TOKEN = token; tok(token); $('#auth').hidden = true; $('#app').hidden = false;
     $('#wn').textContent = ME.name; $('#wr').textContent = ROLES[ME.role] || ME.role;

@@ -66,6 +66,7 @@ function razorpayWebhook() {
     $o = $qid ? one('SELECT * FROM orders WHERE pay_qr_id=?', [$qid]) : null;
     if (!$o && !empty($pay['notes']['order'])) $o = one('SELECT * FROM orders WHERE code=?', [(string)$pay['notes']['order']]);
     if ($o && !empty($pay['id']) && (($pay['status'] ?? 'captured') === 'captured')) recordOnline($o, $pay['id'], (int)($pay['amount'] ?? 0));
+    if (!$o) { require_once __DIR__ . '/dr.php'; drWebhook($qid, $pay); }
   }
   out(['ok' => true]);
 }

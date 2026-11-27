@@ -90,7 +90,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v16';
+  $mark = $dir . '/.schema-v17';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -126,6 +126,8 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS leads (id VARCHAR(16) PRIMARY KEY, name VARCHAR(80) NOT NULL, mobile VARCHAR(12) NOT NULL, email VARCHAR(120) NULL, city VARCHAR(60) NULL, source VARCHAR(20) NOT NULL, campaign VARCHAR(80) NULL, interest VARCHAR(160) NULL, status VARCHAR(20) NOT NULL, assigned_to VARCHAR(32) NULL, created_by VARCHAR(32) NULL, created BIGINT NOT NULL, updated BIGINT NOT NULL, next_follow BIGINT NULL, order_code VARCHAR(30) NULL, ext_id VARCHAR(70) NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS lead_log (id $ai, lead_id VARCHAR(16) NOT NULL, staff_id VARCHAR(32) NULL, kind VARCHAR(12) NOT NULL, text VARCHAR(520) NOT NULL, created BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS crm_settings (k VARCHAR(30) PRIMARY KEY, v VARCHAR(200) NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS b2b_prices (tkey VARCHAR(40) PRIMARY KEY, name VARCHAR(160) NOT NULL, price BIGINT NOT NULL, updated BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS dr_bookings (id VARCHAR(12) PRIMARY KEY, doctor_id VARCHAR(32) NOT NULL, pname VARCHAR(60) NOT NULL, mobile VARCHAR(10) NOT NULL, age INT NULL, sex VARCHAR(1) NULL, addr VARCHAR(300) NOT NULL, slot_at BIGINT NULL, notes VARCHAR(200) NULL, tests TEXT NOT NULL, b2b BIGINT NOT NULL, price BIGINT NOT NULL, commission BIGINT NOT NULL, status VARCHAR(16) NOT NULL, qr_id VARCHAR(40) NULL, qr_url VARCHAR(300) NULL, qr_at BIGINT NULL, pay_ref VARCHAR(40) NULL, paid_at BIGINT NULL, order_code VARCHAR(30) NULL, pin VARCHAR(8) NULL, created BIGINT NOT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
   // columns added in v2 (safe to repeat: errors for existing columns are ignored)
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "orders ADD COLUMN ph_pin_ok INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_tries INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_at BIGINT NULL", "staff ADD COLUMN mobile VARCHAR(12) NULL", "staff ADD COLUMN team_lead VARCHAR(32) NULL", "staff ADD COLUMN district VARCHAR(40) NULL", "staff ADD COLUMN taluka VARCHAR(40) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",

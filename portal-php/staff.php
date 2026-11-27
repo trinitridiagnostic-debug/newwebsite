@@ -3,13 +3,14 @@
    Staff log in with username + password and get a token. What each person may do depends on their role. */
 
 const ROLE_CAN = [
-  'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock', 'assign', 'office', 'dispatch', 'attendance', 'crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_all', 'crm_delete', 'crm_staff', 'crm_settings'],
+  'admin'      => ['view', 'billing', 'status', 'results', 'approve', 'inbox', 'members', 'templates', 'staff', 'stock', 'assign', 'office', 'dispatch', 'attendance', 'crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_all', 'crm_delete', 'crm_staff', 'crm_settings', 'b2b'],
   'reception'  => ['view', 'billing', 'status', 'members', 'assign'],
   'technician' => ['view', 'status', 'results', 'stock', 'assign', 'dispatch'],
   'telecaller' => ['crm', 'crm_add'],
   'marketing'  => ['crm', 'crm_add', 'crm_import', 'crm_all'],
   'teamlead'   => ['crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_team', 'crm_staff'],
   'manager'    => ['crm', 'crm_add', 'crm_import', 'crm_edit', 'crm_assign', 'crm_all', 'crm_delete', 'crm_staff', 'crm_settings'],
+  'doctor'     => ['dr'],      /* referring-doctor partners: only the doctor app */
   'phlebotomist' => ['phleb'],   /* home-collection staff: only the phlebotomist app */
 ];
 
@@ -282,6 +283,7 @@ function staff($path, $m) {
   $s = staffAuthed();
   require_once __DIR__ . '/pdf.php';
   if ($s['role'] === 'phlebotomist' && strpos($path, '/staff/phleb/') !== 0 && !in_array($path, ['/staff/me', '/staff/password'], true)) throw new HttpErr(403, 'Your role does not allow this.');
+  if ($s['role'] === 'doctor' && strpos($path, '/staff/dr/') !== 0 && !in_array($path, ['/staff/me', '/staff/password'], true)) throw new HttpErr(403, 'Your role does not allow this.');
   if (in_array($s['role'], ['telecaller', 'marketing', 'teamlead', 'manager'], true) && strpos($path, '/staff/crm') !== 0 && !in_array($path, ['/staff/me', '/staff/password'], true)) throw new HttpErr(403, 'Your role does not allow this.');
   if ($path === '/staff/me' && $m === 'GET') out(['staff' => staffPublic($s)]);
   if ($path === '/staff/password' && $m === 'POST') {
@@ -292,6 +294,7 @@ function staff($path, $m) {
 
 
   /* catalog admin (admin role): edits the website's catalog.js and package pictures directly on this server */
+  require_once __DIR__ . '/pay.php'; require_once __DIR__ . '/dr.php'; drRoutes($path, $m, $s);
   require_once __DIR__ . '/crm.php'; crmRoutes($path, $m, $s);
   require_once __DIR__ . '/phleb.php'; phlebRoutes($path, $m, $s);
   if ($path === '/staff/catalog' && $m === 'GET') { need($s, 'staff'); out(['catalog' => catalogRead()]); }
