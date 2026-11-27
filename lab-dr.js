@@ -1,4 +1,4 @@
-/* Trinetri Diagnostics lab console: doctor partners (B2B price list upload, doctor bookings and commission). */
+/* Trinetri Diagnostics lab console: doctor partners (B2B price list upload, doctor bookings and margin). */
 (function () {
   'use strict';
   var L = window.LAB; if (!L) return;
@@ -62,13 +62,13 @@
     page.appendChild(up); page.appendChild(list); load().then(function () { done(); }).catch(function (e) { L.fail(page, e); });
   };
 
-  /* ---------- doctor bookings and commission ---------- */
+  /* ---------- doctor bookings and margin ---------- */
   L.views.drbk = function (page, _a, done) {
     api('GET', '/staff/drbookings').then(function (r) {
-      page.appendChild(el('div', 'card', [el('h2', { text: 'Doctor partners' }), el('p', { class: 'note', text: 'Only paid bookings are counted. "Paid to lab" is the B2B money received by Razorpay. Commission is what the doctor keeps from the patient.' }),
-        el('div', 'tblwrap', [el('table', 'tbl', [el('thead', null, [el('tr', null, ['Doctor', 'Paid bookings', 'Doctors collected', 'Paid to lab', 'Doctor commission'].map(function (h) { return el('th', { text: h }); }))]),
+      page.appendChild(el('div', 'card', [el('h2', { text: 'Doctor partners' }), el('p', { class: 'note', text: 'Only paid bookings are counted. "Paid to lab" is the B2B money received by Razorpay. Margin is what the doctor keeps from the patient.' }),
+        el('div', 'tblwrap', [el('table', 'tbl', [el('thead', null, [el('tr', null, ['Doctor', 'Paid bookings', 'Doctors collected', 'Paid to lab', 'Doctor margin'].map(function (h) { return el('th', { text: h }); }))]),
           el('tbody', null, r.doctors.length ? r.doctors.map(function (d) { return el('tr', null, [el('td', null, [el('b', { text: d.name || '-' })]), el('td', { text: String(d.bookings) }), el('td', { text: inr(d.collected) }), el('td', { text: inr(d.paid_to_lab) }), el('td', { text: inr(d.commission) })]); }) : [el('tr', null, [el('td', { colspan: '5', class: 'empty', text: 'No paid doctor bookings yet.' })])])])])]));
-      page.appendChild(el('div', 'card', [el('h2', { text: 'Recent doctor bookings' }), el('div', 'tblwrap', [el('table', 'tbl', [el('thead', null, [el('tr', null, ['Doctor', 'Patient', 'Visit', 'Tests', 'Lab price', 'Patient pays', 'Commission', 'Status', 'Order'].map(function (h) { return el('th', { text: h }); }))]),
+      page.appendChild(el('div', 'card', [el('h2', { text: 'Recent doctor bookings' }), el('div', 'tblwrap', [el('table', 'tbl', [el('thead', null, [el('tr', null, ['Doctor', 'Patient', 'Visit', 'Tests', 'Lab price', 'Patient pays', 'Margin', 'Status', 'Order'].map(function (h) { return el('th', { text: h }); }))]),
         el('tbody', null, r.bookings.length ? r.bookings.map(function (b) { return el('tr', null, [el('td', { text: b.doctor || '-' }), el('td', null, [el('b', { text: b.name }), el('div', 'note', [b.mobile])]), el('td', { text: b.slot_at ? L.fdt(b.slot_at) : '-' }), el('td', { text: b.tests.map(function (t) { return t.name; }).join(', ') }),
           el('td', { text: inr(b.b2b) }), el('td', { text: inr(b.price) }), el('td', { text: inr(b.commission) }), el('td', null, [el('span', { class: 'tag', text: STG[b.status === 'confirmed' ? (b.stage || 'confirmed') : b.status] || b.status })]), el('td', null, [b.order_code ? el('a', { href: '#order/' + encodeURIComponent(b.order_code), text: b.order_code }) : '-'])]); }) : [el('tr', null, [el('td', { colspan: '9', class: 'empty', text: 'No bookings yet.' })])])])])]));
       done();

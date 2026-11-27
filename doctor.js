@@ -1,4 +1,4 @@
-/* Trinetri Diagnostics: Doctor partner app. Book home visits for patients, pay the lab's B2B share by UPI QR, keep the rest as commission. */
+/* Trinetri Diagnostics: Doctor partner app. Book home visits for patients, pay the lab's B2B share by UPI QR, keep the rest as margin. */
 (function () {
   'use strict';
   var BASE = String((window.TRIN_PORTAL || {}).api || '').replace(/\/+$/, ''), TOKEN = '', ME = null, timer = null, PRICES = null;
@@ -34,7 +34,7 @@
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function p2(n) { return (n < 10 ? '0' : '') + n; }
   function when(ms) { if (!ms) return 'Time not fixed'; var d = new Date(ms), h = d.getHours(), ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return p2(d.getDate()) + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear() + ', ' + p2(h) + ':' + p2(d.getMinutes()) + ' ' + ap; }
-  /* MRP only (safe to show the patient) or MRP + B2B + commission (doctor's own view). Remembered on this phone. */
+  /* MRP only (safe to show the patient) or MRP + B2B + margin (doctor's own view). Remembered on this phone. */
   function getView() { try { return localStorage.getItem('trin.dr.view') === 'mrp' ? 'mrp' : 'b2b'; } catch (e) { return 'b2b'; } }
   function setView(v) { try { localStorage.setItem('trin.dr.view', v); } catch (e) { } }
   function viewSwitch(onchange) {
@@ -60,7 +60,7 @@
   function bookingCard(b) {
     var c = el('button', { type: 'button', class: 'card', onclick: function () { location.hash = b.status === 'awaiting_payment' ? '#pay/' + b.id : '#b/' + b.id; } }, [
       el('div', 'nm', [b.name]), el('div', 'meta', [when(b.slot_at)]), el('div', 'meta', [b.tests.map(function (t) { return t.name; }).join(', ')]),
-      el('div', 'meta', ['Patient pays ', el('b', { text: inr(b.price) }), '  ·  Your commission ', el('b', { text: inr(b.commission) })]), el('span', { class: 'stg ' + stageOf(b), text: STAGE[stageOf(b)] || stageOf(b) })]);
+      el('div', 'meta', ['Patient pays ', el('b', { text: inr(b.price) }), '  ·  Your margin ', el('b', { text: inr(b.commission) })]), el('span', { class: 'stg ' + stageOf(b), text: STAGE[stageOf(b)] || stageOf(b) })]);
     return c;
   }
 
@@ -75,8 +75,8 @@
     page.appendChild(el('button', { type: 'button', class: 'btn', style: 'width:100%;margin-top:12px', text: 'Log out', onclick: function () { logout(); } }));
     api('GET', '/staff/dr/home').then(function (h) {
       var e = h.earnings;
-      box.appendChild(el('div', 'earn', [el('div', 'hi', [el('span', { text: 'Your commission this month' }), el('b', { text: inr(e.month_commission) }), el('span', { text: e.month_bookings + ' paid booking' + (e.month_bookings === 1 ? '' : 's') })]),
-        el('div', null, [el('b', { text: inr(e.commission) }), el('span', { text: 'Total commission' })]), el('div', null, [el('b', { text: String(e.awaiting) }), el('span', { text: 'Waiting for your payment' })])]));
+      box.appendChild(el('div', 'earn', [el('div', 'hi', [el('span', { text: 'Your margin this month' }), el('b', { text: inr(e.month_commission) }), el('span', { text: e.month_bookings + ' paid booking' + (e.month_bookings === 1 ? '' : 's') })]),
+        el('div', null, [el('b', { text: inr(e.commission) }), el('span', { text: 'Total margin' })]), el('div', null, [el('b', { text: String(e.awaiting) }), el('span', { text: 'Waiting for your payment' })])]));
       if (!h.prices) box.appendChild(el('div', 'leavebar', ['The lab has not uploaded the partner price list yet. You can book once it is added.']));
       if (!h.recent.length) rec.appendChild(el('p', 'empty', ['No bookings yet. Tap the green button to book a home visit.'])); h.recent.forEach(function (b) { rec.appendChild(bookingCard(b)); });
     }).catch(function (e) { rec.appendChild(el('p', 'empty', [e.message])); });
@@ -106,7 +106,7 @@
       } else {
         sum.appendChild(el('div', 'l', [el('span', { text: 'Lab price (B2B) you pay now' }), el('b', { text: inr(t) })]));
         sum.appendChild(el('div', 'l', [el('span', { text: 'You charge the patient' }), el('b', { text: inr(c) })]));
-        sum.appendChild(el('div', 'l t', [el('span', { text: 'Your commission' }), el('span', { class: gain >= 0 ? 'gain' : 'lose', text: gain >= 0 ? inr(gain) : 'Below lab price' })]));
+        sum.appendChild(el('div', 'l t', [el('span', { text: 'Your margin' }), el('span', { class: gain >= 0 ? 'gain' : 'lose', text: gain >= 0 ? inr(gain) : 'Below lab price' })]));
       }
       go.disabled = gain < 0;
     }
@@ -131,7 +131,7 @@
     page.appendChild(el('div', 'form', [el('label', { text: 'Patient name' }), nm, el('label', { text: 'Mobile number' }), mb, el('div', 'row2', [el('div', null, [el('label', { text: 'Age' }), age]), el('div', null, [el('label', { text: 'Gender' }), sexRow])]),
       el('label', { text: 'Home address' }), ad, el('label', { text: 'Visit date and time' }), dt, el('label', { text: 'Price view' }), viewSwitch(function () { suggest(); render(); }), el('label', { text: 'Tests / packages' }), q, sug, chips,
       el('label', { text: 'Amount the patient pays (₹)' }), charge, sum, el('label', { text: 'Notes' }), nt, go, ms]));
-    var foot = el('p', { class: 'meta', style: 'color:#6b7385;font-size:.88rem;margin:10px 4px', text: 'You collect the amount from the patient. You pay the lab only the lab price, by UPI QR on the next screen. The difference is your commission.' }); page.appendChild(foot);
+    var foot = el('p', { class: 'meta', style: 'color:#6b7385;font-size:.88rem;margin:10px 4px', text: 'You collect the amount from the patient. You pay the lab only the lab price, by UPI QR on the next screen. The difference is your margin.' }); page.appendChild(foot);
     render(); loadPrices().then(function () { if (!PRICES.length) say(ms, 'The lab has not uploaded the partner price list yet.', 'err'); }).catch(function (e) { say(ms, e.message, 'err'); });
   };
 
@@ -141,7 +141,7 @@
       clearInterval(timer); box.textContent = ''; header('Booking confirmed', '#home');
       box.appendChild(el('div', 'okwrap', [el('span', { class: 'vbig', html: '<svg viewBox="0 0 52 52" width="110" height="110"><circle class="tc" cx="26" cy="26" r="23" fill="#e6f5ec"/><path class="tk" fill="none" d="M14 27l8 8 16-17"/></svg>' }),
         el('h2', { style: 'margin:8px 0 2px', text: 'Home visit booked' }), el('div', 'meta', [b.name + ' · ' + when(b.slot_at)]), el('div', 'meta', ['Lab order ' + (b.order_code || '')])]));
-      box.appendChild(el('div', 'split', [el('div', 'l', [el('span', { text: 'Collect from patient' }), el('b', { text: inr(b.price) })]), el('div', 'l', [el('span', { text: 'Paid to lab' }), el('b', { text: inr(b.b2b) })]), el('div', 'l', [el('span', { text: 'Your commission' }), el('b', { style: 'color:#2e9e5b', text: inr(b.commission) })])]));
+      box.appendChild(el('div', 'split', [el('div', 'l', [el('span', { text: 'Collect from patient' }), el('b', { text: inr(b.price) })]), el('div', 'l', [el('span', { text: 'Paid to lab' }), el('b', { text: inr(b.b2b) })]), el('div', 'l', [el('span', { text: 'Your margin' }), el('b', { style: 'color:#2e9e5b', text: inr(b.commission) })])]));
       if (b.pin) box.appendChild(el('div', 'pinbox', [el('span', { text: 'Tell the patient this PIN. They give it to the phlebotomist on arrival.' }), el('b', { text: b.pin })]));
       box.appendChild(el('p', { class: 'meta', style: 'color:#6b7385;margin:10px 2px', text: 'The lab will assign a phlebotomist shortly. The phlebotomist will not collect any money from the patient.' }));
       box.appendChild(el('div', 'btns', [el('button', { type: 'button', class: 'btn', text: 'All bookings', onclick: function () { location.hash = '#bookings'; } }), el('button', { type: 'button', class: 'btn pri', text: 'New booking', onclick: function () { location.hash = '#new'; } })]));
@@ -150,7 +150,7 @@
       box.textContent = ''; var st = el('p', 'msg');
       box.appendChild(el('div', 'meta', [b.name + ' · ' + when(b.slot_at)]));
       var qb = el('div', 'qrbox', [el('div', { class: 'meta', text: 'Scan with any UPI app to pay the lab' }), el('div', 'amt', [inr(qr.amount)]), el('img', { src: qr.image_url, alt: 'UPI QR code' }), el('div', 'wait', [el('i'), 'Waiting for payment...'])]); box.appendChild(qb);
-      box.appendChild(el('div', 'split', [el('div', 'l', [el('span', { text: 'Patient pays you' }), el('b', { text: inr(b.price) })]), el('div', 'l', [el('span', { text: 'You pay the lab now' }), el('b', { text: inr(b.b2b) })]), el('div', 'l', [el('span', { text: 'Your commission' }), el('b', { style: 'color:#2e9e5b', text: inr(b.commission) })])]));
+      box.appendChild(el('div', 'split', [el('div', 'l', [el('span', { text: 'Patient pays you' }), el('b', { text: inr(b.price) })]), el('div', 'l', [el('span', { text: 'You pay the lab now' }), el('b', { text: inr(b.b2b) })]), el('div', 'l', [el('span', { text: 'Your margin' }), el('b', { style: 'color:#2e9e5b', text: inr(b.commission) })])]));
       box.appendChild(el('div', 'btns', [el('button', { type: 'button', class: 'btn', text: 'New QR', onclick: function () { start(true); } }), el('button', { type: 'button', class: 'btn', text: 'Cancel booking', onclick: function () { if (!confirm('Cancel this booking?')) return; api('POST', '/staff/dr/bookings/' + id + '/cancel').then(function () { toast('Booking cancelled'); location.hash = '#bookings'; }).catch(function (e) { toast(e.message); }); } })])); box.appendChild(st);
       clearInterval(timer); timer = setInterval(function () { if (location.hash !== '#pay/' + id) { clearInterval(timer); return; } api('GET', '/staff/dr/bookings/' + id + '/status', undefined, true).then(function (r) { if (r.paid) paid(r.booking); else if (r.booking.status === 'cancelled') { clearInterval(timer); location.hash = '#bookings'; } }).catch(function () { }); }, 4000);
     }
@@ -168,7 +168,7 @@
     header('My bookings', '#home'); var list = el('div'); page.appendChild(list); list.appendChild(el('p', 'empty', ['Loading...']));
     api('GET', '/staff/dr/bookings').then(function (r) {
       list.textContent = ''; var e = r.earnings;
-      list.appendChild(el('div', 'earn', [el('div', null, [el('b', { text: inr(e.commission) }), el('span', { text: 'Total commission' })]), el('div', null, [el('b', { text: String(e.bookings) }), el('span', { text: 'Paid bookings' })])]));
+      list.appendChild(el('div', 'earn', [el('div', null, [el('b', { text: inr(e.commission) }), el('span', { text: 'Total margin' })]), el('div', null, [el('b', { text: String(e.bookings) }), el('span', { text: 'Paid bookings' })])]));
       if (!r.bookings.length) list.appendChild(el('p', 'empty', ['No bookings yet.'])); r.bookings.forEach(function (b) { list.appendChild(bookingCard(b)); });
     }).catch(function (e) { list.textContent = ''; list.appendChild(el('p', 'empty', [e.message])); });
   };
@@ -178,7 +178,7 @@
     api('GET', '/staff/dr/bookings/' + id).then(function (r) {
       var b = r.booking; box.appendChild(el('div', 'card dt', [el('div', 'row', [el('div', 'grow', [el('div', 'nm', [b.name]), el('div', 'meta', [(b.age ? b.age + ' yrs ' : '') + (b.sex || '')]), el('div', 'addr', [b.address])]), el('a', { class: 'call', href: 'tel:+91' + b.mobile, 'aria-label': 'Call' }, [svg('call', 22)])]),
         el('div', 'meta', [when(b.slot_at)]), el('ul', 'tests', b.tests.map(function (t) { return el('li', null, [t.name + ' - ' + inr(t.b2b)]); })), el('span', { class: 'stg ' + stageOf(b), text: STAGE[stageOf(b)] || stageOf(b) })]));
-      box.appendChild(el('div', 'split', [el('div', 'l', [el('span', { text: 'Patient pays you' }), el('b', { text: inr(b.price) })]), el('div', 'l', [el('span', { text: 'Paid to lab' }), el('b', { text: inr(b.b2b) })]), el('div', 'l', [el('span', { text: 'Your commission' }), el('b', { style: 'color:#2e9e5b', text: inr(b.commission) })])]));
+      box.appendChild(el('div', 'split', [el('div', 'l', [el('span', { text: 'Patient pays you' }), el('b', { text: inr(b.price) })]), el('div', 'l', [el('span', { text: 'Paid to lab' }), el('b', { text: inr(b.b2b) })]), el('div', 'l', [el('span', { text: 'Your margin' }), el('b', { style: 'color:#2e9e5b', text: inr(b.commission) })])]));
       if (b.order_code) box.appendChild(el('p', { class: 'meta', style: 'margin:10px 2px;color:#6b7385', text: 'Lab order ' + b.order_code }));
       if (b.pin) box.appendChild(el('div', 'pinbox', [el('span', { text: 'Patient PIN for the phlebotomist' }), el('b', { text: b.pin })]));
       if (b.status === 'awaiting_payment') box.appendChild(el('button', { type: 'button', class: 'big', text: 'Pay ' + inr(b.b2b) + ' now', onclick: function () { location.hash = '#pay/' + b.id; } }));

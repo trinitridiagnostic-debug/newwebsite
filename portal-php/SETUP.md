@@ -127,9 +127,9 @@ CRM roles only see the CRM; they cannot open orders, patients, reports or the re
 Turn on "Share new leads automatically" on the Integrations page to hand new leads to the telecaller with the fewest open leads.
 
 ## Doctor partner app (doctor.html)
-Doctors book home visits for their patients, collect money from the patient themselves, and pay the lab only the **B2B price** by Razorpay UPI QR. The rest is their commission.
+Doctors book home visits for their patients, collect money from the patient themselves, and pay the lab only the **B2B price** by Razorpay UPI QR. The rest is their margin.
 1. **Upload prices**: Lab console > **B2B prices** > choose your Excel/CSV (one column test name, one column B2B price). Matching tests are linked to your catalog; others are saved under the name in your file. Doctors can book only tests on this list.
 2. **Create a doctor**: Lab console > Staff > add, role **Doctor partner**. Give them the link `https://trinetridiagnostics.com/doctor.html` with their username and password.
 3. **How a booking works**: doctor enters patient, address, time, picks tests, types the amount they charge the patient (never below the B2B total). A QR for the B2B total appears. When it is paid (Razorpay webhook or the app's own check) the booking becomes a normal paid home-visit order in your Home visits list, and the doctor sees a PIN for the patient. Assign a phlebotomist as usual. The order note tells the phlebotomist not to collect money.
-4. **Money view**: Lab console > **Doctor bookings** shows each doctor's paid bookings, amount paid to lab and commission.
+4. **Money view**: Lab console > **Doctor bookings** shows each doctor's paid bookings, amount paid to lab and margin.
 This uses the same Razorpay keys and webhook as the phlebotomist QR (see the Razorpay section above). Nothing else to configure.
