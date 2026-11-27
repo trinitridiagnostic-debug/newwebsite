@@ -16,8 +16,13 @@
     var data = null, cur = [], q = el('input', { placeholder: 'Search the saved price list', style: 'max-width:340px' }), tb = el('tbody'), sum = el('p', 'note');
     var up = el('div', 'card'), file = el('input', { type: 'file', accept: '.xlsx,.xls,.csv' }), pv = el('div'), ms = el('span', 'msg'), rep = el('input', { type: 'checkbox' });
     up.appendChild(el('h2', { text: 'Upload B2B prices' }));
-    up.appendChild(el('p', { class: 'note', text: 'Choose your Excel (.xlsx / .xls) or CSV file. The first row must be headings, with one column for the test name and one for the B2B price. Doctors then see only these tests and prices.' }));
-    up.appendChild(el('div', 'row', [file, btn('Download blank template', 'ghost', function () { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿Test name,B2B price\nComplete Blood Count (CBC),150\nLIPID PROFILE,200\n'], { type: 'text/csv' })); a.download = 'b2b-price-template.csv'; document.body.appendChild(a); a.click(); a.remove(); })]));
+    up.appendChild(el('p', { class: 'note', text: 'Choose your Excel (.xlsx / .xls) or CSV file. Use the sample template and keep its three headings exactly as they are: Test Name, MRP, B2B Price. Fill in one test per row, with both the MRP (what the patient normally pays) and the B2B price (what the doctor pays you). Doctors then see only these tests and prices.' }));
+    up.appendChild(el('div', 'row', [file, btn('Download sample Excel template', 'ghost', function () {
+      var rows = [['Test Name', 'MRP', 'B2B Price'], ['Complete Blood Count (CBC)', 350, 150], ['LIPID PROFILE', 900, 400], ['Thyroid Function Test - T3, T4, TSH', 500, 250]], a = document.createElement('a'), name = 'b2b-price-template.xlsx';
+      try { var ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }]; var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'B2B prices'); var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }); a.href = URL.createObjectURL(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); }
+      catch (e) { name = 'b2b-price-template.csv'; a.href = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(function (r) { return r.join(','); }).join('\n')], { type: 'text/csv' })); }
+      a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    })]));
     up.appendChild(pv); up.appendChild(ms);
     file.addEventListener('change', function () {
       var f = file.files && file.files[0]; if (!f) return; if (!window.XLSX) { say(ms, 'The Excel reader did not load. Reload the page (Ctrl+F5).', 'err'); return; }
