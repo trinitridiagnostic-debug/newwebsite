@@ -98,3 +98,5 @@ tr.clk{cursor:pointer}tr.clk:hover{background:#f3f9f9}.fu.late{color:#b3261e;fon
 .lab .tbl td .note{margin:2px 0 0;line-height:1.3;padding:0}.lab .tbl td .note a{margin-right:6px}
 .lab .lhead .row{margin:4px 0 0}.lab .tline .tl{margin:0}
 .lab .chk{display:flex;gap:10px;align-items:flex-start;line-height:1.4}.lab .chk input{width:auto;flex:none;margin-top:3px}
+.lab .tpick{position:relative}.lab .tlist{position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid #cfd8e3;border-radius:10px;box-shadow:0 10px 28px rgba(15,40,70,.18);max-height:240px;overflow:auto;margin-top:4px}
+.lab .topt{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #eef2f6;padding:9px 12px;font:inherit;cursor:pointer;color:inherit}.lab .topt:hover{background:#eef6ff}.lab .topt small{color:#6b7a8c;white-space:nowrap}

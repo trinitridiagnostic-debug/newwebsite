@@ -67,11 +67,29 @@
   };
 
   /* add / edit form */
+  /* test / package search dropdown for the Interested-in box: type to search, click to pick, comma for several */
+  function testPick(inp) {
+    var wrap = el('div', { class: 'tpick' }), list = el('div', { class: 'tlist', hidden: true });
+    inp.setAttribute('autocomplete', 'off'); inp.placeholder = 'Type a test or package name, then pick';
+    function cur() { var p = inp.value.split(','); return p[p.length - 1].trim(); }
+    function show() {
+      var q = cur(), res = q ? L.search(q) : (L.packages || []).slice(0, 12); list.textContent = '';
+      if (!res.length) { list.hidden = true; return; }
+      res.slice(0, 30).forEach(function (t) {
+        var b = el('button', { type: 'button', class: 'topt' }, [el('span', { text: t.name }), el('small', { text: (t.pkg ? 'Package · ' : '') + (t.price ? '₹' + t.price : '') })]);
+        b.addEventListener('mousedown', function (e) { e.preventDefault(); var p = inp.value.split(','); p[p.length - 1] = ' ' + t.name; inp.value = p.join(',').replace(/^\s+/, '') + ', '; list.hidden = true; inp.focus(); });
+        list.appendChild(b);
+      });
+      list.hidden = false;
+    }
+    inp.addEventListener('input', show); inp.addEventListener('focus', show); inp.addEventListener('blur', function () { setTimeout(function () { list.hidden = true; inp.value = inp.value.replace(/[,\s]+$/, ''); }, 150); });
+    wrap.appendChild(inp); wrap.appendChild(list); return wrap;
+  }
   function edit(l, pd, after) {
     l = l || {}; var n = el('input', { value: l.name || '', maxlength: '80' }), mb = el('input', { value: l.mobile || '', inputmode: 'tel', maxlength: '14' }), em = el('input', { value: l.email || '', type: 'email' }), ct = el('input', { value: l.city || '' }), it = el('input', { value: l.interest || '', placeholder: 'Test or package they asked about' }),
       sr = el('select', null, opts(SRC, l.source || 'manual')), cp = el('input', { value: l.campaign || '' }), fu = el('input', { type: 'datetime-local' }), ms = el('span', 'msg'); fu.value = L.toLocalInput(l.next_follow);
     var as = can('crm_assign') ? el('select', null, opts(assignable(pd), l.assigned_to || '', 'Not assigned')) : null;
-    modal(l.id ? 'Edit lead' : 'Add lead', el('div', 'form2', [fld('Name', n), fld('Mobile', mb), fld('Email', em), fld('City', ct), fld('Interested in', it, 'full'), fld('Source', sr), fld('Campaign', cp), fld('Next follow-up', fu), as && !l.id ? fld('Assign to', as) : null, ms]), [{ text: 'Cancel', cls: 'ghost' }, { text: 'Save', keep: true, fn: function (close) {
+    modal(l.id ? 'Edit lead' : 'Add lead', el('div', 'form2', [fld('Name', n), fld('Mobile', mb), fld('Email', em), fld('City', ct), fld('Interested in', testPick(it), 'full'), fld('Source', sr), fld('Campaign', cp), fld('Next follow-up', fu), as && !l.id ? fld('Assign to', as) : null, ms]), [{ text: 'Cancel', cls: 'ghost' }, { text: 'Save', keep: true, fn: function (close) {
       var b = { name: n.value, mobile: mb.value, email: em.value, city: ct.value, interest: it.value, source: sr.value, campaign: cp.value, next_follow: L.fromLocalInput(fu.value) }; if (as && !l.id) b.assigned_to = as.value;
       say(ms, 'Saving...', 'info'); api('POST', l.id ? '/staff/crm/leads/' + l.id : '/staff/crm/leads', b).then(function () { close(); toast('Saved'); if (after) after(); else if (L.crmReload) L.crmReload(); }).catch(function (e) { say(ms, e.message, 'err'); });
     } }]);
