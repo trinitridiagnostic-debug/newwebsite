@@ -176,9 +176,8 @@
     api('GET', '/staff/dashboard?since=' + dayStart(0) + '&tz=' + (-new Date().getTimezoneOffset())).then(function (d) {
       DASH = d; var p = d.pipeline;
       page.appendChild(el('h2', { text: 'Today' }));
-      var t1 = [kpi(String(d.today.orders), 'Orders today', null, function () { go('orders'); })];
-      if (can('billing')) t1.push(kpi(inr(d.today.billed), 'Billed today'), kpi(inr(d.today.paid), 'Collected today'), kpi(inr(d.dues.amount), 'Pending dues', d.dues.orders + ' orders', function () { go('orders', '?due'); }, d.dues.orders > 0));
-      page.appendChild(el('div', 'grid4', t1));
+      page.appendChild(el('div', 'grid4', [kpi(String(d.today.orders), 'Orders today', null, function () { go('orders'); }), kpi(inr(d.today.billed), 'Billed today'), kpi(inr(d.today.paid), 'Collected today'),
+        kpi(inr(d.dues.amount), 'Pending dues', d.dues.orders + ' orders', function () { go('orders', '?due'); }, d.dues.orders > 0)]));
       page.appendChild(el('h2', { text: 'Work in progress' }));
       var g = el('div', 'grid4');
       [['booked', 'Waiting for sample', p.booked], ['collected', 'Sample collected', p.collected], ['processing', 'Testing in progress', p.processing], ['completed', 'Report sent', p.completed || 0]].forEach(function (x) { g.appendChild(kpi(String(x[2]), x[1], null, function () { go('orders', '?s=' + x[0]); }, false)); });
