@@ -308,7 +308,7 @@
         }))]))); done();
       }).catch(function (e) { L.fail($('#page'), e); });
     }
-    function roleSel(v) { return el('select', null, opts([['reception', 'Reception: register, bill, inbox, memberships'], ['technician', 'Technician: samples, upload and send reports, stock'], ['phlebotomist', 'Phlebotomist: home collection app only'], ['admin', 'Admin: everything incl. staff']], v)); }
+    function roleSel(v) { return el('select', null, opts([['reception', 'Reception: register, bill, inbox, memberships'], ['technician', 'Technician: samples, upload and send reports, stock'], ['phlebotomist', 'Phlebotomist: home collection app only'], ['telecaller', 'Telecaller (CRM): works own leads'], ['marketing', 'Digital marketing (CRM): adds and imports leads, views all'], ['teamlead', 'Team leader (CRM): manages a team of telecallers'], ['manager', 'Manager (CRM): all leads, team, integrations'], ['admin', 'Super admin: everything incl. staff and CRM']], v)); }
     function edit(u) {
       var n = el('input', { value: u.name }), t = el('input', { value: u.title || '' }), r = roleSel(u.role), a = el('select', null, opts([['1', 'Active'], ['0', 'Disabled (cannot log in)']], u.active ? '1' : '0')), pw = el('input', { type: 'password', placeholder: 'Leave empty to keep', autocomplete: 'new-password' }), ms = el('span', 'msg');
       modal('Edit ' + u.username, el('div', 'form2', [fld('Name', n), fld('Title on reports', t), fld('Role', r, 'full'), fld('Status', a), fld('New password', pw), ms]), [{ text: 'Cancel', cls: 'ghost' }, { text: 'Save', keep: true, fn: function (close) {

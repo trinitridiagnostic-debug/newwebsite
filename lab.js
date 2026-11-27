@@ -78,7 +78,7 @@
 
   /* ---------- auth + shell ---------- */
   var NAV = [
-    ['dash', 'Dashboard', null, 'M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
+    ['dash', 'Dashboard', 'view', 'M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
     ['new', 'New order', 'billing', 'M12 5v14M5 12h14'],
     ['bookings', 'Bookings', 'billing', 'M7 3v3M17 3v3M4 8h16M5 5h14v15H5V5zM9 13l2 2 4-4'],
     ['orders', 'Orders', 'view', 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
@@ -86,14 +86,17 @@
     ['visits', 'Home visits', 'assign', 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10'],
     ['phlebs', 'Phlebotomists', 'assign', 'M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5'],
     ['attendance', 'Attendance', 'assign', 'M5 4h14v16H5zM9 2v4M15 2v4M8 12l3 3 5-6'],
+    ['crm', 'CRM Leads', 'crm', 'M4 6h16M4 12h16M4 18h10M18 15l2 2 3-4'],
+    ['crmteam', 'CRM team', 'crm_staff', 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3 3-5 6-5s6 2 6 5M17 11a2.5 2.5 0 100-5M17 15c2.5 0 4.5 1.5 4.5 4'],
+    ['crmset', 'Integrations', 'crm_settings', 'M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1'],
     ['inbox', 'Inbox', 'inbox', 'M4 5h16v11H8l-4 4V5z'],
     ['reports', 'Reports', 'billing', 'M5 20V10M12 20V4M19 20v-7'],
     ['stock', 'Stock', 'stock', 'M4 8l8-4 8 4v8l-8 4-8-4V8zM4 8l8 4 8-4M12 12v8'],
     ['staff', 'Staff', 'staff', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z'],
     ['acct', 'My account', null, 'M12 8m-4 0a4 4 0 108 0 4 4 0 10-8 0M5 21c1-4 4-6 7-6s6 2 7 6']
   ];
-  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', phlebs: 'Phlebotomists', attendance: 'Phlebotomist attendance', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
-  var ROLES = { admin: 'Admin', reception: 'Reception', technician: 'Technician', phlebotomist: 'Phlebotomist' };
+  var TITLES = { dash: 'Dashboard', new: 'New order', bookings: 'Website bookings', orders: 'Orders', visits: 'Home visits', phlebs: 'Phlebotomists', crm: 'CRM Leads', crmteam: 'CRM team', crmset: 'Lead integrations', attendance: 'Phlebotomist attendance', order: 'Order', patients: 'Patients', inbox: 'Inbox', reports: 'Reports', stock: 'Stock', templates: 'Result templates', staff: 'Staff', acct: 'My account' };
+  var ROLES = { admin: 'Super admin', reception: 'Reception', technician: 'Technician', phlebotomist: 'Phlebotomist', telecaller: 'Telecaller', marketing: 'Digital marketing', teamlead: 'Team leader', manager: 'Manager' };
   LAB.roles = ROLES;
   function tok(v) { try { if (v === null) sessionStorage.removeItem('trin.lab.tok'); else if (v) sessionStorage.setItem('trin.lab.tok', v); else return sessionStorage.getItem('trin.lab.tok') || ''; } catch (e) { } return ''; }
   function logout(msg) { TOKEN = ''; ME = null; tok(null); clearInterval(pollT); $('#app').hidden = true; $('#auth').hidden = false; boot(msg); }
@@ -131,7 +134,7 @@
     if (cleanup) { try { cleanup(); } catch (e) { } cleanup = null; }
     var parts = location.hash.replace(/^#/, '').split('/'), view = parts[0] || 'dash', arg = parts[1] ? decodeURIComponent(parts[1]) : '';
     var nv = NAV.filter(function (n) { return n[0] === view; })[0];
-    if (!LAB.views[view] || (nv && nv[2] && !can(nv[2]))) { view = 'dash'; arg = ''; }
+    if (!LAB.views[view] || (nv && nv[2] && !can(nv[2]))) { view = can('view') ? 'dash' : (can('crm') ? 'crm' : 'acct'); arg = ''; }
     $$('#menu .nv').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-v') === (view === 'order' ? 'orders' : view)); });
     $('#vt').textContent = TITLES[view] || view; $('#topact').textContent = '';
     var page = $('#page'); page.textContent = ''; page.appendChild(el('p', { class: 'empty', text: 'Loading...' }));

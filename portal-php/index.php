@@ -30,7 +30,7 @@ function cfg() {
   $c = ['db_dsn' => '', 'db_user' => '', 'db_pass' => '', 'lab_api_key' => '', 'secret' => '',
         'allowed_origins' => 'https://trinetridiagnostics.com,https://www.trinetridiagnostics.com', 'storage_dir' => __DIR__ . '/storage',
         // OTP on WhatsApp only (Meta Cloud API). Leave otp_provider empty to keep OTP switched off.
-        'aisensy_otp_campaign' => '', 'aisensy_otp_button' => true, 'aisensy_base' => 'https://backend.aisensy.com', 'aisensy_invoice_campaign' => '', 'razorpay_key_id' => '', 'razorpay_key_secret' => '', 'razorpay_webhook_secret' => '', 'razorpay_base' => 'https://api.razorpay.com/v1', 'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
+        'aisensy_otp_campaign' => '', 'aisensy_otp_button' => true, 'aisensy_base' => 'https://backend.aisensy.com', 'aisensy_invoice_campaign' => '', 'razorpay_key_id' => '', 'razorpay_key_secret' => '', 'razorpay_webhook_secret' => '', 'razorpay_base' => 'https://api.razorpay.com/v1', 'meta_page_token' => '', 'meta_app_secret' => '', 'meta_graph_base' => 'https://graph.facebook.com/v19.0', 'otp_provider' => '', 'otp_cooldown' => 30, 'wa_phone_id' => '', 'wa_token' => '', 'wa_template' => 'otp_code', 'wa_lang' => 'en', 'wa_verify_token' => '', 'site_dir' => '',
         'wa_api_base' => 'https://graph.facebook.com/v21.0',
         // Report-ready WhatsApp message through AiSensy (key stays in config.php only)
         'aisensy_key' => '', 'aisensy_campaign' => '', 'aisensy_name' => 'Trinetri Diagnostics', 'public_url' => 'https://trinetridiagnostics.com'];
@@ -38,7 +38,7 @@ function cfg() {
   if (is_file($f)) { $x = require $f; if (is_array($x)) $c = array_merge($c, $x); }
   foreach (['db_dsn' => 'PORTAL_DB_DSN', 'db_user' => 'PORTAL_DB_USER', 'db_pass' => 'PORTAL_DB_PASS', 'lab_api_key' => 'PORTAL_LAB_KEY',
             'allowed_origins' => 'PORTAL_ORIGINS', 'storage_dir' => 'PORTAL_STORAGE', 'otp_provider' => 'PORTAL_OTP_PROVIDER', 'otp_cooldown' => 'PORTAL_OTP_COOLDOWN',
-            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_otp_campaign' => 'PORTAL_AISENSY_OTP', 'aisensy_base' => 'PORTAL_AISENSY_BASE', 'aisensy_invoice_campaign' => 'PORTAL_AISENSY_INVOICE', 'razorpay_key_id' => 'PORTAL_RZP_KEY', 'razorpay_key_secret' => 'PORTAL_RZP_SECRET', 'razorpay_webhook_secret' => 'PORTAL_RZP_WEBHOOK', 'razorpay_base' => 'PORTAL_RZP_BASE', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
+            'wa_phone_id' => 'PORTAL_WA_PHONE_ID', 'wa_token' => 'PORTAL_WA_TOKEN', 'wa_verify_token' => 'PORTAL_WA_VERIFY', 'site_dir' => 'PORTAL_SITE_DIR', 'wa_api_base' => 'PORTAL_WA_BASE', 'aisensy_key' => 'PORTAL_AISENSY_KEY', 'aisensy_otp_campaign' => 'PORTAL_AISENSY_OTP', 'aisensy_base' => 'PORTAL_AISENSY_BASE', 'aisensy_invoice_campaign' => 'PORTAL_AISENSY_INVOICE', 'razorpay_key_id' => 'PORTAL_RZP_KEY', 'razorpay_key_secret' => 'PORTAL_RZP_SECRET', 'razorpay_webhook_secret' => 'PORTAL_RZP_WEBHOOK', 'razorpay_base' => 'PORTAL_RZP_BASE', 'meta_page_token' => 'PORTAL_META_TOKEN', 'meta_app_secret' => 'PORTAL_META_SECRET', 'meta_graph_base' => 'PORTAL_META_BASE', 'aisensy_campaign' => 'PORTAL_AISENSY_CAMPAIGN'] as $k => $e) {
     $v = getenv($e); if ($v !== false && $v !== '') $c[$k] = $v;
   }
   return $c;
@@ -90,7 +90,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v15';
+  $mark = $dir . '/.schema-v16';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -123,16 +123,20 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS sos (id $ai, staff_id VARCHAR(32) NOT NULL, staff_name VARCHAR(60) NOT NULL, lat DOUBLE NULL, lng DOUBLE NULL, note VARCHAR(200) NULL, created BIGINT NOT NULL, ack_by VARCHAR(60) NULL, ack_at BIGINT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS attendance (id $ai, staff_id VARCHAR(32) NOT NULL, day VARCHAR(10) NOT NULL, at BIGINT NOT NULL, lat DOUBLE NOT NULL, lng DOUBLE NOT NULL, acc DOUBLE NULL, selfie VARCHAR(60) NOT NULL, UNIQUE (staff_id, day))$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS availability (id $ai, staff_id VARCHAR(32) NOT NULL, day VARCHAR(10) NOT NULL, avail INT NOT NULL, slots VARCHAR(80) NOT NULL, updated BIGINT NOT NULL, UNIQUE (staff_id, day))$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS leads (id VARCHAR(16) PRIMARY KEY, name VARCHAR(80) NOT NULL, mobile VARCHAR(12) NOT NULL, email VARCHAR(120) NULL, city VARCHAR(60) NULL, source VARCHAR(20) NOT NULL, campaign VARCHAR(80) NULL, interest VARCHAR(160) NULL, status VARCHAR(20) NOT NULL, assigned_to VARCHAR(32) NULL, created_by VARCHAR(32) NULL, created BIGINT NOT NULL, updated BIGINT NOT NULL, next_follow BIGINT NULL, order_code VARCHAR(30) NULL, ext_id VARCHAR(70) NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS lead_log (id $ai, lead_id VARCHAR(16) NOT NULL, staff_id VARCHAR(32) NULL, kind VARCHAR(12) NOT NULL, text VARCHAR(520) NOT NULL, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS crm_settings (k VARCHAR(30) PRIMARY KEY, v VARCHAR(200) NOT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
   // columns added in v2 (safe to repeat: errors for existing columns are ignored)
-  $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "orders ADD COLUMN ph_pin_ok INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_tries INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_at BIGINT NULL", "staff ADD COLUMN mobile VARCHAR(12) NULL", "staff ADD COLUMN district VARCHAR(40) NULL", "staff ADD COLUMN taluka VARCHAR(40) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
+  $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "orders ADD COLUMN ph_pin_ok INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_tries INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_at BIGINT NULL", "staff ADD COLUMN mobile VARCHAR(12) NULL", "staff ADD COLUMN team_lead VARCHAR(32) NULL", "staff ADD COLUMN district VARCHAR(40) NULL", "staff ADD COLUMN taluka VARCHAR(40) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
     "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
     "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL", "orders ADD COLUMN addr VARCHAR(300) NULL", "orders ADD COLUMN slot_at BIGINT NULL", "orders ADD COLUMN slot_mins INT NULL", "orders ADD COLUMN ph_id VARCHAR(32) NULL", "orders ADD COLUMN ph_status VARCHAR(10) NULL", "orders ADD COLUMN ph_at BIGINT NULL", "orders ADD COLUMN pay_qr_id VARCHAR(40) NULL", "orders ADD COLUMN pay_qr_url VARCHAR(300) NULL", "orders ADD COLUMN pay_qr_amt BIGINT NULL", "orders ADD COLUMN pay_qr_at BIGINT NULL"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }
   try { $pdo->exec("UPDATE staff SET role='technician' WHERE role='doctor'"); } catch (PDOException $e) { }   /* the doctor role was removed */
   foreach ([$ix('t_uid', 'tickets', 'uid'), $ix('tm_t', 'ticket_msgs', 'ticket_id'), $ix('c_uid', 'chat', 'uid, ts'), $ix('o_created', 'orders', 'created'), $ix('o_mobile', 'orders', 'mobile'), $ix('otp_m', 'otps', 'mobile, purpose'), $ix('dev_u', 'devices', 'uid')] as $s) if ($s) $pdo->exec($s);
-  if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)', 'CREATE INDEX otp_m ON otps(mobile, purpose)', 'CREATE INDEX dev_u ON devices(uid)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
+  if (!$mysql) foreach (['CREATE INDEX IF NOT EXISTS l_mobile ON leads(mobile)', 'CREATE INDEX IF NOT EXISTS l_assign ON leads(assigned_to)', 'CREATE INDEX IF NOT EXISTS l_ext ON leads(ext_id)', 'CREATE INDEX IF NOT EXISTS lg_lead ON lead_log(lead_id)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
+  if ($mysql) foreach (['CREATE INDEX o_created ON orders(created)', 'CREATE INDEX o_mobile ON orders(mobile)', 'CREATE INDEX otp_m ON otps(mobile, purpose)', 'CREATE INDEX dev_u ON devices(uid)', 'CREATE INDEX l_mobile ON leads(mobile)', 'CREATE INDEX l_assign ON leads(assigned_to)', 'CREATE INDEX l_ext ON leads(ext_id)', 'CREATE INDEX lg_lead ON lead_log(lead_id)'] as $s) { try { $pdo->exec($s); } catch (PDOException $e) {} }
 }
 function dbHint(Throwable $e) {
   $m = $e->getMessage();
@@ -469,8 +473,10 @@ function route() {
       if (!$ok) { http_response_code(403); header('Content-Type: text/plain'); echo 'Forbidden'; exit; }
       header('Content-Type: text/plain'); echo (string)($_GET['hub_challenge'] ?? $_GET['hub.challenge'] ?? ''); exit;
     }
-    if ($m === 'POST') { http_response_code(200); header('Content-Type: text/plain'); echo 'OK'; exit; }
+    if ($m === 'POST') { try { $pl = json_decode((string)file_get_contents('php://input'), true); if (is_array($pl)) { require_once __DIR__ . '/crm.php'; crmFromWhatsApp($pl); } } catch (Throwable $e) { error_log('[trinetri-portal] wa lead: ' . $e->getMessage()); } http_response_code(200); header('Content-Type: text/plain'); echo 'OK'; exit; }
   }
+  if (preg_match('#^/crm/in/([a-z]+)$#', $path, $r) && ($m === 'POST' || $m === 'GET')) { require_once __DIR__ . '/crm.php'; crmIntake($r[1]); }
+  if ($path === '/crm/meta' && ($m === 'POST' || $m === 'GET')) { require_once __DIR__ . '/crm.php'; crmMeta(); }
   if ($path === '/health' && $m === 'GET') {   // setup check: shows whether the database connects, never any secret
     if (!is_file(__DIR__ . '/config.php')) out(['ok' => false, 'problem' => 'config.php is missing in the portal-api folder.'], 500);
     try { db(); one('SELECT 1 AS x'); out(['ok' => true, 'database' => 'connected']); }

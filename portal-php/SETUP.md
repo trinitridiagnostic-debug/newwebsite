@@ -107,3 +107,21 @@ The first time a phlebotomist opens the app each day (IST), a full-screen "Welco
 
 ## Advance schedule (next 8 days)
 In the phlebotomist app, **Schedule** asks for each of the next 8 days: **YES** selects all hourly slots (05:00 to 22:00, ending at 11 pm) in green, and the phlebotomist can untap any slot and press **Confirm Slots**; **NO** marks the day not available. The home screen shows a yellow reminder while any of the 8 days is unanswered. In the lab console, the Phlebotomists page has an **Advance schedule** button per person (for example "Schedule (3/8)") that shows the 8 days with available days and slots in green.
+
+## Customer-care CRM (leads)
+Lab console > **CRM Leads** (everyone with a CRM role), **CRM team** (manager, team leader, super admin), **Integrations** (manager, super admin).
+
+**Roles** (create them in CRM team, or Staff for the super admin):
+- **Telecaller**: sees and works only the leads assigned to them (status, follow-up date, notes, call / WhatsApp buttons) and can add a lead (it is assigned to themselves).
+- **Digital marketing**: sees all leads, adds leads and uploads Excel/CSV files. Cannot change or delete leads.
+- **Team leader**: sees their own telecallers' leads plus unassigned leads, edits, assigns, imports, creates telecallers for their team.
+- **Manager**: all leads, assign, edit, delete, import, creates telecallers / marketing / team leaders, sees the Integrations page.
+- **Super admin** (the existing Admin): everything, including creating managers.
+CRM roles only see the CRM; they cannot open orders, patients, reports or the rest of the lab console.
+
+**Where leads come from**
+1. *Excel / CSV*: CRM Leads > Import Excel / CSV. Pick the file, check the column matching, Import. Numbers already in the CRM are skipped, never duplicated.
+2. *Justdial / Facebook / Instagram / website / other*: Integrations page shows one link per channel (it contains a secret key). Give the Justdial link to your Justdial account manager as the lead push URL. For Facebook and Instagram Lead Ads use Zapier, Make or Pabbly with the Facebook link, or the direct connection below.
+3. *Direct Meta Lead Ads* (optional): in your Meta app add a Webhooks "Page" subscription for `leadgen` with the Callback URL and Verify token shown on the Integrations page, then add to `config.php` (type these yourself): `'meta_page_token' => 'long-lived page access token', 'meta_app_secret' => 'your app secret',`
+4. *WhatsApp*: the existing WhatsApp Business webhook (`/portal-api/wa/webhook`) turns every new person who messages the lab into a lead.
+Turn on "Share new leads automatically" on the Integrations page to hand new leads to the telecaller with the fewest open leads.
