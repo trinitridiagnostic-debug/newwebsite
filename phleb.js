@@ -137,6 +137,77 @@
     } });
     c.appendChild(btn); c.appendChild(msg); c.appendChild(area); return c;
   }
+  /* ---- sample collection: empty vial photo + barcode + filled vial photo for each vial, then a selfie ---- */
+  var PIC = {};   /* photos taken on this phone, kept in memory only to show thumbnails */
+  function shot(facing, done) {
+    var inp = el('input', { type: 'file', accept: 'image/*', capture: facing }); inp.style.display = 'none'; document.body.appendChild(inp);
+    inp.onchange = function () {
+      var f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () {
+        var sc = Math.min(1, 1000 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); done(c.toDataURL('image/jpeg', 0.72), c);
+      };
+      img.onerror = function () { toast('That photo could not be opened. Please try again.'); }; img.src = url;
+    };
+    inp.click();
+  }
+  function sampleCard(o, draw, act) {
+    var c = el('div', 'card'), base = '/staff/phleb/orders/' + encodeURIComponent(o.code), st = null;
+    function post(path, body, ok) { return api('POST', base + path, body).then(function (r) { st = r; render(); if (ok) toast(ok); }).catch(function (e) { toast(e.message); }); }
+    function render() {
+      c.textContent = ''; c.appendChild(el('div', 'nm', ['Sample collection']));
+      c.appendChild(el('div', 'meta', ['For every vial: photo of the empty vial, its barcode, then a photo of the filled vial. At the end, take your selfie.']));
+      st.vials.forEach(function (v) {
+        var vb = el('div', 'vial'), pic = PIC[v.id] || {};
+        vb.appendChild(el('div', 'row', [el('div', 'grow', [el('b', { text: 'Vial ' + v.seq }), el('div', 'meta', [v.type])]), v.empty && v.barcode && v.filled ? tick(22) : el('span')]));
+        var ty = el('select'); st.types.forEach(function (t) { var op = el('option', { value: t, text: t }); if (t === v.type) op.selected = true; ty.appendChild(op); }); ty.onchange = function () { post('/vials/' + v.id, { type: ty.value }); }; vb.appendChild(ty);
+        /* step 1 empty vial photo */
+        var s1 = el('div', 'step'); s1.appendChild(el('div', 'meta', ['1. Empty vial photo']));
+        if (pic.empty) { var im = el('img', { src: pic.empty, alt: 'Empty vial' }); im.className = 'thumb'; s1.appendChild(im); }
+        s1.appendChild(el('button', { type: 'button', class: 'btn', text: v.empty ? 'Retake empty vial photo' : 'Take empty vial photo', onclick: function () {
+          shot('environment', function (d, cv) { PIC[v.id] = PIC[v.id] || {}; PIC[v.id].empty = d;
+            api('POST', base + '/vials/' + v.id + '/photo', { kind: 'empty', image: d }).then(function (r) { st = r; render(); toast('Empty vial photo saved'); detect(cv, v); }).catch(function (e) { toast(e.message); }); }); } }));
+        vb.appendChild(s1);
+        /* step 2 barcode */
+        if (v.empty) {
+          var s2 = el('div', 'step'); s2.appendChild(el('div', 'meta', ['2. Barcode on the vial sticker']));
+          var bi = el('input', { type: 'text', placeholder: 'Type or scan the barcode', value: v.barcode || '', autocapitalize: 'characters', maxlength: 24, id: 'bc-' + v.id });
+          s2.appendChild(bi);
+          s2.appendChild(el('button', { type: 'button', class: 'btn pri', text: v.barcode ? 'Update barcode' : 'Check the Barcode', onclick: function () {
+            var val = bi.value.trim().toUpperCase(); if (!val) { toast('Enter the barcode first.'); return; }
+            if (confirm('Is the barcode ' + val + ' correct?')) post('/vials/' + v.id, { barcode: val }, 'Barcode saved'); } }));
+          vb.appendChild(s2);
+        }
+        /* step 3 filled vial photo */
+        if (v.empty && v.barcode) {
+          var s3 = el('div', 'step'); s3.appendChild(el('div', 'meta', ['3. Filled vial photo (the sticker must be readable)']));
+          if (pic.filled) { var im2 = el('img', { src: pic.filled, alt: 'Filled vial' }); im2.className = 'thumb'; s3.appendChild(im2); }
+          s3.appendChild(el('button', { type: 'button', class: 'btn', text: v.filled ? 'Retake filled vial photo' : 'Take filled vial photo', onclick: function () {
+            shot('environment', function (d) { PIC[v.id] = PIC[v.id] || {}; PIC[v.id].filled = d; post('/vials/' + v.id + '/photo', { kind: 'filled', image: d }, 'Filled vial photo saved'); }); } }));
+          vb.appendChild(s3);
+        }
+        vb.appendChild(el('button', { type: 'button', class: 'link', text: 'Remove this vial', onclick: function () { if (confirm('Remove vial ' + v.seq + '?')) post('/vials/' + v.id + '/delete', {}); } }));
+        c.appendChild(vb);
+      });
+      c.appendChild(el('button', { type: 'button', class: 'btn', style: 'width:100%', text: '+ Add a vial', onclick: function () { post('/vials', { type: st.vials.length ? st.vials[st.vials.length - 1].type : '' }); } }));
+      var sf = el('div', 'step'); sf.appendChild(el('div', 'nm', ['Your selfie']));
+      sf.appendChild(el('div', 'meta', ['Take it while you remove your PPE, after the sample is collected.']));
+      if (PIC.selfie) { var im3 = el('img', { src: PIC.selfie, alt: 'Selfie' }); im3.className = 'thumb'; sf.appendChild(im3); }
+      sf.appendChild(el('button', { type: 'button', class: 'btn', text: st.selfie ? 'Retake selfie' : 'Capture selfie', onclick: function () { shot('user', function (d) { PIC.selfie = d; post('/selfie', { image: d }, 'Selfie saved'); }); } }));
+      c.appendChild(sf);
+      if (st.missing.length) c.appendChild(el('div', 'meta', ['Still needed: ' + st.missing.join('; ')]));
+      var go = el('button', { type: 'button', class: 'btn go', style: 'width:100%', text: 'Sample collected', onclick: function () { var self = this; if (confirm('Confirm that the sample of ' + o.name + ' has been collected?')) act('collected', 'Marked as collected').call(self); } });
+      go.disabled = !st.complete; c.appendChild(go);
+    }
+    function detect(cv, v) {   /* try to read the barcode from the photo; the phlebotomist can always type it */
+      if (!('BarcodeDetector' in window)) return;
+      try { new window.BarcodeDetector().detect(cv).then(function (r) { if (r && r[0] && r[0].rawValue) { var i = document.getElementById('bc-' + v.id); if (i && !i.value) { i.value = String(r[0].rawValue).toUpperCase(); toast('Barcode read. Please check it.'); } } }).catch(function () {}); } catch (e) {}
+    }
+    c.appendChild(el('div', 'empty', ['Loading...']));
+    api('GET', base + '/vials').then(function (r) { st = r; if (!st.vials.length) post('/vials', {}); else render(); }).catch(function (e) { c.textContent = ''; c.appendChild(el('div', 'empty', [e.message])); });
+    return c;
+  }
   V.order = function (page, code) {
     header('Visit Order', '#orders'); var box = el('div'); page.appendChild(box);
     function act(a, label) { return function () { var btn = this; btn.disabled = true; api('POST', '/staff/phleb/orders/' + encodeURIComponent(code) + '/' + a).then(function (r) { toast(label); if (a === 'release') location.hash = '#orders'; else draw(r.order); }).catch(function (e) { btn.disabled = false; toast(e.message); }); }; }
@@ -156,9 +227,9 @@
       var b = el('div', 'btns');
       if (o.ph_status === 'assigned') b.appendChild(el('button', { type: 'button', class: 'btn pri', text: 'Accept', onclick: act('accept', 'Accepted') }));
       if (o.ph_status === 'assigned' || o.ph_status === 'accepted') b.appendChild(el('button', { type: 'button', class: 'btn pri', text: 'Start', onclick: act('start', 'Started. Safe travels.') }));
-      if (o.ph_status === 'started' && o.pin_ok) b.appendChild(el('button', { type: 'button', class: 'btn go', text: 'Sample collected', onclick: function () { var self = this; if (confirm('Confirm that the sample of ' + o.name + ' has been collected?')) act('collected', 'Marked as collected').call(self); } }));
       dt.appendChild(b); box.appendChild(dt);
       if (o.ph_status === 'started' && !o.pin_ok) box.appendChild(pinCard(o, draw)); else if (o.ph_status === 'started' || (o.ph_status === 'collected' && o.pin_ok)) dt.insertBefore(el('div', 'pinok', [tick(22), 'Patient PIN verified']), b);
+      if (o.ph_status === 'started' && o.pin_ok) box.appendChild(sampleCard(o, draw, act));
       if (o.ph_status === 'collected') box.appendChild(payCard(o));
       if (o.ph_status !== 'collected') box.appendChild(el('button', { type: 'button', class: 'btn', style: 'width:100%', text: 'Order release', onclick: function () { var self = this; if (confirm('Release this visit back to the pool? Another phlebotomist can pick it.')) act('release', 'Released').call(self); } }));
     }

@@ -13,7 +13,7 @@ function phView($o) {
   return ['code' => $o['code'], 'name' => $o['name'], 'mobile' => $o['mobile'], 'age' => $o['age'] === null ? null : (int)$o['age'], 'sex' => $o['sex'],
     'addr' => (string)($o['addr'] ?? ''), 'slot_at' => $o['slot_at'] === null ? null : (int)$o['slot_at'], 'slot_mins' => (int)($o['slot_mins'] ?: 20),
     'tests' => array_column($tests, 'name'), 'fasting' => phFasting($tests), 'due' => max(0, (int)$o['amount'] - (int)$o['paid']), 'amount' => (int)$o['amount'], 'paid' => (int)$o['paid'], 'pay_mode' => $o['pay_mode'], 'notes' => (string)$o['notes'],
-    'ph_id' => $o['ph_id'], 'pin_ok' => (int)($o['ph_pin_ok'] ?? 0) === 1, 'ph_status' => $o['ph_status'], 'ph_at' => $o['ph_at'] === null ? null : (int)$o['ph_at'], 'status' => $o['status'], 'created' => (int)$o['created']];
+    'ph_id' => $o['ph_id'], 'pin_ok' => (int)($o['ph_pin_ok'] ?? 0) === 1, 'sample_ok' => ($o['sample_ok'] ?? null) === null ? null : (int)$o['sample_ok'], 'ph_status' => $o['ph_status'], 'ph_at' => $o['ph_at'] === null ? null : (int)$o['ph_at'], 'status' => $o['status'], 'created' => (int)$o['created']];
 }
 /* address + visit time on an order (called after create/update when the form sent them) */
 function setVisit($id, $b) {
@@ -105,6 +105,7 @@ function phlebRoutes($path, $m, $s) {
         if ($act === 'release') q("UPDATE orders SET ph_id=NULL, ph_status=NULL, ph_at=?, ph_pin_ok=0 WHERE id=?", [$now, $o['id']]);
         if ($act === 'collected') {
           if ((int)$o['ph_pin_ok'] !== 1) throw bad('Verify the patient\'s PIN before collecting the sample.');
+          require_once __DIR__ . '/vials.php'; $miss = vialDone($o); if ($miss) throw bad('Before marking the sample collected: ' . implode(', ', $miss));
           $t = json_decode($o['times'], true) ?: []; $t['collected'] = $now;
           q("UPDATE orders SET ph_status='collected', ph_at=?, status=CASE WHEN status='booked' THEN 'collected' ELSE status END, times=? WHERE id=?", [$now, json_encode($t), $o['id']]);
         }

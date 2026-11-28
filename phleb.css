@@ -128,3 +128,9 @@ input,textarea{width:100%;border:1px solid #cfd4df;border-radius:10px;padding:12
 .slot.on{background:#2e9e5b;color:#fff;box-shadow:0 4px 12px rgba(46,158,91,.4);transform:scale(1.03)}
 #page>.big{width:calc(100% - 28px);margin:14px}
 .selrow .link{background:none;border:0;color:var(--blue2);text-decoration:underline;font:inherit;font-weight:700;cursor:pointer}
+
+.vial{border:1px solid #dfe6ea;border-radius:12px;padding:12px;margin:12px 0;background:#fbfdfe}
+.vial select,.vial input[type=text]{width:100%;margin:6px 0;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font-size:16px}
+.step{margin:10px 0}
+.thumb{display:block;width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin:6px 0}
+.btn:disabled{opacity:.45}

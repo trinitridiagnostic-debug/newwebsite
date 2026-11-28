@@ -90,7 +90,7 @@ function db() {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
   $mysql = strpos($dsn, 'mysql') === 0;
   if (!$mysql) $pdo->exec('PRAGMA busy_timeout=5000');
-  $mark = $dir . '/.schema-v18';
+  $mark = $dir . '/.schema-v19';
   if (!is_file($mark)) { migrate($pdo, $mysql); @file_put_contents($mark, '5'); }
   return $pdo;
 }
@@ -128,10 +128,11 @@ function migrate($pdo, $mysql) {
   $sql[] = "CREATE TABLE IF NOT EXISTS crm_settings (k VARCHAR(30) PRIMARY KEY, v VARCHAR(200) NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS b2b_prices (tkey VARCHAR(40) PRIMARY KEY, name VARCHAR(160) NOT NULL, price BIGINT NOT NULL, updated BIGINT NOT NULL)$tail";
   $sql[] = "CREATE TABLE IF NOT EXISTS dr_bookings (id VARCHAR(12) PRIMARY KEY, doctor_id VARCHAR(32) NOT NULL, pname VARCHAR(60) NOT NULL, mobile VARCHAR(10) NOT NULL, age INT NULL, sex VARCHAR(1) NULL, addr VARCHAR(300) NOT NULL, slot_at BIGINT NULL, notes VARCHAR(200) NULL, tests TEXT NOT NULL, b2b BIGINT NOT NULL, price BIGINT NOT NULL, commission BIGINT NOT NULL, status VARCHAR(16) NOT NULL, qr_id VARCHAR(40) NULL, qr_url VARCHAR(300) NULL, qr_at BIGINT NULL, pay_ref VARCHAR(40) NULL, paid_at BIGINT NULL, order_code VARCHAR(30) NULL, pin VARCHAR(8) NULL, created BIGINT NOT NULL)$tail";
+  $sql[] = "CREATE TABLE IF NOT EXISTS vials (id VARCHAR(16) PRIMARY KEY, order_id VARCHAR(32) NOT NULL, seq INT NOT NULL, vtype VARCHAR(40) NOT NULL, barcode VARCHAR(30) NOT NULL DEFAULT '', empty_file VARCHAR(80) NULL, filled_file VARCHAR(80) NULL, created BIGINT NOT NULL)$tail";
   foreach ($sql as $s) $pdo->exec($s);
   // columns added in v2 (safe to repeat: errors for existing columns are ignored)
   $alter = ["orders ADD COLUMN age INT NULL", "orders ADD COLUMN sex VARCHAR(1) NULL", "orders ADD COLUMN ref_doctor VARCHAR(80) NULL", "orders ADD COLUMN ref_doc_mobile VARCHAR(12) NULL", "orders ADD COLUMN ph_pin_ok INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_tries INT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_pin_at BIGINT NULL", "staff ADD COLUMN mobile VARCHAR(12) NULL", "staff ADD COLUMN team_lead VARCHAR(32) NULL", "staff ADD COLUMN district VARCHAR(40) NULL", "staff ADD COLUMN taluka VARCHAR(40) NULL", "orders ADD COLUMN kind VARCHAR(10) NULL",
-    "b2b_prices ADD COLUMN mrp BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
+    "b2b_prices ADD COLUMN mrp BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN ph_selfie VARCHAR(80) NULL", "orders ADD COLUMN sample_ok BIGINT NULL", "orders ADD COLUMN sample_ok_by VARCHAR(32) NULL", "orders ADD COLUMN notes TEXT NULL", "orders ADD COLUMN discount BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN paid BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN pay_mode VARCHAR(12) NULL",
     "orders ADD COLUMN results TEXT NULL", "orders ADD COLUMN res_status VARCHAR(12) NOT NULL DEFAULT 'none'", "orders ADD COLUMN approved_by VARCHAR(60) NULL", "orders ADD COLUMN approved_title VARCHAR(120) NULL",
     "orders ADD COLUMN approved_at BIGINT NULL", "orders ADD COLUMN created_by VARCHAR(60) NULL", "users ADD COLUMN verified TINYINT NOT NULL DEFAULT 0", "chat_state ADD COLUMN staff_seen BIGINT NOT NULL DEFAULT 0", "orders ADD COLUMN src_file VARCHAR(80) NULL", "orders ADD COLUMN src_name VARCHAR(120) NULL", "orders ADD COLUMN src_by VARCHAR(60) NULL", "orders ADD COLUMN src_at BIGINT NULL", "orders ADD COLUMN addr VARCHAR(300) NULL", "orders ADD COLUMN slot_at BIGINT NULL", "orders ADD COLUMN slot_mins INT NULL", "orders ADD COLUMN ph_id VARCHAR(32) NULL", "orders ADD COLUMN ph_status VARCHAR(10) NULL", "orders ADD COLUMN ph_at BIGINT NULL", "orders ADD COLUMN pay_qr_id VARCHAR(40) NULL", "orders ADD COLUMN pay_qr_url VARCHAR(300) NULL", "orders ADD COLUMN pay_qr_amt BIGINT NULL", "orders ADD COLUMN pay_qr_at BIGINT NULL"];
   foreach ($alter as $a) { try { $pdo->exec('ALTER TABLE ' . $a); } catch (PDOException $e) { /* already there */ } }

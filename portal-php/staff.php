@@ -295,6 +295,7 @@ function staff($path, $m) {
 
 
   /* catalog admin (admin role): edits the website's catalog.js and package pictures directly on this server */
+  require_once __DIR__ . '/vials.php'; vialRoutes($path, $m, $s);
   require_once __DIR__ . '/pay.php'; require_once __DIR__ . '/dr.php'; drRoutes($path, $m, $s);
   require_once __DIR__ . '/crm.php'; crmRoutes($path, $m, $s);
   require_once __DIR__ . '/phleb.php'; phlebRoutes($path, $m, $s);

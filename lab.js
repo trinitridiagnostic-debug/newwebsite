@@ -38,6 +38,29 @@
     document.body.appendChild(ov); var f = box.querySelector('input,select,textarea,button'); if (f) f.focus();
     return { close: close, box: box };
   }
+  /* phlebotomist's vial photos, barcodes and selfie, with a verify button */
+  function vialCard(o) {
+    var c = el('div', 'card'), base = '/staff/orders/' + encodeURIComponent(o.code);
+    function load() {
+      api('GET', base + '/vials').then(function (d) {
+        c.textContent = ''; c.appendChild(el('h3', { text: 'Sample photos' }));
+        if (!d.vials.length && !d.selfie) { c.appendChild(el('p', { class: 'muted', text: 'No vial photos for this order.' })); return; }
+        function pic(k, vid, label) {
+          var box = el('div', 'vph', [el('small', { text: label })]);
+          api('GET', base + '/vialimg?k=' + k + (vid ? '&v=' + vid : ''), undefined, { blob: true, quiet: true }).then(function (b) { var u = URL.createObjectURL(b); box.appendChild(el('img', { src: u, alt: label, style: 'width:100%;border-radius:8px;cursor:zoom-in', onclick: function () { modal(label, el('img', { src: u, style: 'width:100%' }), [{ text: 'Close', cls: 'ghost' }]); } })); }).catch(function () { box.appendChild(el('div', { class: 'muted', text: 'Not available' })); });
+          return box;
+        }
+        d.vials.forEach(function (v) {
+          c.appendChild(el('div', { style: 'margin:10px 0 4px' }, [el('b', { text: 'Vial ' + v.seq + ' - ' + v.type }), el('span', { class: 'muted', text: '   Barcode: ' }), el('b', { text: v.barcode || 'none' })]));
+          c.appendChild(el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px' }, [v.empty ? pic('empty', v.id, 'Empty vial') : el('div', { class: 'muted', text: 'No empty photo' }), v.filled ? pic('filled', v.id, 'Filled vial') : el('div', { class: 'muted', text: 'No filled photo' })]));
+        });
+        if (d.selfie) c.appendChild(el('div', { style: 'margin-top:12px;max-width:200px' }, [pic('selfie', '', 'Phlebotomist selfie' + (d.phlebotomist ? ' - ' + d.phlebotomist : ''))]));
+        if (d.verified_at) c.appendChild(el('p', { text: 'Sample verified by ' + (d.verified_by || 'staff') + ' on ' + fdt(d.verified_at) }));
+        if (can('results') && o.ph_status === 'collected') c.appendChild(el('button', { type: 'button', class: 'btn sm' + (d.verified_at ? ' ghost' : ''), text: d.verified_at ? 'Remove verification' : 'Mark sample verified', onclick: function () { api('POST', base + '/verifysample', { verified: !d.verified_at }).then(function () { toast(d.verified_at ? 'Verification removed' : 'Sample verified'); load(); }).catch(function (e) { toast(e.message); }); } }));
+      }).catch(function () { c.remove(); });
+    }
+    load(); return c;
+  }
   function confirmBox(msg, okText, fn) { modal('Please confirm', el('p', { text: msg }), [{ text: 'Cancel', cls: 'ghost' }, { text: okText || 'OK', cls: 'danger', fn: fn }]); }
 
   /* ---------- api ---------- */
@@ -308,6 +331,7 @@
       ]));
       page.appendChild(bc);
 
+      if (o.kind === 'home' && o.ph_status) page.appendChild(vialCard(o));
       /* report + results */
       page.appendChild(resultsCard(o));
     }

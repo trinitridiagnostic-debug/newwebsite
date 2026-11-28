@@ -21,6 +21,13 @@ const mock = spawn('php', ['-S', `127.0.0.1:${P2}`, path.join(tmp, 'mock.php')],
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = () => (existsSync(LOG) ? readFileSync(LOG, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
+const JPG = 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4000, 7)]).toString('base64');
+let _bc = 0;
+async function vialsDone(code, token) {
+  const b = `/staff/phleb/orders/${code}`; let r = await call('POST', b + '/vials', { token, body: { type: 'EDTA (lavender top)' } }); const id = r.j.vials[r.j.vials.length - 1].id;
+  await call('POST', `${b}/vials/${id}/photo`, { token, body: { kind: 'empty', image: JPG } }); await call('POST', `${b}/vials/${id}`, { token, body: { barcode: 'TB' + Date.now().toString(36).toUpperCase() + (++_bc) } });
+  await call('POST', `${b}/vials/${id}/photo`, { token, body: { kind: 'filled', image: JPG } }); await call('POST', b + '/selfie', { token, body: { image: JPG } });
+}
 async function call(method, p, { body, token, raw, headers } = {}) {
   const h = { Origin: ORIGIN, ...(headers || {}) }; if (token) h.Authorization = 'Bearer ' + token; let b = raw; if (body !== undefined) { b = JSON.stringify(body); h['Content-Type'] = 'application/json'; }
   const r = await fetch(B + p, { method, headers: h, body: b }); const buf = Buffer.from(await r.arrayBuffer()); let j = {}; try { j = JSON.parse(buf.toString()); } catch (e) {} return { s: r.status, j, buf };
@@ -44,7 +51,7 @@ try {
   r = await call('POST', `/staff/orders/${r.j.order.code}/update`, { token: A, body: { name: 'Doc Test', ref_doctor: '', ref_doc_mobile: '9448236254' } }); ok(r.j.order.ref_doctor === '' && r.j.order.ref_doc_mobile === '', 'Self clears the doctor number');
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Walk In', mobile: '9833333335', kind: 'walk-in', phleb: ph1.id, tests: [{ name: 'CBC', price: 300 }] } }); ok(r.s === 201 && !r.j.order.ph_id, 'walk-in order ignores phlebotomist');
   r = await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH }); ok(r.s === 400, 'QR refused before sample collected');
-  await call('POST', `/staff/phleb/orders/${code}/accept`, { token: PH }); await call('POST', `/staff/phleb/orders/${code}/verifypin`, { token: PH, body: { pin: pin1 } }); await call('POST', `/staff/phleb/orders/${code}/collected`, { token: PH });
+  await call('POST', `/staff/phleb/orders/${code}/accept`, { token: PH }); await call('POST', `/staff/phleb/orders/${code}/verifypin`, { token: PH, body: { pin: pin1 } }); await vialsDone(code, PH); await call('POST', `/staff/phleb/orders/${code}/collected`, { token: PH });
   ok((await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH2 })).s === 404, 'other phlebotomist cannot take payment');
   r = await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH }); ok(r.s === 200 && r.j.qr.image_url === 'https://rzp.test/qr.png' && r.j.qr.amount === 500, 'QR created for the due amount');
   const cr = log().find((l) => l.path.endsWith('/payments/qr_codes')); ok(cr.auth === 'rzp_test_k' && cr.body.payment_amount === 50000 && cr.body.usage === 'single_use' && cr.body.fixed_amount === true && cr.body.notes.order === code, 'Razorpay got a fixed single-use 500 rupee QR');
@@ -67,7 +74,7 @@ try {
     ok((await call('GET', `/orders/${code}/invoice`, { token: c2.j.token })).s === 404, 'another customer cannot download this invoice'); }
   // second order: confirmed by polling Razorpay (webhook late)
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: Date.now() + 7200000, tests: [{ name: 'CBC', price: 300 }], paid: 100, pay_mode: 'cash' } }); const c2 = r.j.order.code, pin2 = r.j.pin;
-  await call('POST', `/staff/orders/${c2}/assign`, { token: A, body: { phleb: ph1.id } }); await call('POST', `/staff/phleb/orders/${c2}/verifypin`, { token: PH, body: { pin: pin2 } }); await call('POST', `/staff/phleb/orders/${c2}/collected`, { token: PH });
+  await call('POST', `/staff/orders/${c2}/assign`, { token: A, body: { phleb: ph1.id } }); await call('POST', `/staff/phleb/orders/${c2}/verifypin`, { token: PH, body: { pin: pin2 } }); await vialsDone(c2, PH); await call('POST', `/staff/phleb/orders/${c2}/collected`, { token: PH });
   r = await call('POST', `/staff/phleb/orders/${c2}/payqr`, { token: PH }); ok(r.j.qr.amount === 200, 'QR is for the balance only');
   writeFileSync(PAID, '20000'); r = await call('GET', `/staff/phleb/orders/${c2}/paystatus`, { token: PH }); ok(r.j.paid_online === true && r.j.order.paid === 300, 'polling Razorpay marks it paid');
   console.log(`${pass} passed, ${fail} failed`);

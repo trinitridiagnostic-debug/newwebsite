@@ -7,8 +7,15 @@ import path from 'node:path';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const store = mkdtempSync(path.join(tmpdir(), 'portal-'));
 const PORT = process.env.PORT || 8791, B = `http://127.0.0.1:${PORT}`, ORIGIN = 'http://localhost:8765';
-const srv = spawn('php', ['-S', `127.0.0.1:${PORT}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'dev', PORTAL_OTP_COOLDOWN: '0' } });
+const srv = spawn('php', ['-S', `127.0.0.1:${PORT}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: ['ignore', 'ignore', process.env.DBGERR ? 'inherit' : 'ignore'], env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'dev', PORTAL_OTP_COOLDOWN: '0' } });
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
+const JPG = 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4000, 7)]).toString('base64');
+let _bc = 0;
+async function vialsDone(code, token) {
+  const b = `/staff/phleb/orders/${code}`; let r = await call('POST', b + '/vials', { token, body: { type: 'EDTA (lavender top)' } }); const id = r.j.vials[r.j.vials.length - 1].id;
+  await call('POST', `${b}/vials/${id}/photo`, { token, body: { kind: 'empty', image: JPG } }); await call('POST', `${b}/vials/${id}`, { token, body: { barcode: 'TB' + Date.now().toString(36).toUpperCase() + (++_bc) } });
+  await call('POST', `${b}/vials/${id}/photo`, { token, body: { kind: 'filled', image: JPG } }); await call('POST', b + '/selfie', { token, body: { image: JPG } });
+}
 async function call(method, p, { body, token } = {}) {
   const h = { Origin: ORIGIN }; if (token) h.Authorization = 'Bearer ' + token; let b; if (body !== undefined) { b = JSON.stringify(body); h['Content-Type'] = 'application/json'; }
   const r = await fetch(B + p, { method, headers: h, body: b }); const buf = Buffer.from(await r.arrayBuffer()); let j = {}; try { j = JSON.parse(buf.toString()); } catch (e) {} return { s: r.status, j, buf, h: r.headers };
@@ -215,7 +222,23 @@ try {
   ok((await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH1, body: { pin: '12' } })).s === 400, 'short PIN refused');
   ok((await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH1, body: { pin: hpin === '111111' ? '222222' : '111111' } })).s === 400, 'wrong PIN refused');
   r = await call('POST', `/staff/phleb/orders/${hc}/verifypin`, { token: PH1, body: { pin: hpin } }); ok(r.s === 200 && r.j.verified && r.j.order.pin_ok === true, 'right PIN verifies');
+  r = await call('POST', `/staff/phleb/orders/${hc}/collected`, { token: PH1 }); ok(r.s === 400 && /vial/i.test(r.j.error), 'cannot collect without vial photos');
+  { const b = `/staff/phleb/orders/${hc}`; r = await call('POST', b + '/vials', { token: PH1, body: {} }); const v1 = r.j.vials[0].id;
+    ok((await call('POST', `${b}/vials/${v1}/photo`, { token: PH1, body: { kind: 'filled', image: JPG } })).s === 400, 'filled photo needs the empty photo and barcode first');
+    ok((await call('POST', `${b}/vials/${v1}/photo`, { token: PH1, body: { kind: 'empty', image: 'data:image/jpeg;base64,AAAA' } })).s === 400, 'tiny or invalid photo refused');
+    ok((await call('POST', `${b}/vials/${v1}/photo`, { token: PH1, body: { kind: 'empty', image: JPG } })).s === 200, 'empty photo saved');
+    ok((await call('POST', `${b}/vials/${v1}`, { token: PH1, body: { barcode: 'ab' } })).s === 400, 'short barcode refused');
+    ok((await call('POST', `${b}/vials/${v1}`, { token: PH1, body: { barcode: 'tb-9001' } })).j.vials[0].barcode === 'TB-9001', 'barcode saved in capitals');
+    ok((await call('POST', `${b}/vials/${v1}/photo`, { token: PH1, body: { kind: 'filled', image: JPG } })).s === 200, 'filled photo saved');
+    r = await call('POST', `/staff/phleb/orders/${hc}/collected`, { token: PH1 }); ok(r.s === 400 && /selfie/i.test(r.j.error), 'selfie still needed');
+    ok((await call('GET', b + '/vials', { token: PH2 })).s === 404, 'other phlebotomist cannot see the vials');
+    ok((await call('POST', b + '/selfie', { token: PH1, body: { image: JPG } })).j.complete === true, 'selfie completes the checklist'); }
   r = await call('POST', `/staff/phleb/orders/${hc}/collected`, { token: PH1 }); ok(r.j.order.ph_status === 'collected' && r.j.order.status === 'collected', 'collected moves the lab order to collected');
+  { r = await call('GET', `/staff/orders/${hc}/vials`, { token: REC }); ok(r.s === 200 && r.j.vials.length === 1 && r.j.selfie && r.j.verified_at === null, 'lab sees the vial record');
+    const raw = await fetch(B + `/staff/orders/${hc}/vialimg?k=empty&v=${r.j.vials[0].id}`, { headers: { Authorization: 'Bearer ' + REC, Origin: ORIGIN } }); ok(raw.status === 200 && raw.headers.get('content-type') === 'image/jpeg', 'lab can open a vial photo');
+    ok((await call('POST', `/staff/orders/${hc}/verifysample`, { token: REC })).s === 403, 'reception cannot verify the sample');
+    ok((await call('POST', `/staff/orders/${hc}/verifysample`, { token: TECH })).j.verified === true, 'technician verifies the sample');
+    ok((await call('GET', `/staff/orders/${hc}/vials`, { token: REC })).j.verified_at > 0, 'verification recorded'); }
   ok((await call('GET', `/staff/orders/${hc}`, { token: REC })).j.order.status === 'collected', 'lab sees collected');
   ok((await call('GET', '/staff/phleb/orders?scope=served', { token: PH1 })).j.orders.length === 1 && (await call('GET', '/staff/phleb/home', { token: PH1 })).j.served === 1, 'served list and count');
   ok((await call('POST', `/staff/phleb/orders/${hc}/release`, { token: PH1 })).s === 400, 'a finished visit cannot be released');
