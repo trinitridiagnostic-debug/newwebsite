@@ -267,7 +267,7 @@
   var SITE = function () { return new URL('customer.html', location.href).href; };
   LAB.receipt = function (o, pin) {
     var box = $('#rcpt'); box.textContent = '';
-    var rows = o.tests.map(function (t) { return el('tr', null, [el('td', { text: t.name }), el('td', { class: 'r', text: inr(t.price) })]); });
+    var rows = o.tests.map(function (t) { return el('tr', null, [el('td', null, [window.TVIAL && TVIAL.node(t.name, 30), ' ' + t.name]), el('td', { class: 'r', text: inr(t.price) })]); });
     add(box, [el('h1', { text: 'TRINETRI DIAGNOSTICS' }), el('div', { text: 'K C Rani Road, 3rd Cross Rd, Betageri, Karnataka 582101' }), el('div', { text: 'Phone / WhatsApp: +91 91873 15972' }), el('hr'),
       el('table', null, [el('tr', null, [el('td', { text: 'Order ID' }), el('td', { class: 'r', text: o.code })]), el('tr', null, [el('td', { text: 'Date' }), el('td', { class: 'r', text: fdt(o.created) })]),
         el('tr', null, [el('td', { text: 'Patient' }), el('td', { class: 'r', text: o.name + (o.age != null ? ', ' + o.age + (o.sex || '') : '') })]), el('tr', null, [el('td', { text: 'Mobile' }), el('td', { class: 'r', text: o.mobile })]),
@@ -318,7 +318,7 @@
       function setStatus(s) { api('POST', '/staff/orders/' + encodeURIComponent(o.code) + '/status', { status: s }).then(function () { toast('Updated'); LAB.refreshDash(); route(); }).catch(function (e) { toast(e.message); }); }
 
       /* billing */
-      var trs = o.tests.map(function (t) { return el('tr', null, [el('td', { text: t.name }), el('td', 'num', inr(t.price))]); });
+      var trs = o.tests.map(function (t) { return el('tr', null, [el('td', null, [window.TVIAL && TVIAL.node(t.name, 30), ' ' + t.name]), el('td', 'num', inr(t.price))]); });
       var bc = el('section', 'card', [el('h2', { text: 'Billing' }), el('div', 'tbl-wrap', el('table', 'tbl', el('tbody', null, trs))),
         el('div', 'sum', [el('span', { text: 'Sub total' }), el('b', { text: inr(o.subtotal) }), o.discount ? el('span', { text: 'Discount' }) : null, o.discount ? el('b', { text: '- ' + inr(o.discount) }) : null, el('span', 'gt', 'Total'), el('b', { class: 'gt', text: inr(o.amount) }),
           el('span', { text: 'Paid' + (o.pay_mode ? ' (' + o.pay_mode + ')' : '') }), el('b', { text: inr(o.paid) }), el('span', { text: 'Balance due' }), el('b', { style: o.due > 0 ? 'color:#b3261e' : '', text: inr(o.due) })])]);

@@ -1,0 +1,5 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trinetri vial colours</title>
+<style>body{font:15px system-ui;margin:24px;background:#f6f8fa;color:#222}h1{font-size:20px}.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}.c{background:#fff;border:1px solid #dde3e8;border-radius:12px;padding:14px;text-align:center}.c svg{display:block;margin:0 auto 8px}.c small{display:block;color:#667}</style>
+<h1>Trinetri sample vial colours</h1><div class="g" id="g"></div>
+<script src="vial.js"></script><script>var L=[['Yellow','Serum / SST'],['Purple','EDTA'],['White','Plain / clear'],['Sky Blue','Citrate'],['Green','Heparin / PCR'],['Black','ESR'],['Ash Colour','Glucose'],['Yellow(Special)','Special']];
+document.getElementById('g').innerHTML=L.map(function(x){return '<div class="c">'+TVIAL.svg(x[0],130)+'<b>'+x[0]+'</b><small>'+x[1]+'</small></div>'}).join('')</script>

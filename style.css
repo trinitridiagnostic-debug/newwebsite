@@ -603,3 +603,5 @@ nav.main a.lgn:hover,nav.main a.lgn:focus-visible{background:var(--teal);color:#
 @media(max-width:820px){nav.main a.lgn{justify-content:center;margin:10px 0 2px}}
 
 /* mobile verification (OTP) on the booking forms */
+.crow:has(>.tvial),.srow:has(>.tvial){grid-template-columns:auto minmax(0,1fr) auto auto}
+.tvial{margin-right:4px}

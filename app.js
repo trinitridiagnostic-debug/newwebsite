@@ -180,7 +180,7 @@
     return out;
   }
   function addBtn(it){var on=sel.indexOf(it.id)>-1;return '<button class="add'+(on?' on':'')+'" type="button" data-k="'+it.id+'" aria-pressed="'+on+'">'+(on?'Added':'Add')+'</button>';}
-  function rowHtml(it,cls){return '<div class="'+cls+'"><div class="cname"><b>'+esc(it.n)+'</b><span>'+esc(it.k)+' \u00B7 '+CATN[it.c]+'</span></div><div class="cprice">'+inr(it.m)+'</div>'+addBtn(it)+'</div>';}
+  function rowHtml(it,cls){return '<div class="'+cls+'">'+(window.TVIAL?TVIAL.html(it.n,46):'')+'<div class="cname"><b>'+esc(it.n)+'</b><span>'+esc(it.k)+' \u00B7 '+CATN[it.c]+'</span></div><div class="cprice">'+inr(it.m)+'</div>'+addBtn(it)+'</div>';}
   function markConcern(){if(cg)$$('.cn',cg).forEach(function(x){x.setAttribute('aria-pressed',x.dataset.k===state.c?'true':'false');});}
 
   if(cg){

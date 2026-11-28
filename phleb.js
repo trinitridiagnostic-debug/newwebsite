@@ -213,7 +213,7 @@
     function act(a, label) { return function () { var btn = this; btn.disabled = true; api('POST', '/staff/phleb/orders/' + encodeURIComponent(code) + '/' + a).then(function (r) { toast(label); if (a === 'release') location.hash = '#orders'; else draw(r.order); }).catch(function (e) { btn.disabled = false; toast(e.message); }); }; }
     function draw(o) {
       box.textContent = '';
-      var dt = el('div', 'card dt'), tests = el('ul', 'tests'); o.tests.forEach(function (t) { tests.appendChild(el('li', { text: t })); }); tests.hidden = true;
+      var dt = el('div', 'card dt'), tests = el('ul', 'tests'); o.tests.forEach(function (t) { tests.appendChild(el('li', null, [window.TVIAL && TVIAL.node(t, 34), ' ' + t])); }); tests.hidden = true;
       var fast = el('div', 'meta', [o.fasting ? 'Fasting of 10 to 12 hours is needed for these tests. Please confirm with the patient.' : 'No fasting is needed.']); fast.hidden = true;
       dt.appendChild(el('div', 'row', [el('div', 'grow', [el('div', 'nm', [o.name]), el('div', 'id', [o.code]), el('div', 'meta', [when(o)]), el('div', 'meta', ['1 Beneficiary' + (o.age != null ? ' - ' + o.age + ' yrs' : '') + (o.sex ? ' - ' + ({ M: 'Male', F: 'Female', O: 'Other' }[o.sex] || '') : '')])]),
         el('a', { class: 'call', href: 'tel:+91' + o.mobile, 'aria-label': 'Call patient' }, [el('span', { html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICON.call + '</svg>' })])]));

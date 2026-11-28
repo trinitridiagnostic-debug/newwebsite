@@ -175,7 +175,7 @@
       var url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = o.code + '-invoice.pdf'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
     }).catch(function (err) { fail(msgNode, err); });
   }
-  function chips(o) { var c = el('div', 'chips'); o.tests.forEach(function (t) { c.appendChild(el('span', 'chip', t.name)); }); return c; }
+  function chips(o) { var c = el('div', 'chips'); o.tests.forEach(function (t) { var ch = el('span', 'chip'); var vn = window.TVIAL && TVIAL.node(t.name, 26); if (vn) ch.appendChild(vn); ch.appendChild(document.createTextNode(' ' + t.name)); c.appendChild(ch); }); return c; }
   function openReport(o, download, msgNode) {
     var w = null; if (!download) { try { w = window.open('', '_blank'); } catch (e) { } }
     A.report(o.code).then(function (blob) {
