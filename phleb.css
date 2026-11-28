@@ -29,7 +29,7 @@ button.card{cursor:pointer}
 .dt .grow{flex:1;min-width:0}
 .dt .addr{font-weight:700;color:#555d70;margin-top:8px;word-break:break-word}
 .dt .link{color:#4a5060;text-decoration:underline;font-weight:700;margin-top:8px;background:none;border:0;padding:0;font:inherit;display:block;cursor:pointer}
-.dt .tests{margin:8px 0 0;padding-left:18px;color:#4a5060}
+.dt .tests{margin:8px 0 0;padding:0;list-style:none;color:#2b3140}.dt .tests li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #eef1f4;font-weight:600}.dt .tests li:last-child{border-bottom:0}
 .call{width:42px;height:42px;border-radius:50%;background:#fdeee6;display:grid;place-items:center;flex:none;text-decoration:none}
 .call svg{width:22px;height:22px;stroke:var(--warn);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .btns{display:flex;gap:10px;margin-top:12px}
