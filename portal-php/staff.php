@@ -420,13 +420,13 @@ function staff($path, $m) {
 
   /* website booking requests */
   if ($path === '/staff/bookings' && $m === 'GET') {
-    need($s, 'billing'); $st = isset($q['status']) ? (string)$q['status'] : 'new';
+    need($s, 'office'); $st = isset($q['status']) ? (string)$q['status'] : 'new';
     $rows = in_array($st, ['new', 'done', 'cancelled'], true) ? all('SELECT * FROM bookings WHERE status=? ORDER BY created DESC LIMIT 200', [$st]) : all('SELECT * FROM bookings ORDER BY created DESC LIMIT 200');
     out(['bookings' => array_map(function ($x) { return ['id' => (int)$x['id'], 'name' => $x['name'], 'mobile' => $x['mobile'], 'tests' => (string)$x['tests'], 'date' => (string)$x['pref_date'], 'slot' => (string)$x['slot'],
       'address' => (string)$x['address'], 'note' => (string)$x['note'], 'source' => (string)$x['source'], 'status' => $x['status'], 'orderCode' => $x['order_code'], 'created' => (int)$x['created']]; }, $rows)]);
   }
   if ($m === 'POST' && preg_match('#^/staff/bookings/(\d+)/status$#', $path, $r)) {
-    need($s, 'billing'); $st = strtolower(clean(field(body(), 'status'), 12));
+    need($s, 'office'); $st = strtolower(clean(field(body(), 'status'), 12));
     if (!in_array($st, ['new', 'done', 'cancelled'], true)) throw bad('Status must be new, done or cancelled.');
     q('UPDATE bookings SET status=? WHERE id=?', [$st, (int)$r[1]]); out(['ok' => true]);
   }

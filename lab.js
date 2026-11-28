@@ -188,7 +188,7 @@
       if (can('inbox') || can('stock')) {
         page.appendChild(el('h2', { text: 'Needs attention' })); var g2 = el('div', 'grid4');
         if (can('inbox')) { g2.appendChild(kpi(String(d.inbox.tickets), 'Open tickets', null, function () { go('inbox'); }, d.inbox.tickets > 0)); g2.appendChild(kpi(String(d.inbox.chats), 'Unread chats', null, function () { go('inbox'); }, d.inbox.chats > 0)); g2.appendChild(kpi(String(d.inbox.members), 'Membership requests', null, function () { go('inbox'); }, d.inbox.members > 0)); }
-        if (can('billing')) g2.appendChild(kpi(String(d.bookings || 0), 'New website bookings', null, function () { go('bookings'); }, (d.bookings || 0) > 0));
+        if (can('office')) g2.appendChild(kpi(String(d.bookings || 0), 'New website bookings', null, function () { go('bookings'); }, (d.bookings || 0) > 0));
         if (can('stock')) g2.appendChild(kpi(String(d.stock.low), 'Low stock items', null, function () { go('stock'); }, d.stock.low > 0));
         page.appendChild(g2);
       }

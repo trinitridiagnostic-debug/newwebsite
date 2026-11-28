@@ -181,17 +181,18 @@ try {
   r = await call('POST', '/public/booking', { body: { name: 'R', mobile: '123' } }); ok(r.s === 400, 'booking needs valid name + mobile');
   r = await call('POST', '/public/booking', { body: { name: 'Ravi Kumar', mobile: '9845012345', tests: ['Lipid Profile', 'HbA1c Test'], date: '2026-11-02', slot: '7:00 - 9:00 am', address: 'Temple Road', source: 'book' } }); ok(r.s === 201 && r.j.ok, 'website booking is accepted without login');
   await call('POST', '/public/booking', { body: { name: 'Ravi Kumar', mobile: '9845012345', tests: ['Lipid Profile', 'HbA1c Test'], source: 'book' } });
-  r = await call('GET', '/staff/bookings?status=new', { token: REC }); ok(r.s === 200 && r.j.bookings.length === 1 && r.j.bookings[0].tests === 'Lipid Profile, HbA1c Test' && r.j.bookings[0].source === 'book', 'reception sees the booking (same request sent twice is saved once)');
+  r = await call('GET', '/staff/bookings?status=new', { token: DOC }); ok(r.s === 200 && r.j.bookings.length === 1 && r.j.bookings[0].tests === 'Lipid Profile, HbA1c Test' && r.j.bookings[0].source === 'book', 'reception sees the booking (same request sent twice is saved once)');
   const bid = r.j.bookings[0].id;
+  ok((await call('GET', '/staff/bookings', { token: REC })).s === 403, 'reception cannot see bookings');
   ok((await call('GET', '/staff/bookings', { token: TECH })).s === 403, 'technician cannot see bookings');
   ok((await call('GET', '/staff/bookings')).s === 401, 'bookings need login');
-  ok((await call('GET', '/staff/dashboard?since=0', { token: REC })).j.bookings === 1, 'dashboard counts new bookings');
+  ok((await call('GET', '/staff/dashboard?since=0', { token: DOC })).j.bookings === 1, 'dashboard counts new bookings');
   r = await call('POST', '/staff/orders', { token: REC, body: { name: 'Ravi Kumar', mobile: '9845012345', tests: [{ key: '', name: 'Lipid Profile', price: 250 }], booking_id: bid } });
   ok(r.s === 201, 'order created from the booking');
   const bcode = r.j.order.code;
-  r = await call('GET', '/staff/bookings?status=done', { token: REC }); ok(r.j.bookings.length === 1 && r.j.bookings[0].orderCode === bcode, 'booking marked done and linked to the order');
-  ok((await call('GET', '/staff/dashboard?since=0', { token: REC })).j.bookings === 0, 'new-bookings count drops to 0');
-  ok((await call('POST', `/staff/bookings/${bid}/status`, { token: REC, body: { status: 'cancelled' } })).j.ok, 'booking status can be changed');
+  r = await call('GET', '/staff/bookings?status=done', { token: DOC }); ok(r.j.bookings.length === 1 && r.j.bookings[0].orderCode === bcode, 'booking marked done and linked to the order');
+  ok((await call('GET', '/staff/dashboard?since=0', { token: DOC })).j.bookings === 0, 'new-bookings count drops to 0');
+  ok((await call('POST', `/staff/bookings/${bid}/status`, { token: DOC, body: { status: 'cancelled' } })).j.ok, 'booking status can be changed');
   // ---- phlebotomist module (home collection)
   ok((await mk('ph1', 'phlebotomist', 'Suresh P')).s === 201 && (await mk('ph2', 'phlebotomist', 'Mahesh K')).s === 201, 'create phlebotomists');
   const PH1 = await login('ph1'), PH2 = await login('ph2'); ok(PH1 && PH2, 'phlebotomists log in');
