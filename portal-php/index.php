@@ -209,7 +209,7 @@ function orderView($o) {
   $t = json_decode($o['times'], true);
   return ['id' => $o['id'], 'code' => $o['code'], 'tests' => json_decode($o['tests'], true), 'amount' => (int)$o['amount'], 'status' => $o['status'],
     'times' => $t ?: new stdClass, 'created' => (int)$o['created'], 'hasReport' => !empty($o['report_file']),
-    'reportName' => !empty($o['report_file']) ? $o['report_name'] : null, 'reportSize' => (int)$o['report_size']];
+    'paid' => (int)($o['paid'] ?? 0), 'reportName' => !empty($o['report_file']) ? $o['report_name'] : null, 'reportSize' => (int)$o['report_size']];
 }
 function pinHash($code, $pin) { return hash('sha256', $code . ':' . $pin . ':' . secret()); }
 function linkOrder($user) {
@@ -270,6 +270,11 @@ function customer($path, $m, $user) {
     out(['orders' => array_map('orderView', $rows)]);
   }
   if ($path === '/orders/link' && $m === 'POST') out(['order' => linkOrder($user)]);
+  if ($m === 'GET' && preg_match('#^/orders/([^/]+)/invoice$#', $path, $r)) {   /* the customer's own payment invoice */
+    $o = mineOrder($user, rawurldecode($r[1]));
+    if ((int)$o['paid'] < 1) throw new HttpErr(404, 'There is no payment on this order yet.');
+    require_once __DIR__ . '/pay.php'; pdfOut(buildInvoicePdf($o), preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-invoice.pdf');
+  }
   if ($m === 'GET' && preg_match('#^/orders/([^/]+)/report$#', $path, $r)) {
     $o = mineOrder($user, rawurldecode($r[1]));
     if (empty($o['report_file']) || !is_file(reportPath($o))) throw new HttpErr(404, 'The report is not ready yet.');

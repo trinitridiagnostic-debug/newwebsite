@@ -41,7 +41,6 @@ function recordOnline($o, $ref, $paise) {
   catch (PDOException $e) { return false; }
   q('UPDATE orders SET paid=CASE WHEN paid+?>amount THEN amount ELSE paid+? END, pay_mode=? WHERE id=?', [$rupees, $rupees, 'online', $o['id']]);
   $fresh = one('SELECT * FROM orders WHERE id=?', [$o['id']]);
-  try { sendInvoiceWhatsApp($fresh); } catch (Throwable $e) { error_log('[trinetri-portal] invoice message: ' . $e->getMessage()); }
   return true;
 }
 
@@ -156,28 +155,4 @@ function publicInvoice($code) {
   $o = $ok ? one('SELECT * FROM orders WHERE code=?', [$code]) : null;
   if (!$o) throw new HttpErr(404, 'This invoice link has expired or is not valid. Please contact the lab.');
   pdfOut(buildInvoicePdf($o), preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-invoice.pdf');
-}
-/* The 6 values of the approved payment-invoice template, in order:
-   patient name, invoice number, invoice date, amount paid (the template already prints the rupee sign), payment mode, transaction id. */
-function invoiceParams($o, $name) {
-  $p = one('SELECT ref, mode, created FROM payments WHERE order_id=? ORDER BY id DESC LIMIT 1', [$o['id']]);
-  $mode = strtolower((string)($p['mode'] ?? $o['pay_mode'] ?? ''));
-  $label = $mode === 'online' || $mode === 'upi' ? 'UPI (Razorpay)' : ($mode === 'cash' ? 'Cash' : ($mode === 'card' ? 'Card' : ($mode !== '' ? ucfirst($mode) : 'Paid')));
-  $txn = $p && $mode === 'online' ? preg_replace('/^dr-/', '', (string)$p['ref']) : 'NA';
-  $when = new DateTime('@' . intdiv((int)($p['created'] ?? nowms()), 1000)); $when->setTimezone(new DateTimeZone('Asia/Kolkata'));
-  return [$name, waText($o['code'], 30), $when->format('d-m-Y'), number_format((int)$o['paid']), $label, waText($txn, 40)];
-}
-
-function sendInvoiceWhatsApp($o) {
-  $c = cfg();
-  if ($c['aisensy_key'] === '' || $c['aisensy_invoice_campaign'] === '') throw new HttpErr(503, 'The invoice WhatsApp message is not set up yet (aisensy_invoice_campaign in config.php).');
-  $name = waText($o['name'] ?: 'Customer', 60);
-  $payload = ['apiKey' => $c['aisensy_key'], 'campaignName' => $c['aisensy_invoice_campaign'], 'destination' => '91' . $o['mobile'], 'userName' => $c['aisensy_name'],
-    'templateParams' => invoiceParams($o, $name), 'source' => 'trinetri-invoice',
-    'media' => ['url' => invoiceLink($o), 'filename' => preg_replace('/[^A-Za-z0-9._-]/', '_', $o['code']) . '-invoice.pdf']];
-  list($st, $res) = httpPost(rtrim($c['aisensy_base'], '/') . '/campaign/t1/api/v2', ['Content-Type: application/json'], json_encode($payload));
-  if ($st < 200 || $st >= 300) {
-    error_log('[trinetri-portal] aisensy invoice ' . $st . ' ' . substr($res, 0, 300)); $j = json_decode($res, true); $why = is_array($j) ? (string)($j['message'] ?? ($j['error'] ?? '')) : '';
-    throw new HttpErr(502, 'WhatsApp could not send the invoice (' . $st . ')' . ($why !== '' ? ': ' . substr($why, 0, 160) : '.'));
-  }
 }

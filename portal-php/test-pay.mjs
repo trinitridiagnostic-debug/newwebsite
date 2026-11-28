@@ -54,16 +54,17 @@ try {
   const ev = { event: 'qr_code.credited', payload: { qr_code: { entity: { id: qid } }, payment: { entity: { id: 'pay_WH1', status: 'captured', amount: 50000, notes: {} } } } };
   r = await hook(ev); ok(r.s === 200, 'valid webhook accepted');
   r = await call('GET', `/staff/phleb/orders/${code}/paystatus`, { token: PH }); ok(r.j.paid_online === true && r.j.order.due === 0 && r.j.order.pay_mode === 'online', 'order marked paid online');
-  let wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01'); ok(wa.length === 1 && wa[0].body.campaignName === 'invoice_01' && wa[0].body.destination === '919811111111' && wa[0].body.templateParams[3] === '500', 'invoice sent on WhatsApp once');
-  ok(wa[0].body.templateParams.length === 6 && wa[0].body.templateParams[4] === 'UPI (Razorpay)' && /^pay_/.test(wa[0].body.templateParams[5]) && /^\d{2}-\d{2}-\d{4}$/.test(wa[0].body.templateParams[2]) && /^[\d,]+$/.test(wa[0].body.templateParams[3]), 'invoice template gets 6 values: name, number, date, amount, mode, transaction id');
-  const url = new URL(wa[0].body.media.url); r = await call('GET', url.pathname.replace('/portal-api', '') + url.search); ok(r.s === 200 && r.buf.subarray(0, 5).toString() === '%PDF-', 'signed invoice link serves a PDF');
-  r = await call('GET', url.pathname.replace('/portal-api', '') + url.search.replace(/s=.*/, 's=bad')); ok(r.s === 404, 'bad invoice signature refused');
-  await hook(ev); wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01'); ok(wa.length === 1, 'webhook replay is idempotent (no second invoice)');
+  let wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01'); ok(wa.length === 0, 'no invoice is sent to the customer on WhatsApp');
   r = await call('GET', `/staff/orders/${code}`, { token: A }); ok(r.j.order.paid === 500 && r.j.order.pay_mode === 'online', 'lab sees paid 500 online');
   ok((await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH })).s === 400, 'no QR when nothing is due');
   r = await call('GET', `/staff/orders/${code}/invoice`, { token: A }); ok(r.s === 200 && r.buf.subarray(0, 5).toString() === '%PDF-', 'lab downloads the invoice');
   ok((await call('GET', `/staff/orders/${code}/invoice`, { token: PH })).s === 403, 'phlebotomist cannot use lab invoice route');
-  r = await call('POST', `/staff/orders/${code}/sendinvoice`, { token: A }); ok(r.s === 200 && log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01').length === 2, 'lab can resend the invoice');
+  { const s1 = await call('POST', '/auth/otp/send', { body: { mobile: '9811111111', purpose: 'login' } }); const cl = await call('POST', '/auth/otp/login', { body: { mobile: '9811111111', otp: s1.j.devCode, name: 'Linga' } }); const CT = cl.j.token;
+    r = await call('GET', `/orders/${code}/invoice`, { token: CT }); ok(r.s === 200 && r.buf.subarray(0, 5).toString() === '%PDF-', 'customer downloads their own invoice');
+    ok((await call('GET', `/orders/${code}/invoice`)).s === 401, 'customer invoice needs login');
+    const ol = (await call('GET', '/orders', { token: CT })).j.orders.find((x) => x.code === code); ok(ol && ol.paid === 500, 'customer order list includes the paid amount');
+    const s2 = await call('POST', '/auth/otp/send', { body: { mobile: '9822222222', purpose: 'login' } }); const c2 = await call('POST', '/auth/otp/login', { body: { mobile: '9822222222', otp: s2.j.devCode, name: 'Other' } });
+    ok((await call('GET', `/orders/${code}/invoice`, { token: c2.j.token })).s === 404, 'another customer cannot download this invoice'); }
   // second order: confirmed by polling Razorpay (webhook late)
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: Date.now() + 7200000, tests: [{ name: 'CBC', price: 300 }], paid: 100, pay_mode: 'cash' } }); const c2 = r.j.order.code, pin2 = r.j.pin;
   await call('POST', `/staff/orders/${c2}/assign`, { token: A, body: { phleb: ph1.id } }); await call('POST', `/staff/phleb/orders/${c2}/verifypin`, { token: PH, body: { pin: pin2 } }); await call('POST', `/staff/phleb/orders/${c2}/collected`, { token: PH });

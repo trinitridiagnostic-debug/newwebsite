@@ -46,6 +46,12 @@
         return r.blob();
       });
     },
+    invoice: function (code) {
+      return fetch(BASE + '/orders/' + encodeURIComponent(code) + '/invoice', { headers: { Authorization: 'Bearer ' + TOKEN, 'X-Portal-Token': TOKEN } }).then(function (r) {
+        if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || 'Could not load the invoice.'); });
+        return r.blob();
+      });
+    },
     tickets: function () { return http('GET', '/tickets').then(function (j) { return j.tickets; }); },
     newTicket: function (b) { return http('POST', '/tickets', b).then(function (j) { return j.ticket; }); },
     reply: function (id, message) { return http('POST', '/tickets/' + encodeURIComponent(id) + '/reply', { message: message }).then(function (j) { return j.ticket; }); },
@@ -164,6 +170,11 @@
     l.appendChild(el('div', 'code', o.code)); l.appendChild(el('div', 'upd', 'Booked ' + fdt(o.created)));
     r.appendChild(statusBadge(o.status)); hd.appendChild(l); hd.appendChild(r); return hd;
   }
+  function downloadInvoice(o, msgNode) {
+    A.invoice(o.code).then(function (blob) {
+      var url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = o.code + '-invoice.pdf'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    }).catch(function (err) { fail(msgNode, err); });
+  }
   function chips(o) { var c = el('div', 'chips'); o.tests.forEach(function (t) { c.appendChild(el('span', 'chip', t.name)); }); return c; }
   function openReport(o, download, msgNode) {
     var w = null; if (!download) { try { w = window.open('', '_blank'); } catch (e) { } }
@@ -266,8 +277,8 @@
         if (o.hasReport) {
           var v = el('button', 'btn sm', 'View report'); v.type = 'button'; v.addEventListener('click', function () { openReport(o, false, msg); });
           var d = el('button', 'btn sm ghost', 'Download PDF'); d.type = 'button'; d.addEventListener('click', function () { openReport(o, true, msg); });
-          r.appendChild(v); r.appendChild(d); if (o.times && o.times.completed) r.appendChild(el('span', 'upd', 'Completed ' + fdt(o.times.completed)));
-        } else r.appendChild(el('span', 'upd', 'Your test is complete. The signed report is being finalised and will appear here.'));
+          r.appendChild(v); r.appendChild(d); if (o.paid > 0) { var iv = el('button', 'btn sm ghost', 'Download invoice'); iv.type = 'button'; iv.addEventListener('click', function () { downloadInvoice(o, msg); }); r.appendChild(iv); } if (o.times && o.times.completed) r.appendChild(el('span', 'upd', 'Completed ' + fdt(o.times.completed)));
+        } else { r.appendChild(el('span', 'upd', 'Your test is complete. The signed report is being finalised and will appear here.')); if (o.paid > 0) { var iv2 = el('button', 'btn sm ghost', 'Download invoice'); iv2.type = 'button'; iv2.addEventListener('click', function () { downloadInvoice(o, msg); }); r.appendChild(iv2); } }
         c.appendChild(r); box.appendChild(c);
       });
     }

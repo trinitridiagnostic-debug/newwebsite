@@ -88,15 +88,14 @@ In `config.php` set `otp_provider` and the matching template details (see `confi
 - **Phlebotomist screens:** Orders (Accept, Start, Sample collected, Order release), Served, Pick Order, Leave, Password, SOS.
 - **Lab sees:** collected samples move the order to "Sample collected" automatically, plus phlebotomist leave and SOS alerts (with location) on the Home visits page. Press Acknowledge on an SOS once handled.
 
-## Online payment for home visits (Razorpay QR) and invoice on WhatsApp
+## Online payment for home visits (Razorpay QR) and invoice download
 After the phlebotomist marks the sample collected, the app shows **Show payment QR** for the amount still due. When the patient pays by any UPI app, the order is marked **paid (online)** and an invoice PDF is sent to the patient's WhatsApp.
 
 1. In your Razorpay dashboard: generate API keys (Account & Settings > API Keys) and make sure **UPI QR codes** are enabled for your account.
 2. Razorpay dashboard > Webhooks > Add: URL `https://trinetridiagnostics.com/portal-api/pay/webhook`, choose a secret you invent, tick **qr_code.credited** and **payment.captured**.
 3. In `config.php` (type these yourself, never send them to anyone):
    `'razorpay_key_id' => 'rzp_live_...', 'razorpay_key_secret' => '...', 'razorpay_webhook_secret' => '...',`
-4. In AiSensy create the approved payment-invoice template with a **PDF document header** and 6 variables in this order: {{1}} patient name, {{2}} invoice number, {{3}} invoice date, {{4}} amount paid (write the rupee sign in the template text, the app sends only the number), {{5}} payment mode, {{6}} transaction ID. Then add `'aisensy_invoice_campaign' => 'your_campaign_name',` to config.php (the campaign name AiSensy gives that template).
-5. The lab console order page has **Download invoice** and **Send invoice on WhatsApp** buttons for any order with a payment.
+4. Invoices are not sent on WhatsApp. The customer downloads the invoice from the Reports page of their account (beside Download PDF), and the lab can use **Download invoice** on the order page.
 Without the webhook the app still notices the payment (it checks Razorpay every few seconds while the QR is on screen).
 
 ## Patient PIN check before collecting a home sample
