@@ -53,7 +53,8 @@ try {
   const ev = { event: 'qr_code.credited', payload: { qr_code: { entity: { id: qid } }, payment: { entity: { id: 'pay_WH1', status: 'captured', amount: 50000, notes: {} } } } };
   r = await hook(ev); ok(r.s === 200, 'valid webhook accepted');
   r = await call('GET', `/staff/phleb/orders/${code}/paystatus`, { token: PH }); ok(r.j.paid_online === true && r.j.order.due === 0 && r.j.order.pay_mode === 'online', 'order marked paid online');
-  let wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')); ok(wa.length === 1 && wa[0].body.campaignName === 'invoice_01' && wa[0].body.destination === '919811111111' && wa[0].body.templateParams.length === 4 && wa[0].body.templateParams[2] === 'Rs. 500', 'invoice sent on WhatsApp once');
+  let wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')); ok(wa.length === 1 && wa[0].body.campaignName === 'invoice_01' && wa[0].body.destination === '919811111111' && wa[0].body.templateParams[3] === '500', 'invoice sent on WhatsApp once');
+  ok(wa[0].body.templateParams.length === 6 && wa[0].body.templateParams[4] === 'UPI (Razorpay)' && /^pay_/.test(wa[0].body.templateParams[5]) && /^\d{2}-\d{2}-\d{4}$/.test(wa[0].body.templateParams[2]) && /^[\d,]+$/.test(wa[0].body.templateParams[3]), 'invoice template gets 6 values: name, number, date, amount, mode, transaction id');
   const url = new URL(wa[0].body.media.url); r = await call('GET', url.pathname.replace('/portal-api', '') + url.search); ok(r.s === 200 && r.buf.subarray(0, 5).toString() === '%PDF-', 'signed invoice link serves a PDF');
   r = await call('GET', url.pathname.replace('/portal-api', '') + url.search.replace(/s=.*/, 's=bad')); ok(r.s === 404, 'bad invoice signature refused');
   await hook(ev); wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')); ok(wa.length === 1, 'webhook replay is idempotent (no second invoice)');

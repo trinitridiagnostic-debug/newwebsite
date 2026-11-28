@@ -95,7 +95,7 @@ After the phlebotomist marks the sample collected, the app shows **Show payment 
 2. Razorpay dashboard > Webhooks > Add: URL `https://trinetridiagnostics.com/portal-api/pay/webhook`, choose a secret you invent, tick **qr_code.credited** and **payment.captured**.
 3. In `config.php` (type these yourself, never send them to anyone):
    `'razorpay_key_id' => 'rzp_live_...', 'razorpay_key_secret' => '...', 'razorpay_webhook_secret' => '...',`
-4. In AiSensy create an approved template with a **document header** and 4 variables ({{1}} name, {{2}} order ID, {{3}} amount paid, {{4}} date), then add `'aisensy_invoice_campaign' => 'your_campaign_name',`.
+4. In AiSensy create the approved payment-invoice template with a **PDF document header** and 6 variables in this order: {{1}} patient name, {{2}} invoice number, {{3}} invoice date, {{4}} amount paid (write the rupee sign in the template text, the app sends only the number), {{5}} payment mode, {{6}} transaction ID. Then add `'aisensy_invoice_campaign' => 'your_campaign_name',` to config.php (the campaign name AiSensy gives that template).
 5. The lab console order page has **Download invoice** and **Send invoice on WhatsApp** buttons for any order with a payment.
 Without the webhook the app still notices the payment (it checks Razorpay every few seconds while the QR is on screen).
 
