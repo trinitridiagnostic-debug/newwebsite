@@ -143,7 +143,8 @@ function createOrder($s) {
   }
   $bid = (int)field($b, 'booking_id');
   if ($bid > 0) q("UPDATE bookings SET status='done', order_code=? WHERE id=? AND status='new'", [$code, $bid]);
-  out(['order' => sView(sFresh($id)), 'pin' => $pin], 201);
+  $sent = $kind === 'home' ? sendPinWhatsApp(sFresh($id), $pin) : false;
+  out(['order' => sView(sFresh($id)), 'pin' => $pin, 'pin_sent' => $sent], 201);
 }
 
 /* A booking request sent from the website forms (no login). Rate limited per visitor address. */
@@ -368,7 +369,7 @@ function staff($path, $m) {
     }
     if ($act === 'pin' && $m === 'POST') {
       need($s, 'billing'); $pin = (string)random_int(100000, 999999);
-      q('UPDATE orders SET pin_hash=? WHERE id=?', [pinHash($o['code'], $pin), $o['id']]); out(['pin' => $pin, 'order' => sView(sFresh($o['id']), false)]);
+      q('UPDATE orders SET pin_hash=? WHERE id=?', [pinHash($o['code'], $pin), $o['id']]); $sent = ($o['kind'] ?? '') === 'home' ? sendPinWhatsApp($o, $pin) : false; out(['pin' => $pin, 'pin_sent' => $sent, 'order' => sView(sFresh($o['id']), false)]);
     }
     if ($act === 'upload' && ($m === 'PUT' || $m === 'POST')) {
       need($s, 'results');

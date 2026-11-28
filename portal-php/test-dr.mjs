@@ -16,7 +16,7 @@ if (preg_match('#/payments/qr_codes$#', $p)) { echo json_encode(['id' => 'qr_' .
 if (preg_match('#/qr_codes/([^/]+)/payments$#', $p, $m)) { echo json_encode(['items' => file_exists('${PAID}') ? [['id' => 'pay_POLL1', 'status' => 'captured', 'amount' => (int)file_get_contents('${PAID}')]] : []]); exit; }
 echo json_encode(['ok' => true]);`);
 const srv = spawn('php', ['-S', `127.0.0.1:${P1}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'dev', PORTAL_OTP_COOLDOWN: '0',
-  PORTAL_RZP_KEY: 'rzp_test_k', PORTAL_RZP_SECRET: 'sek', PORTAL_RZP_WEBHOOK: WH, PORTAL_RZP_BASE: `http://127.0.0.1:${P2}/v1`, PORTAL_AISENSY_KEY: 'ak', PORTAL_AISENSY_BASE: `http://127.0.0.1:${P2}`, PORTAL_AISENSY_INVOICE: 'invoice_01', PORTAL_PUBLIC_URL: 'https://trinetridiagnostics.com' } });
+  PORTAL_RZP_KEY: 'rzp_test_k', PORTAL_RZP_SECRET: 'sek', PORTAL_RZP_WEBHOOK: WH, PORTAL_RZP_BASE: `http://127.0.0.1:${P2}/v1`, PORTAL_AISENSY_KEY: 'ak', PORTAL_AISENSY_PIN: 'pin_01', PORTAL_AISENSY_BASE: `http://127.0.0.1:${P2}`, PORTAL_AISENSY_INVOICE: 'invoice_01', PORTAL_PUBLIC_URL: 'https://trinetridiagnostics.com' } });
 const mock = spawn('php', ['-S', `127.0.0.1:${P2}`, path.join(tmp, 'mock.php')], { stdio: 'ignore' });
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -64,6 +64,7 @@ try {
   // pay: partial amount must not confirm
   writeFileSync(PAID, '10000'); r = await call('GET', `/staff/dr/bookings/${bk.id}/status`, { token: DR }); ok(r.j.paid === false, 'underpayment does not confirm');
   writeFileSync(PAID, '34000'); r = await call('GET', `/staff/dr/bookings/${bk.id}/status`, { token: DR }); ok(r.j.paid === true && r.j.booking.status === 'confirmed' && r.j.booking.order_code && /^\d{6}$/.test(r.j.booking.pin), 'paid: confirmed, order created, PIN shown to doctor');
+  { const pm = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'pin_01'); ok(pm.length === 1 && pm[0].body.destination === '919811000001' && pm[0].body.templateParams[0] === 'Gopal' && pm[0].body.templateParams[1] === r.j.booking.pin, 'verification PIN sent to the patient on WhatsApp after the doctor booking is paid'); }
   const code = r.j.booking.order_code; r = await call('GET', `/staff/orders/${code}`, { token: A }); const o = r.j.order;
   ok(o && o.kind === 'home' && o.amount === 340 && o.paid === 340 && o.due === 0 && o.name === 'Gopal' && o.ref_doctor === 'Dr Ravi', 'lab order: home visit, 340 fully paid, referred by Dr Ravi');
   ok(/Do NOT collect/.test(o.notes || '') && /Rs 600/.test(o.notes || ''), 'lab note says do not collect money from patient');

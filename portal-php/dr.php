@@ -54,6 +54,7 @@ function drConfirm($b, $ref, $paise) {
   $cu = one('SELECT id FROM users WHERE mobile=? AND verified=1', [$b['mobile']]); if ($cu) autoLink($cu['id'], $b['mobile']);
   try { q('INSERT INTO payments (order_id, ref, amount, mode, created) VALUES (?,?,?,?,?)', [$id, substr('dr-' . (string)$ref, 0, 40), (int)$b['b2b'], 'online', $now]); } catch (PDOException $e) { }
   q('UPDATE dr_bookings SET order_code=?, pin=? WHERE id=?', [$code, $pin, $b['id']]);
+  require_once __DIR__ . '/otp.php'; sendPinWhatsApp(['name' => $b['pname'], 'mobile' => $b['mobile']], $pin);
   return true;
 }
 

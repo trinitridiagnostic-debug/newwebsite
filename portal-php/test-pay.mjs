@@ -16,7 +16,7 @@ if (preg_match('#/payments/qr_codes$#', $p)) { echo json_encode(['id' => 'qr_' .
 if (preg_match('#/qr_codes/([^/]+)/payments$#', $p, $m)) { echo json_encode(['items' => file_exists('${PAID}') ? [['id' => 'pay_POLL1', 'status' => 'captured', 'amount' => (int)file_get_contents('${PAID}')]] : []]); exit; }
 echo json_encode(['ok' => true]);`);
 const srv = spawn('php', ['-S', `127.0.0.1:${P1}`, '-t', dir, path.join(dir, 'index.php')], { cwd: dir, stdio: 'ignore', env: { ...process.env, PORTAL_STORAGE: store, PORTAL_LAB_KEY: 'k', PORTAL_ORIGINS: ORIGIN, PORTAL_OTP_PROVIDER: 'dev', PORTAL_OTP_COOLDOWN: '0',
-  PORTAL_RZP_KEY: 'rzp_test_k', PORTAL_RZP_SECRET: 'sek', PORTAL_RZP_WEBHOOK: WH, PORTAL_RZP_BASE: `http://127.0.0.1:${P2}/v1`, PORTAL_AISENSY_KEY: 'ak', PORTAL_AISENSY_BASE: `http://127.0.0.1:${P2}`, PORTAL_AISENSY_INVOICE: 'invoice_01', PORTAL_PUBLIC_URL: 'https://trinetridiagnostics.com' } });
+  PORTAL_RZP_KEY: 'rzp_test_k', PORTAL_RZP_SECRET: 'sek', PORTAL_RZP_WEBHOOK: WH, PORTAL_RZP_BASE: `http://127.0.0.1:${P2}/v1`, PORTAL_AISENSY_KEY: 'ak', PORTAL_AISENSY_PIN: 'pin_01', PORTAL_AISENSY_BASE: `http://127.0.0.1:${P2}`, PORTAL_AISENSY_INVOICE: 'invoice_01', PORTAL_PUBLIC_URL: 'https://trinetridiagnostics.com' } });
 const mock = spawn('php', ['-S', `127.0.0.1:${P2}`, path.join(tmp, 'mock.php')], { stdio: 'ignore' });
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('FAIL:', m); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,6 +34,7 @@ try {
   const PH = (await call('POST', '/staff/login', { body: { username: 'ph1', password: 'Staff#2026' } })).j.token, PH2 = (await call('POST', '/staff/login', { body: { username: 'ph2', password: 'Staff#2026' } })).j.token;
   const ph1 = (await call('GET', '/staff/phlebs', { token: A })).j.phlebs.find((x) => x.name === 'Suresh');
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Linga Gouda', mobile: '9811111111', kind: 'home', address: 'Gadag', slot: Date.now() + 3600000, tests: [{ name: 'LIPID PROFILE', price: 250 }, { name: 'CBC', price: 300 }], discount: 50 } });
+  { const pm = log().filter((l) => l.body && l.body.campaignName === 'pin_01'); ok(r.j.pin_sent === true && pm.length === 1 && pm[0].body.destination === '919811111111' && pm[0].body.templateParams[0] === 'Linga Gouda' && pm[0].body.templateParams[1] === r.j.pin, 'home order: verification PIN sent to the customer on WhatsApp'); }
   const code = r.j.order.code, pin1 = r.j.pin; ok(r.j.order.due === 500, 'order due 500');
   await call('POST', `/staff/orders/${code}/assign`, { token: A, body: { phleb: ph1.id } });
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Auto Assign', mobile: '9833333333', kind: 'home', address: 'X', phleb: ph1.id, tests: [{ name: 'CBC', price: 300 }] } }); ok(r.s === 201 && r.j.order.ph_id === ph1.id && r.j.order.ph_status === 'assigned', 'new order created already assigned to the phlebotomist');
@@ -53,16 +54,16 @@ try {
   const ev = { event: 'qr_code.credited', payload: { qr_code: { entity: { id: qid } }, payment: { entity: { id: 'pay_WH1', status: 'captured', amount: 50000, notes: {} } } } };
   r = await hook(ev); ok(r.s === 200, 'valid webhook accepted');
   r = await call('GET', `/staff/phleb/orders/${code}/paystatus`, { token: PH }); ok(r.j.paid_online === true && r.j.order.due === 0 && r.j.order.pay_mode === 'online', 'order marked paid online');
-  let wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')); ok(wa.length === 1 && wa[0].body.campaignName === 'invoice_01' && wa[0].body.destination === '919811111111' && wa[0].body.templateParams[3] === '500', 'invoice sent on WhatsApp once');
+  let wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01'); ok(wa.length === 1 && wa[0].body.campaignName === 'invoice_01' && wa[0].body.destination === '919811111111' && wa[0].body.templateParams[3] === '500', 'invoice sent on WhatsApp once');
   ok(wa[0].body.templateParams.length === 6 && wa[0].body.templateParams[4] === 'UPI (Razorpay)' && /^pay_/.test(wa[0].body.templateParams[5]) && /^\d{2}-\d{2}-\d{4}$/.test(wa[0].body.templateParams[2]) && /^[\d,]+$/.test(wa[0].body.templateParams[3]), 'invoice template gets 6 values: name, number, date, amount, mode, transaction id');
   const url = new URL(wa[0].body.media.url); r = await call('GET', url.pathname.replace('/portal-api', '') + url.search); ok(r.s === 200 && r.buf.subarray(0, 5).toString() === '%PDF-', 'signed invoice link serves a PDF');
   r = await call('GET', url.pathname.replace('/portal-api', '') + url.search.replace(/s=.*/, 's=bad')); ok(r.s === 404, 'bad invoice signature refused');
-  await hook(ev); wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')); ok(wa.length === 1, 'webhook replay is idempotent (no second invoice)');
+  await hook(ev); wa = log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01'); ok(wa.length === 1, 'webhook replay is idempotent (no second invoice)');
   r = await call('GET', `/staff/orders/${code}`, { token: A }); ok(r.j.order.paid === 500 && r.j.order.pay_mode === 'online', 'lab sees paid 500 online');
   ok((await call('POST', `/staff/phleb/orders/${code}/payqr`, { token: PH })).s === 400, 'no QR when nothing is due');
   r = await call('GET', `/staff/orders/${code}/invoice`, { token: A }); ok(r.s === 200 && r.buf.subarray(0, 5).toString() === '%PDF-', 'lab downloads the invoice');
   ok((await call('GET', `/staff/orders/${code}/invoice`, { token: PH })).s === 403, 'phlebotomist cannot use lab invoice route');
-  r = await call('POST', `/staff/orders/${code}/sendinvoice`, { token: A }); ok(r.s === 200 && log().filter((l) => l.path.endsWith('/campaign/t1/api/v2')).length === 2, 'lab can resend the invoice');
+  r = await call('POST', `/staff/orders/${code}/sendinvoice`, { token: A }); ok(r.s === 200 && log().filter((l) => l.path.endsWith('/campaign/t1/api/v2') && l.body.campaignName === 'invoice_01').length === 2, 'lab can resend the invoice');
   // second order: confirmed by polling Razorpay (webhook late)
   r = await call('POST', '/staff/orders', { token: A, body: { name: 'Vaishak B', mobile: '9822222222', kind: 'home', address: 'Betageri', slot: Date.now() + 7200000, tests: [{ name: 'CBC', price: 300 }], paid: 100, pay_mode: 'cash' } }); const c2 = r.j.order.code, pin2 = r.j.pin;
   await call('POST', `/staff/orders/${c2}/assign`, { token: A, body: { phleb: ph1.id } }); await call('POST', `/staff/phleb/orders/${c2}/verifypin`, { token: PH, body: { pin: pin2 } }); await call('POST', `/staff/phleb/orders/${c2}/collected`, { token: PH });

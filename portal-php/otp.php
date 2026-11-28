@@ -39,6 +39,18 @@ function reportLink($o) {
   return rtrim(cfg()['public_url'], '/') . '/portal-api/public/report/' . rawurlencode($o['code']) . '/' . $fn . '?e=' . $e . '&s=' . $sg;
 }
 function waText($s, $max) { $s = trim(preg_replace('/\s+/', ' ', (string)$s)); return mb_strlen($s) > $max ? mb_substr($s, 0, $max - 1) . '.' : ($s === '' ? '-' : $s); }
+/* Sample-collection verification code to the customer, through the approved template (aisensy_pin_campaign): {{1}} patient name, {{2}} 6-digit code.
+   Never throws: a failure is logged and the lab still sees the PIN on screen. Returns true when AiSensy accepted it. */
+function sendPinWhatsApp($o, $pin) {
+  try {
+    $c = cfg(); if ($c['aisensy_key'] === '' || ($c['aisensy_pin_campaign'] ?? '') === '') return false;
+    $payload = ['apiKey' => $c['aisensy_key'], 'campaignName' => $c['aisensy_pin_campaign'], 'destination' => '91' . $o['mobile'], 'userName' => $c['aisensy_name'],
+      'templateParams' => [waText($o['name'] ?: 'Customer', 60), (string)$pin], 'source' => 'trinetri-pin'];
+    list($st, $res) = httpPost(rtrim($c['aisensy_base'], '/') . '/campaign/t1/api/v2', ['Content-Type: application/json'], json_encode($payload));
+    if ($st < 200 || $st >= 300) { error_log('[trinetri-portal] aisensy pin ' . $st . ' ' . substr($res, 0, 300)); return false; }
+    return true;
+  } catch (Throwable $e) { error_log('[trinetri-portal] pin message: ' . $e->getMessage()); return false; }
+}
 function sendReportWhatsApp($o) {
   $c = cfg();
   if ($c['aisensy_key'] === '' || $c['aisensy_campaign'] === '') throw new HttpErr(503, 'WhatsApp sending is not set up yet (aisensy_key and aisensy_campaign in config.php).');

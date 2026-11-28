@@ -60,12 +60,12 @@
       var dr = docp.get(); if (dr.mobile && dr.mobile.length !== 10) return say(ms, 'Enter a valid 10-digit doctor mobile number.', 'err'); if (!dr.name && !dr.mobile && docp.node.querySelector('select').value === 'other') return say(ms, 'Enter the doctor name.', 'err');
       var t = totals(); go.disabled = true; say(ms, 'Creating...', 'info');
       api('POST', '/staff/orders', { name: name.value, mobile: m, age: age.value, sex: sex.value, ref_doctor: dr.name, ref_doc_mobile: dr.mobile, kind: kind.value, address: kind.value === 'home' ? addr.value : '', slot: kind.value === 'home' ? L.fromLocalInput(vtime.value) : '', phleb: kind.value === 'home' ? phsel.value : '', notes: notes.value, booking_id: bookingId, tests: items, discount: t.d, paid: t.p, pay_mode: t.p ? mode.value : '' })
-        .then(function (r) { L.refreshDash(); success(r.order, r.pin); }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); });
+        .then(function (r) { L.refreshDash(); success(r.order, r.pin, r.pin_sent); }).catch(function (e) { go.disabled = false; say(ms, e.message, 'err'); });
     }
-    function success(o, pin) {
+    function success(o, pin, sent) {
       page.textContent = '';
       page.appendChild(el('section', 'card', [el('h2', { text: 'Order created' }), el('p', null, [el('b', { text: o.code }), ' for ' + o.name + ' (' + o.mobile + ')']),
-        el('p', { class: 'note', text: 'Report PIN (shown only now. Give it to the patient. They need it to see reports online):' }), el('div', { class: 'pin', text: pin }),
+        el('p', { class: 'note', text: 'Report PIN (shown only now. Give it to the patient. They need it to see reports online):' }), el('div', { class: 'pin', text: pin }), sent ? el('p', { class: 'note', text: 'The verification PIN was also sent to the customer on WhatsApp.' }) : null,
         el('div', 'sum', [el('span', { text: 'Total' }), el('b', { text: inr(o.amount) }), el('span', { text: 'Paid' }), el('b', { text: inr(o.paid) }), el('span', { text: 'Balance due' }), el('b', { text: inr(o.due) })]),
         el('div', 'row', [btn('Print receipt', '', function () { L.receipt(o, pin); }), btn('Send on WhatsApp', 'ghost', function () { window.open(L.waLink(o, pin), '_blank'); }), btn('Open order', 'ghost', function () { L.go('order', o.code); }), btn('New order', 'ghost', function () { L.go('new'); })])]));
     }

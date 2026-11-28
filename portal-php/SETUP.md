@@ -133,3 +133,7 @@ Doctors book home visits for their patients, collect money from the patient them
 3. **How a booking works**: doctor enters patient, address, time, picks tests, types the amount they charge the patient (never below the B2B total). A QR for the B2B total appears. When it is paid (Razorpay webhook or the app's own check) the booking becomes a normal paid home-visit order in your Home visits list, and the doctor sees a PIN for the patient. Assign a phlebotomist as usual. The order note tells the phlebotomist not to collect money.
 4. **Money view**: Lab console > **Doctor bookings** shows each doctor's paid bookings, amount paid to lab and margin.
 This uses the same Razorpay keys and webhook as the phlebotomist QR (see the Razorpay section above). Nothing else to configure.
+
+## Sample-collection verification PIN on WhatsApp
+When a **home-visit** order is created (by the lab, or by a doctor partner after paying), the 6-digit verification PIN is sent to the customer's WhatsApp automatically. The same happens when the lab presses **New PIN + WhatsApp** on a home order. The customer tells the PIN to the phlebotomist, who types it in the app before collecting the sample.
+Setup: in AiSensy create the approved template ("Sample Collection Verification") with 2 variables, {{1}} patient name and {{2}} the 6-digit code, then add `'aisensy_pin_campaign' => 'your_campaign_name',` to config.php. If it is not set, nothing is sent and the lab still sees the PIN on screen as before.
