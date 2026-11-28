@@ -1,6 +1,14 @@
 /* Registers the app shell and shows an "Install app" bar in the browser (not inside the installed app / APK). */
 (function () {
   'use strict';
+  /* launch animation: plays once per app start, fades out when finished (or on tap / after 5 s at the latest) */
+  (function () {
+    var sp = document.getElementById('splash'); if (!sp || !/splash-on/.test(document.documentElement.className)) return;
+    var v = sp.querySelector('video'), done = false;
+    function end() { if (done) return; done = true; sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 600); }
+    v.addEventListener('ended', end); v.addEventListener('error', end); sp.addEventListener('click', end); setTimeout(end, 5000);
+    var pr = v.play && v.play(); if (pr && pr.catch) pr.catch(end);
+  })();
   if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () { }); });
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true || /^android-app:/.test(document.referrer || '');
   if (standalone) return;
