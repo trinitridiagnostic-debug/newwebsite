@@ -72,37 +72,77 @@ function razorpayWebhook() {
 }
 
 /* ---------- invoice PDF ---------- */
+function inrWords($n) {
+  $n = (int)$n; if ($n <= 0) return 'Zero';
+  $o = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  $t = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  $two = function ($x) use ($o, $t) { return $x < 20 ? $o[$x] : trim($t[intdiv($x, 10)] . ' ' . $o[$x % 10]); };
+  $three = function ($x) use ($o, $two) { return trim(($x >= 100 ? $o[intdiv($x, 100)] . ' Hundred ' : '') . $two($x % 100)); };
+  $out = '';
+  foreach ([[10000000, 'Crore'], [100000, 'Lakh'], [1000, 'Thousand']] as $u) { if ($n >= $u[0]) { $out .= $two(intdiv($n, $u[0])) . ' ' . $u[1] . ' '; $n %= $u[0]; } }
+  return trim($out . $three($n));
+}
+
+/* Payment invoice on the Trinetri letterhead (same header as the lab report). */
 function buildInvoicePdf($o) {
-  $teal = [0.247, 0.482, 0.510]; $ink = [0.1, 0.15, 0.16]; $gray = [0.4, 0.45, 0.46]; $green = [0.1, 0.5, 0.25];
-  $L = 40; $R = MiniPdf::W - 40;
+  $teal = [0.247, 0.482, 0.510]; $ink = [0.1, 0.15, 0.16]; $gray = [0.4, 0.45, 0.46]; $green = [0.1, 0.5, 0.25]; $red = [0.74, 0.12, 0.1]; $tint = [0.95, 0.97, 0.97];
+  $L = 40; $R = MiniPdf::W - 40; $bottom = MiniPdf::H - 74;
   $pdf = new MiniPdf(__DIR__ . '/logo.jpg');
+  $pays = all('SELECT * FROM payments WHERE order_id=? ORDER BY created', [$o['id']]); $lastPay = $pays ? end($pays) : null;
+  $due = orderDue($o); $paid = (int)$o['paid']; $total = (int)$o['amount']; $status = $paid <= 0 ? 'UNPAID' : ($due > 0 ? 'PART PAID' : 'PAID');
+  $sexTxt = ['M' => 'Male', 'F' => 'Female', 'O' => 'Other']; $ageSex = trim(($o['age'] !== null && $o['age'] !== '' ? $o['age'] . ' Years' : '') . (!empty($o['sex']) ? ' / ' . ($sexTxt[$o['sex']] ?? $o['sex']) : ''), ' /');
+  $invDate = rpt_dt($lastPay ? (int)$lastPay['created'] : (int)$o['created']);
+  $mode = $lastPay ? ((strtolower($lastPay['mode']) === 'online') ? 'UPI (Razorpay)' : ucfirst($lastPay['mode'])) : ($paid > 0 ? ucfirst($o['pay_mode'] ?: 'Cash') : '-');
+  $txn = $lastPay && strtolower($lastPay['mode']) === 'online' ? preg_replace('/^dr-/', '', $lastPay['ref']) : 'NA';
+
+  /* letterhead */
   $pdf->logo($L, 28, 46); $x = $pdf->hasLogo() ? $L + 56 : $L;
-  $pdf->text($x, 50, LAB_NAME, 19, true, $teal); $pdf->text($x, 64, LAB_ADDR, 8.5, false, $gray); $pdf->text($x, 75, LAB_PHONE, 8.5, false, $gray);
-  $pdf->textRight($R, 48, 'INVOICE', 14, true, $ink);
-  $pdf->line($L, 92, $R, 92, $teal, 1.4);
-  $pays = all('SELECT * FROM payments WHERE order_id=? ORDER BY created', [$o['id']]);
-  $pdf->text($L, 112, 'Billed to', 8.5, false, $gray); $pdf->text($L, 126, (string)$o['name'], 11, true, $ink); $pdf->text($L, 140, 'Mobile: +91 ' . $o['mobile'], 9, false, $gray);
-  $pdf->textRight($R, 112, 'Invoice no: INV-' . $o['code'], 9.5, true, $ink); $pdf->textRight($R, 126, 'Order ID: ' . $o['code'], 9.5, false, $ink);
-  $pdf->textRight($R, 140, 'Date: ' . rpt_dt($pays ? (int)end($pays)['created'] : (int)$o['created']), 9, false, $gray);
-  $y = 170; $pdf->rect($L, $y - 12, $R - $L, 20, [0.93, 0.96, 0.96]); $pdf->text($L + 8, $y + 2, 'Test / package', 9, true, $ink); $pdf->textRight($R - 8, $y + 2, 'Amount (Rs.)', 9, true, $ink); $y += 24;
-  $tests = json_decode($o['tests'], true) ?: [];
+  $pdf->text($x, 50, LAB_NAME, 19, true, $teal); $pdf->text($x, 62, 'Quality Diagnostics for Every Family Budget!', 8.5, true, $gray);
+  $pdf->text($x, 73, LAB_ADDR, 8, false, $gray); $pdf->text($x, 83, LAB_PHONE . '   |   www.trinetridiagnostics.com', 8, false, $gray);
+  $pdf->textRight($R, 48, 'PAYMENT INVOICE', 12, true, $ink);
+  $pdf->line($L, 96, $R, 96, $teal, 1.6);
+
+  /* patient + invoice details */
+  $pdf->rect($L, 106, $R - $L, 70, $tint);
+  $left = [['Patient name', $o['name'] ?: '-'], ['Age / Sex', $ageSex ?: '-'], ['Mobile', '+91 ' . $o['mobile']], ['Referred by', $o['ref_doctor'] ?: 'Self']];
+  $right = [['Invoice no', 'INV-' . $o['code']], ['Invoice date', $invDate], ['Order ID', $o['code']], ['Collection', ($o['kind'] ?? '') === 'home' ? 'Home visit' : 'Lab visit']];
+  foreach ($left as $i => $r) { $yy = 122 + $i * 15; $pdf->text($L + 10, $yy, $r[0], 8.5, false, $gray); $pdf->text($L + 82, $yy, (string)$r[1], 9.5, true, $ink); }
+  foreach ($right as $i => $r) { $yy = 122 + $i * 15; $pdf->text(300, $yy, $r[0], 8.5, false, $gray); $pdf->text(372, $yy, (string)$r[1], 9.5, true, $ink); }
+
+  /* items */
+  $y = 200;
+  $thead = function () use (&$y, $pdf, $L, $R, $teal) { $pdf->rect($L, $y - 12, $R - $L, 20, $teal); $pdf->text($L + 8, $y + 2, '#', 9, true, [1, 1, 1]); $pdf->text($L + 30, $y + 2, 'Test / package', 9, true, [1, 1, 1]); $pdf->textRight($R - 8, $y + 2, 'Amount (Rs.)', 9, true, [1, 1, 1]); $y += 26; };
+  $thead(); $tests = json_decode($o['tests'], true) ?: []; $sub = 0; $n = 0;
   foreach ($tests as $t) {
-    foreach ($pdf->wrap((string)$t['name'], 380, 9.5) as $i => $ln) { $pdf->text($L + 8, $y, $ln, 9.5, false, $ink); if ($i === 0) $pdf->textRight($R - 8, $y, number_format((int)$t['price']), 9.5, false, $ink); $y += 14; }
-    $pdf->line($L, $y - 8, $R, $y - 8, [0.9, 0.93, 0.93], 0.5);
+    $lines = $pdf->wrap((string)$t['name'], 390, 9.5); if ($y + count($lines) * 13 > $bottom) { $pdf->addPage(); $y = 60; $thead(); }
+    $n++; $sub += (int)$t['price']; $pdf->text($L + 8, $y, (string)$n, 9.5, false, $gray);
+    foreach ($lines as $i => $ln) { $pdf->text($L + 30, $y, $ln, 9.5, false, $ink); if ($i === 0) $pdf->textRight($R - 8, $y, number_format((int)$t['price']), 9.5, false, $ink); $y += 13; }
+    $y += 6; $pdf->line($L, $y - 12, $R, $y - 12, [0.9, 0.93, 0.93], 0.5);
   }
-  $sub = 0; foreach ($tests as $t) $sub += (int)$t['price']; $y += 6;
-  $row = function ($label, $val, $bold = false, $rgb = null) use (&$y, $pdf, $R, $ink) { $pdf->textRight($R - 130, $y, $label, 9.5, $bold, $rgb ?: $ink); $pdf->textRight($R - 8, $y, $val, 9.5, $bold, $rgb ?: $ink); $y += 15; };
+  if ($y + 190 > $bottom) { $pdf->addPage(); $y = 60; }
+
+  /* totals */
+  $y += 8;
+  $row = function ($label, $val, $bold = false, $rgb = null) use (&$y, $pdf, $R, $ink) { $pdf->textRight($R - 120, $y, $label, 9.5, $bold, $rgb ?: $ink); $pdf->textRight($R - 8, $y, $val, 9.5, $bold, $rgb ?: $ink); $y += 15; };
   $row('Sub total', number_format($sub)); if ((int)$o['discount'] > 0) $row('Discount', '- ' . number_format((int)$o['discount']));
-  $row('Total', number_format((int)$o['amount']), true); $row('Paid', number_format((int)$o['paid']), true, $green);
-  $due = orderDue($o); $row('Balance due', number_format($due), true, $due > 0 ? [0.74, 0.12, 0.1] : $ink);
-  $y += 8; $pdf->text($L, $y, 'Payment', 8.5, false, $gray); $y += 14;
-  if ($pays) foreach ($pays as $p) { $pdf->text($L, $y, 'Rs. ' . number_format((int)$p['amount']) . ' paid online (UPI) on ' . rpt_dt((int)$p['created']) . '   Ref: ' . $p['ref'], 9.5, false, $ink); $y += 14; }
-  elseif ((int)$o['paid'] > 0) { $pdf->text($L, $y, 'Rs. ' . number_format((int)$o['paid']) . ' paid by ' . ($o['pay_mode'] ?: 'cash'), 9.5, false, $ink); $y += 14; }
-  else { $pdf->text($L, $y, 'No payment received yet.', 9.5, false, $ink); $y += 14; }
-  return $pdf->output(function ($p, $n, $t) use ($L, $R, $gray) {
-    $p->line($L, MiniPdf::H - 56, $R, MiniPdf::H - 56, [0.8, 0.85, 0.85], 0.8);
-    $p->text($L, MiniPdf::H - 42, 'This is a computer generated invoice from Trinetri Diagnostics and needs no signature.', 7.5, false, $gray);
-    $p->text($L, MiniPdf::H - 31, LAB_ADDR, 7.5, false, $gray); $p->textRight($R, MiniPdf::H - 42, 'Page ' . $n . ' of ' . $t, 8, false, $gray);
+  $pdf->line($R - 230, $y - 10, $R, $y - 10, $teal, 0.8); $row('Total', number_format($total), true);
+  $row('Amount paid', number_format($paid), true, $green); $row('Balance due', number_format($due), true, $due > 0 ? $red : $ink);
+  $pdf->text($L, $y - 30, 'Amount paid in words', 8, false, $gray);
+  foreach ($pdf->wrap('Rupees ' . inrWords($paid) . ' Only', 250, 9.5, true) as $i => $ln) $pdf->text($L, $y - 17 + $i * 12, $ln, 9.5, true, $ink);
+
+  /* payment details + status stamp */
+  $y += 14; $pdf->rect($L, $y, $R - $L, 64, $tint); $pdf->text($L + 10, $y + 16, 'Payment details', 9, true, $teal);
+  $pd = [['Payment mode', $mode], ['Transaction ID', $txn], ['Payment date', $lastPay ? rpt_dt((int)$lastPay['created']) : '-']];
+  foreach ($pd as $i => $r) { $pdf->text($L + 10, $y + 31 + $i * 12, $r[0], 8.5, false, $gray); $pdf->text($L + 90, $y + 31 + $i * 12, (string)$r[1], 9, true, $ink); }
+  $c = $status === 'PAID' ? $green : ($status === 'UNPAID' ? $red : [0.8, 0.5, 0.05]);
+  $pdf->rect($R - 120, $y + 12, 108, 38, $c); $pdf->textCenter($R - 66, $y + 36, $status, 15, true, [1, 1, 1]);
+  $y += 84; $pdf->text($L, $y, 'For any billing-related queries please call or WhatsApp +91 91873 15972. Thank you for choosing Trinetri Diagnostics!', 8.5, false, $gray);
+
+  return $pdf->output(function ($p, $n, $t) use ($L, $R, $gray, $teal) {
+    $p->line($L, MiniPdf::H - 60, $R, MiniPdf::H - 60, $teal, 1);
+    $p->textCenter(MiniPdf::W / 2, MiniPdf::H - 46, 'Trinetri Diagnostics | Quality Diagnostics for Every Family Budget!', 8.5, true, $teal);
+    $p->textCenter(MiniPdf::W / 2, MiniPdf::H - 35, LAB_ADDR . '  |  +91 91873 15972  |  www.trinetridiagnostics.com', 7.5, false, $gray);
+    $p->text($L, MiniPdf::H - 22, 'Computer generated invoice. No signature required.', 7, false, $gray); $p->textRight($R, MiniPdf::H - 22, 'Page ' . $n . ' of ' . $t, 7.5, false, $gray);
   });
 }
 function invoiceLink($o) {
