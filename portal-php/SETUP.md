@@ -136,3 +136,9 @@ This uses the same Razorpay keys and webhook as the phlebotomist QR (see the Raz
 ## Sample-collection verification PIN on WhatsApp
 When a **home-visit** order is created (by the lab, or by a doctor partner after paying), the 6-digit verification PIN is sent to the customer's WhatsApp automatically. The same happens when the lab presses **New PIN + WhatsApp** on a home order. The customer tells the PIN to the phlebotomist, who types it in the app before collecting the sample.
 Setup: in AiSensy create the approved template ("Sample Collection Verification") with 2 variables, {{1}} patient name and {{2}} the 6-digit code, then add `'aisensy_pin_campaign' => 'your_campaign_name',` to config.php. If it is not set, nothing is sent and the lab still sees the PIN on screen as before.
+
+## Customer mobile app (installable app + APK)
+`customer.html` is now an installable app (manifest, icons, service worker). Customers can also install it from Chrome (menu > Install app / Add to Home screen); an "Install" bar appears automatically.
+**Making the Android APK** (free, no coding): open https://www.pwabuilder.com, enter `https://trinetridiagnostics.com/customer.html`, press Start, then **Package for stores > Android**. Use package ID like `com.trinetridiagnostics.app`, app name `Trinetri Diagnostics`, and let PWABuilder create a new signing key. Download the zip: it contains the `.apk` (to share directly) and an `.aab` (for Google Play), plus `signing.keystore` and its password file. **Keep the keystore and password safe and private; without them you cannot update the app later.**
+Full-screen without the browser bar: the zip also contains `assetlinks.json`. In cPanel File Manager create the folder `public_html/.well-known` and upload that file into it. Without this step the app still works but shows a thin address bar at the top.
+After the website changes, the app updates itself. You only rebuild the APK to change the app icon, name or package.
